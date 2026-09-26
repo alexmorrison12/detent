@@ -4,7 +4,8 @@
  * AUDIENCES (src/data/product.ts); this file adds how Detent fixes each pain,
  * the demo it opens with, and the questions each crowd actually asks.
  */
-import { FAQS, type AudienceId, type ProfileId } from './product';
+import { FAQS, SYSTEM_SET, type AudienceId, type ProfileId } from './product';
+import type { Segment } from '@/lib/waitlist';
 
 export type DemoApp = 'edit' | 'mix' | 'design' | 'code';
 
@@ -14,8 +15,14 @@ export interface AudienceFix {
   profile: ProfileId;
   /** The fix, concretely. Two or three sentences. */
   fix: string;
-  /** Demo mode that shows this fix (a "Try it" link), if the hero demo has one. */
+  /**
+   * Hero demo mode that shows this fix (a "Try it" link). Its profile must be
+   * `profile`, and the card's feel label is the mode's hint, so the card, the
+   * demo's switcher and the knob agree. Leave it out when the demo can't show it.
+   */
   mode?: string;
+  /** Feel label for a card with no demo mode (else the profile's generic summary). */
+  label?: string;
   /** Which app it applies to, shown as a small tag. */
   where: string;
 }
@@ -30,6 +37,8 @@ export interface AudiencePage {
   accentWord: string;
   /** The hero demo. */
   demo: DemoApp;
+  /** Waitlist segment the page's CTAs carry (?segment=…), see SEGMENTS in @/lib/waitlist. */
+  segment: Segment;
   /** A spec line under the audience label: what the knob does here, in numbers. */
   spec: string;
   painsTitle: string;
@@ -60,6 +69,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
       'A machined dial that steps exactly one frame per click, shuttles from −4× to 4× and snaps to markers. For Resolve, Premiere, Final Cut and After Effects.',
     accentWord: 'frame',
     demo: 'edit',
+    segment: 'editing',
     spec: '24 detents per turn · 1 frame per detent',
     painsTitle: 'Where the frames go missing.',
     fixes: [
@@ -111,6 +121,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
       'A machined dial with hard stops at −∞ and +6 dB and a bump at unity gain. Class-compliant USB-C MIDI, native in Ableton, Logic and Bitwig.',
     accentWord: 'real',
     demo: 'mix',
+    segment: 'music',
     spec: '270° of travel · a bump at 0 dB',
     painsTitle: 'What a mouse does to a mix.',
     fixes: [
@@ -161,6 +172,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
       'A machined dial that rotates with weight to 0.1°, steps 15° per click and sets brush size between hard stops. For Figma, Photoshop, Lightroom and Blender.',
     accentWord: 'feel',
     demo: 'design',
+    segment: 'design',
     spec: '0.1° readout · 15° per click · 1 to 400 px',
     painsTitle: 'The numbers you never land on.',
     fixes: [
@@ -183,7 +195,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
         profile: 'ratchet',
         fix: 'Orbit in Fluid with real inertia when you are exploring, then switch to Ratchet for exact 15° turns when you are setting up a shot. Same knob, two feels.',
         mode: 'step',
-        where: 'Blender, Figma',
+        where: 'Blender, Cinema 4D',
       },
     ],
     appsTitle: 'In the tools on your dock.',
@@ -198,7 +210,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
       },
       {
         q: 'Does it work on iPad?',
-        a: 'Yes, over Bluetooth or USB-C with iPadOS. System controls such as scroll, zoom and undo work everywhere; deeper integrations depend on each app.',
+        a: `Yes, over Bluetooth or USB-C with iPadOS. System controls (${SYSTEM_SET}) work everywhere; deeper integrations depend on each app.`,
       },
     ],
     sharedFaqs: SHARED,
@@ -212,6 +224,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
       'A machined dial that snaps through diff hunks, walks the undo stack one click at a time and steps the debugger. Open SDK in TypeScript and Rust, open firmware.',
     accentWord: 'diff',
     demo: 'code',
+    segment: 'code',
     spec: '1 snap per hunk · 1 line per click',
     painsTitle: 'Where your place goes.',
     fixes: [
@@ -226,7 +239,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
         pain: 'Undo-undo-undo-redo',
         profile: 'ratchet',
         fix: 'Ratchet walks the undo stack one click per step, in both directions. Overshoot by one and you turn back by one, not three shortcuts.',
-        mode: 'lines',
+        label: 'One undo step per click',
         where: 'VS Code',
       },
       {
@@ -268,6 +281,10 @@ export interface AudienceFaqItem {
   /** data-phase-only value, when the answer only applies in some phases. */
   phases?: string;
 }
+
+/** Context for the page's PhaseCTAs, so the waitlist, reserve and shop pages open pre-set. */
+export const ctaQuery = (page: AudiencePage, profile: ProfileId): string =>
+  `segment=${page.segment}&feel=${profile}`;
 
 /** The page's own questions, then the shared ones (launch questions gated to pre-launch phases). */
 export function faqsFor(page: AudiencePage): AudienceFaqItem[] {

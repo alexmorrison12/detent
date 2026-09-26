@@ -48,6 +48,13 @@ const firstDisplay: Record<DemoApp, string> = {
   code: `HUNK 1/6`,
 };
 const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(initial.profile).name}, ${initial.label.toLowerCase()}`;
+// The still's rendered width (.app-demo__dial and the pod grid below): 12.5rem stacked
+// on phones and in the wide rig's side column, 10rem beside the feels in between. The
+// breakpoints are where those container queries flip when the demo spans the page
+// container, as in the audience heroes; lazy stills also get sizes="auto".
+const dialSizes = compact
+  ? '(min-width: 28.5rem) 10rem, 12.5rem'
+  : '(min-width: 58rem) 12.5rem, (min-width: 28.5rem) 10rem, 12.5rem';
 ---
 
 <app-demo
@@ -85,6 +92,7 @@ const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(i
             profile={initial.profile}
             label={dialLabel}
             display={firstDisplay[app]}
+            sizes={dialSizes}
           />
           <span class="app-demo__cue" aria-hidden="true">
             <svg viewBox="0 0 40 40" width="40" height="40">
@@ -235,14 +243,11 @@ const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(i
     grid-template-columns: 1fr;
   }
   /* Phones: side by side, the dial shrinks to a thumbnail and the feel cards
-     wrap to four lines. Stack them: a dial big enough to turn with a thumb,
-     then the feels full width, one line of hint each. */
+     wrap to four lines. Stack them: the dial at full size (12.5rem, big enough
+     to turn with a thumb), then the feels full width, one line of hint each. */
   @container demo (max-width: 26rem) {
     .app-demo__pod {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .app-demo__dial {
-      max-inline-size: 13rem;
     }
   }
   @container demo (min-width: 54rem) {
@@ -363,8 +368,10 @@ const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(i
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .app-demo__mode:hover {
-    border-color: var(--line-strong);
+  @media (hover: hover) {
+    .app-demo__mode:hover {
+      border-color: var(--line-strong);
+    }
   }
   .app-demo__mode:has(input:checked) {
     border-color: color-mix(in oklch, var(--feel) 70%, transparent);
@@ -405,12 +412,14 @@ const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(i
     font-size: var(--step--2);
     color: var(--ink-muted);
     line-height: 1.3;
+    /* "Stops at −∞ and +6 dB, / bump at 0 dB", not a stranded "at 0 dB". */
+    text-wrap: balance;
   }
   .app-demo__how {
     grid-column: 1 / -1;
     font-size: var(--step--2);
     color: var(--ink-muted);
-    max-inline-size: 44ch;
+    max-inline-size: 25.2em; /* 44ch of Archivo, in em so the font swap keeps the measure */
   }
 
   @media (prefers-reduced-motion: reduce) {

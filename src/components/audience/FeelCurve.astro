@@ -7,19 +7,34 @@
  *
  *   variant="chart": framed, with a zero line and stop ticks (in content)
  *   variant="trace": full-bleed signature line with a one-line caption
+ *
+ * `physics` layers a demo mode's override on the profile (the mixer moves
+ * Wall's bump to unity), and `facts` replaces the generic caption with what
+ * the knob does in that mode, so the curve, its label and the demo agree.
  */
-import { byProfile, type ProfileId } from '@/data/product';
+import { byProfile, type FeelProfile, type ProfileId } from '@/data/product';
 
 interface Props {
   profile: ProfileId;
   variant?: 'chart' | 'trace';
   /** Angle span shown, in degrees either side of center. */
   span?: number;
+  /** Mode override on top of the profile's physics. */
+  physics?: Partial<FeelProfile['physics']>;
+  /** Caption in place of the generic physics summary. */
+  facts?: string;
   class?: string;
 }
-const { profile, variant = 'chart', span = 180, class: className } = Astro.props;
+const {
+  profile,
+  variant = 'chart',
+  span = 180,
+  physics,
+  facts: factsProp,
+  class: className,
+} = Astro.props;
 const p = byProfile(profile);
-const ph = p.physics;
+const ph: FeelProfile['physics'] = { ...p.physics, ...physics };
 
 const W = variant === 'trace' ? 1200 : 240;
 const H = variant === 'trace' ? 48 : 72;
@@ -54,15 +69,22 @@ for (let i = 0; i <= N; i++) {
   d += `${i ? 'L' : 'M'}${x(a).toFixed(1)} ${y(torque(a)).toFixed(1)}`;
 }
 
+// Where a bump sits along a stopped travel, e.g. "halfway" or "at 75% of travel".
+const bumpAt = (a: number) => {
+  if (!ph.stops || a === 0) return 'halfway';
+  const t = Math.round(((a - ph.stops[0]) / (ph.stops[1] - ph.stops[0])) * 100);
+  return `at ${t}% of travel`;
+};
 const facts: string[] = [];
 if (ph.detents) facts.push(`${ph.detents} detents per turn`);
-if (ph.accents?.length) facts.push(ph.detents ? 'a heavier detent at noon' : 'a bump halfway');
+if (ph.accents?.length)
+  facts.push(ph.detents ? 'a heavier detent at noon' : `a bump ${bumpAt(ph.accents[0]!)}`);
 if (ph.spring) facts.push('springs back to center');
 if (ph.stops) facts.push(`hard stops at ±${ph.stops[1]}°`);
 // Magnet's snaps are wherever the app puts them (markers, keyframes, hunks); the curve draws one example.
 if (ph.snaps?.length) facts.push(`snap points set by the app (${ph.snaps.length} shown)`);
 if (!facts.length) facts.push('no detents, weighted glide');
-const summary = facts.join(', ').replace(/^./, (c) => c.toUpperCase());
+const summary = (factsProp ?? facts.join(', ')).replace(/^./, (c) => c.toUpperCase());
 const label = `${p.name} torque curve: ${summary}.`;
 const turns = (2 * span) / 360;
 const turnsLabel = turns === 1.5 ? '1½ turns' : turns === 1 ? 'one turn' : `${turns} turns`;

@@ -194,7 +194,8 @@ class AppDemoElement extends HTMLElement {
     const profile = byProfile(mode.profile);
     this.#muted = true;
     try {
-      dial.physics = ctl.physics?.(mode.id) ?? null;
+      // Mode physics (e.g. the mixer's bump moved to unity) live in DEMO_MODES.
+      dial.physics = mode.physics ?? null;
       dial.profile = mode.profile;
       dial.setAttribute(
         'label',

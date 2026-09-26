@@ -4,6 +4,8 @@
  * controllers, so the mode switcher and the behavior never disagree.
  */
 import type { ProfileId } from '@/data/product';
+import type { FeelPhysics } from '@/scripts/dial/types';
+import { UNITY_ANGLE } from './mix-model';
 
 export type DemoApp = 'edit' | 'mix' | 'design' | 'code';
 
@@ -12,8 +14,10 @@ export interface DemoMode {
   profile: ProfileId;
   /** What the dial controls in this mode (window bar, dial label). */
   label: string;
-  /** One short line under the profile name in the switcher. */
+  /** One short line under the profile name in the switcher (and on the audience fix cards). */
   hint: string;
+  /** Physics on top of the profile's own while this mode is on (the fix cards draw it too). */
+  physics?: Partial<FeelPhysics>;
   /** Spoken when the mode is selected. */
   spoken: string;
 }
@@ -56,7 +60,9 @@ export const DEMO_MODES: Record<DemoApp, DemoMode[]> = {
       id: 'fader',
       profile: 'wall',
       label: 'Fader',
-      hint: 'Stops at −∞ and +6, bump at 0 dB',
+      hint: 'Stops at −∞ and +6\u00a0dB, bump at 0\u00a0dB',
+      // Unity sits three quarters up the fader, so the Wall bump moves there.
+      physics: { accents: [UNITY_ANGLE] },
       spoken: 'Wall. The dial rides the selected fader, with hard stops and a bump at unity gain.',
     },
     {
@@ -86,7 +92,7 @@ export const DEMO_MODES: Record<DemoApp, DemoMode[]> = {
       id: 'brush',
       profile: 'wall',
       label: 'Brush size',
-      hint: 'Stops at 1 and 400 px',
+      hint: 'Stops at 1 and 400\u00a0px, bump at 20\u00a0px',
       spoken:
         'Wall. The dial sets brush size, with hard stops at 1 and 400 pixels and a bump at 20.',
     },
@@ -96,7 +102,7 @@ export const DEMO_MODES: Record<DemoApp, DemoMode[]> = {
       id: 'hunks',
       profile: 'magnet',
       label: 'Hunks',
-      hint: 'Snaps to every change',
+      hint: 'One snap per hunk',
       spoken: 'Magnet. The dial snaps from hunk to hunk. Press it to mark a hunk viewed.',
     },
     {

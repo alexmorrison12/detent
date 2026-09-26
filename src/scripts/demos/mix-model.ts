@@ -13,6 +13,11 @@ export interface Channel {
   rms: number;
   /** Only shown when the mixer is wide enough. */
   extra?: boolean;
+  /**
+   * On touch screens a narrow mixer drops this strip rather than shrink the
+   * mute and name buttons under 44px: 1 goes first, then 2 (MixDemo.astro).
+   */
+  drop?: 1 | 2;
 }
 
 export const CHANNELS: Channel[] = [
@@ -20,12 +25,12 @@ export const CHANNELS: Channel[] = [
   { id: 'snare', name: 'Snare', db: -5.5, rms: -12 },
   { id: 'hats', name: 'Hats', db: -11, rms: -16, extra: true },
   { id: 'bass', name: 'Bass', db: -4, rms: -11 },
-  { id: 'keys', name: 'Keys', db: -9, rms: -14 },
+  { id: 'keys', name: 'Keys', db: -9, rms: -14, drop: 2 },
   { id: 'pad', name: 'Pad', db: -13.5, rms: -17, extra: true },
   { id: 'gtr', name: 'Guitar', db: -7.5, rms: -14, extra: true },
   { id: 'vox', name: 'Vox', db: -2.4, rms: -10 },
   { id: 'bvs', name: 'BVs', db: -10, rms: -15, extra: true },
-  { id: 'room', name: 'Room', db: -16, rms: -20 },
+  { id: 'room', name: 'Room', db: -16, rms: -20, drop: 1 },
 ];
 export const START_CHANNEL = CHANNELS.findIndex((c) => c.id === 'vox');
 export const BPM = 120;

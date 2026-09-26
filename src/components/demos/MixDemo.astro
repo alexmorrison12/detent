@@ -54,7 +54,7 @@ const { compact = false } = Astro.props;
         const lvl = meterPos(c.rms + c.db);
         return (
           <li
-            class:list={['strip', c.extra && 'strip--extra']}
+            class:list={['strip', c.extra && 'strip--extra', c.drop && `strip--drop-${c.drop}`]}
             data-ref="strip"
             data-i={i}
             data-selected={i === START_CHANNEL ? '' : undefined}
@@ -175,8 +175,10 @@ const { compact = false } = Astro.props;
       border-color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .mx__transport:hover {
-    border-color: var(--ink);
+  @media (hover: hover) {
+    .mx__transport:hover {
+      border-color: var(--ink);
+    }
   }
   .mx__transport:active {
     transform: translateY(1px);
@@ -468,35 +470,41 @@ const { compact = false } = Astro.props;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .strip__name:hover {
-    background: var(--surface-2);
+  @media (hover: hover) {
+    .strip__name:hover {
+      background: var(--surface-2);
+    }
   }
 
-  /* Touch: mutes become strip-wide keys with a readable M, and every hit area
-     reaches 44px (the extra height is borrowed from the gaps around them). */
+  /* Touch: mute and name are real 44px keys. Strips give up their side padding
+     so the keys span the strip, and a narrow mixer drops a strip or two
+     (Channel.drop) rather than shrink a key: a key is the strip width less its
+     1px borders, so six strips need 20.2rem of mixer and five need 17.125rem. */
   @media (pointer: coarse) {
     .mx {
-      --mute-h: 2rem;
+      --mute-h: 2.75rem;
+    }
+    .strip {
+      padding-inline: 0;
     }
     .strip__mute {
-      inline-size: min(100%, 2.75rem);
+      inline-size: 100%;
       font-size: var(--step--2);
     }
-    .strip__mute,
-    .strip__name {
-      position: relative;
-    }
-    .strip__mute::after,
-    .strip__name::after {
-      content: '';
-      position: absolute;
-      inset: -0.6rem -0.2rem;
-    }
-    .strip__mute::after {
-      inset-block: -0.4rem;
-    }
+    .strip__name,
+    .mx__bus-name,
     .mx__transport {
       min-block-size: 2.75rem;
+    }
+    @container (width < 20.2rem) {
+      .strip--drop-1 {
+        display: none;
+      }
+    }
+    @container (width < 17.125rem) {
+      .strip--drop-2 {
+        display: none;
+      }
     }
   }
 

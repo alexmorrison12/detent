@@ -3,8 +3,9 @@
  * The audience's apps, from INTEGRATIONS: what the dial does in each, its
  * default feel, and how the integration ships. A spec list, not a card grid.
  */
-import { INTEGRATIONS, byProfile, type Audience } from '@/data/product';
+import { INTEGRATIONS, SYSTEM_SET, byProfile, type Audience } from '@/data/product';
 import type { AudiencePage } from '@/data/audience';
+import { APPS, STATUS } from '@/data/directory';
 import { url } from '@/lib/url';
 
 interface Props {
@@ -15,7 +16,6 @@ const { audience, page } = Astro.props;
 const apps = audience.apps
   .map((name) => INTEGRATIONS.find((i) => i.name === name))
   .filter((i): i is NonNullable<typeof i> => Boolean(i));
-const statusLabel = { native: 'Native', plugin: 'Plugin', community: 'Community' } as const;
 ---
 
 <section class="apps section" aria-labelledby="apps-title">
@@ -26,7 +26,7 @@ const statusLabel = { native: 'Native', plugin: 'Plugin', community: 'Community'
       </h2>
       <p class="apps__intro">
         Detent Studio notices which app is in front and loads its profile before your hand gets
-        there. Every other app still gets scroll, zoom, undo and volume out of the box.
+        there. Every other app still gets system controls out of the box: {SYSTEM_SET}.
       </p>
     </div>
     <ul class="apps__list" role="list">
@@ -42,7 +42,7 @@ const statusLabel = { native: 'Native', plugin: 'Plugin', community: 'Community'
                 <span class="visually-hidden">Default feel: </span>
                 {p.name}
               </span>
-              <span class="app__status">{statusLabel[a.status]}</span>
+              <span class="app__status">{STATUS[a.status].label}</span>
             </p>
           </li>
         );
@@ -55,7 +55,7 @@ const statusLabel = { native: 'Native', plugin: 'Plugin', community: 'Community'
         with the SDK.
       </p>
       <a class="link-arrow" href={url('/integrations/')}>
-        All {INTEGRATIONS.length} integrations
+        All {APPS.length} apps
       </a>
     </div>
   </div>

@@ -64,7 +64,8 @@ const p = byProfile(note.profile);
     letter-spacing: -0.015em;
     color: var(--ink-strong);
     text-wrap: balance;
-    max-inline-size: 28ch;
+    /* In em, not ch, so the measure holds through the font swap. */
+    max-inline-size: 19em;
   }
   @media (min-width: 48rem) {
     .note__quote p {
