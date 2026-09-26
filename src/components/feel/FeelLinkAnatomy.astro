@@ -61,8 +61,9 @@ const [, dMax] = FEEL_LIMITS.detents;
       <div>
         <dt>Clamped on arrival</dt>
         <dd>
-          Every number is forced into the motor’s envelope before the dial plays a click: 0 to {dMax} detents, {PEAK_TORQUE} mN·m at most, stops no
-          tighter than ±{FEEL_LIMITS.stop[0]}°. A hostile link can’t make it buzz, shriek or spin.
+          Every number is clamped before the dial plays a click. A Feel Link carries up to {dMax} detents a turn (a limit of the link
+          format, not the motor), never more than the motor’s {PEAK_TORQUE} mN·m, and stops no tighter than ±{FEEL_LIMITS.stop[0]}°. A
+          hostile link can’t make it buzz, shriek or spin.
         </dd>
       </div>
       <div>

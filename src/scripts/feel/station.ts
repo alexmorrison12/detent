@@ -90,6 +90,7 @@ async function boot(root: HTMLElement) {
   const chips = $$<HTMLButtonElement>('[data-filter]');
   const search = $<HTMLInputElement>('[data-search]');
   const count = $('[data-count]');
+  const countAnnouncer = $('[data-count-announce]');
   const empty = $('[data-empty]');
 
   const form = $<HTMLFormElement>('[data-builder]');
@@ -359,7 +360,12 @@ async function boot(root: HTMLElement) {
   });
 
   let filter = 'All';
-  function applyFilter() {
+  let countTimer = 0;
+  /**
+   * Filter the list now; speak the result after `announceAfter` ms (null: don't).
+   * Search waits for a pause in typing so the count isn't read on every keystroke.
+   */
+  function applyFilter(announceAfter: number | null = null) {
     const q = (search?.value ?? '').trim().toLowerCase();
     let shown = 0;
     for (const li of rows) {
@@ -367,18 +373,27 @@ async function boot(root: HTMLElement) {
       li.hidden = !ok;
       if (ok) shown++;
     }
-    if (count) count.textContent = shown === rows.length ? `${rows.length} profiles` : `${shown} of ${rows.length} profiles`;
+    const text = shown === rows.length ? `${rows.length} profiles` : `${shown} of ${rows.length} profiles`;
+    if (count) count.textContent = text;
     if (empty) empty.hidden = shown > 0;
+    clearTimeout(countTimer);
+    if (announceAfter === null || !countAnnouncer) return;
+    const spoken = shown ? text : empty?.textContent?.trim() || 'No profiles match.';
+    countTimer = window.setTimeout(() => {
+      // Clear first so the same count still speaks after a different filter.
+      countAnnouncer.textContent = '';
+      requestAnimationFrame(() => (countAnnouncer.textContent = spoken));
+    }, announceAfter);
   }
   chips.forEach((chip) =>
     chip.addEventListener('click', () => {
       filter = chip.dataset.filter ?? 'All';
       chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
-      applyFilter();
+      applyFilter(0);
       track('feel_filter', { category: filter });
     }),
   );
-  search?.addEventListener('input', applyFilter);
+  search?.addEventListener('input', () => applyFilter(500));
   list?.addEventListener('keydown', (ev) => {
     // Up/down move between visible rows, like a preset browser.
     if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;

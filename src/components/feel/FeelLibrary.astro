@@ -54,7 +54,9 @@ const searchText = (e: LibraryEntry) => [e.name, e.author, e.app, e.category, e.
       />
     </div>
   </div>
-  <p class="library__count" aria-live="polite" data-count>{LIBRARY.length} profiles</p>
+  <p class="library__count" data-count>{LIBRARY.length} profiles</p>
+  <!-- The count is spoken once the filter settles (station.ts debounces search), not per keystroke. -->
+  <p class="visually-hidden" aria-live="polite" data-count-announce></p>
 
   <ul class="library__list" role="list" data-list>
     {
@@ -135,9 +137,11 @@ const searchText = (e: LibraryEntry) => [e.name, e.author, e.app, e.category, e.
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .chip:hover {
-    color: var(--ink-strong);
-    border-color: var(--line-strong);
+  @media (hover: hover) {
+    .chip:hover {
+      color: var(--ink-strong);
+      border-color: var(--line-strong);
+    }
   }
   .chip[aria-pressed='true'] {
     color: var(--bg);
@@ -186,8 +190,13 @@ const searchText = (e: LibraryEntry) => [e.name, e.author, e.app, e.category, e.
     border-radius: var(--r-m);
     transition: background-color var(--dur-2) var(--ease-out);
   }
-  .row:hover {
-    background: color-mix(in oklch, var(--surface) 70%, transparent);
+  @media (hover: hover) {
+    .row:hover {
+      background: color-mix(in oklch, var(--surface) 70%, transparent);
+    }
+    .row:hover .row__line {
+      opacity: 1;
+    }
   }
   .row[aria-current='true'] {
     background: var(--surface);
@@ -210,7 +219,6 @@ const searchText = (e: LibraryEntry) => [e.name, e.author, e.app, e.category, e.
     opacity: 0.8;
     transition: opacity var(--dur-2) var(--ease-out);
   }
-  .row:hover .row__line,
   .row[aria-current='true'] .row__line {
     opacity: 1;
   }
