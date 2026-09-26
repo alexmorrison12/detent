@@ -3,23 +3,20 @@
  *
  * One state (the feel on the dial), many views: the dial itself (through the
  * <detent-dial> contract only), the engraved ring, the torque curves, the
- * spec sheet + JSON, the library selection, the builder controls, the Feel
- * Link anatomy and the address bar. Sources: library rows (?p=<id>), the
- * builder (a custom feel), or a Feel Link (#v1.<payload>).
+ * spec sheet, the library selection, the Feel Link anatomy and the address
+ * bar. Sources: library rows (?p=<id>), the builder (a custom feel), or a
+ * Feel Link (#v1.<payload>).
+ *
+ * Off the critical path: ./boot.ts fetches this on intent, on idle, or at once
+ * for a deep link, and hands over anything pressed before it arrived. The
+ * workbench (builder, profile file, export buttons) is a further chunk,
+ * station-tools.ts, loaded on the first change of feel or the first touch,
+ * focus or sight of one of its controls. The server renders the first state
+ * of both, so nothing on screen waits for either.
  */
 import { LIBRARY, libraryEntry, type LibraryEntry } from '@/data/community-profiles';
 import { PROFILES, type ProfileId } from '@/data/product';
-import {
-  clampSpec,
-  decodeFeel,
-  encodeFeel,
-  feelLinkUrl,
-  isFeelFragment,
-  sanitizeName,
-  type FeelPhysics,
-  type FeelSpec,
-} from '@/lib/feel-link';
-import { PROFILE_AUTHORED_EVENT } from '@/lib/achievements';
+import { clampSpec, decodeFeel, encodeFeel, feelLinkUrl, isFeelFragment, type FeelPhysics, type FeelSpec } from '@/lib/feel-link';
 import { track } from '@/lib/analytics';
 import { isSoundOn, onSoundChange, setSound } from '@/lib/sound';
 import { url } from '@/lib/url';
@@ -37,19 +34,36 @@ import {
   torqueCurveMarkup,
   type CurveLayout,
 } from './model';
-import { highlightJson, profileFileName, profileJson, type ProfileDoc } from './json';
+import type { ToolAction } from './station-tools';
 
-type Source = { kind: 'library'; entry: LibraryEntry } | { kind: 'custom'; from?: string } | { kind: 'link' };
-interface State {
+export type Source = { kind: 'library'; entry: LibraryEntry } | { kind: 'custom'; from?: string } | { kind: 'link' };
+export interface State {
   spec: FeelSpec;
   source: Source;
 }
-type Origin = 'init' | 'library' | 'builder' | 'link';
+export type Origin = 'init' | 'library' | 'builder' | 'link';
 
-const root = document.querySelector<HTMLElement>('[data-feel]');
-if (root) void boot(root);
+/** What the lazily loaded workbench may see and do. */
+export interface Station {
+  root: HTMLElement;
+  state(): State;
+  setState(next: State, origin: Origin): void;
+  /** Called after every change of state, with where it came from. */
+  onState(fn: (origin: Origin) => void): void;
+  /** The shareable link for what's on the dial, brought up to date first. */
+  link(): Promise<{ url: string; payload: string }>;
+  status(msg: string, near?: Element | null): void;
+}
 
-async function boot(root: HTMLElement) {
+/** What happened before this module arrived (see ./boot.ts): buttons pressed, a builder control changed. */
+export interface Handoff {
+  clicks: { el: HTMLElement; detail: number }[];
+  input: EventTarget | null;
+}
+
+const TOOL_ACTIONS = new Set<string>(['copy-link', 'share', 'copy-json', 'download-json']);
+
+export async function boot(root: HTMLElement, early: Handoff = { clicks: [], input: null }) {
   const $ = <T extends Element = HTMLElement>(sel: string, scope: ParentNode = root) => scope.querySelector<T>(sel);
   const $$ = <T extends Element = HTMLElement>(sel: string, scope: ParentNode = root) =>
     Array.from(scope.querySelectorAll<T>(sel));
@@ -71,6 +85,7 @@ async function boot(root: HTMLElement) {
   const announcer = $('[data-announce]');
   const soundBtn = $<HTMLButtonElement>('[data-sound]');
   const recordBtn = $<HTMLButtonElement>('[data-record]');
+  const form = $<HTMLFormElement>('[data-builder]');
 
   const sheet = {
     kind: $('[data-sheet-kind-text]'),
@@ -80,8 +95,6 @@ async function boot(root: HTMLElement) {
     readouts: $('[data-readouts]'),
     received: $('[data-received]'),
     error: $('[data-link-error]'),
-    fileName: $('[data-file-name]'),
-    fileCode: $('[data-file-code]'),
   };
 
   const intro = { received: $('[data-intro-received]'), lede: $('[data-intro-lede]') };
@@ -93,21 +106,6 @@ async function boot(root: HTMLElement) {
   const countAnnouncer = $('[data-count-announce]');
   const empty = $('[data-empty]');
 
-  const form = $<HTMLFormElement>('[data-builder]');
-  const ctl = <T extends HTMLInputElement>(key: string) => form?.querySelector<T>(`[data-b="${key}"]`) ?? null;
-  const b = {
-    name: ctl('name'),
-    detents: ctl('detents'),
-    strength: ctl('strength'),
-    accent: ctl('accent'),
-    damping: ctl('damping'),
-    spring: ctl('spring'),
-    stopsOn: ctl('stopsOn'),
-    stops: ctl('stops'),
-    snaps: ctl('snaps'),
-  };
-  const outs = (key: string) => form?.querySelector<HTMLOutputElement>(`[data-out="${key}"]`) ?? null;
-
   const anatomy = {
     ver: document.querySelector<HTMLElement>('[data-anatomy-ver]'),
     body: document.querySelector<HTMLElement>('[data-anatomy-body]'),
@@ -117,8 +115,6 @@ async function boot(root: HTMLElement) {
 
   /* ---- State ------------------------------------------------------------ */
   let state: State = { spec: specOf(LIBRARY[0]!), source: { kind: 'library', entry: LIBRARY[0]! } };
-  let nameEdited = false;
-  let builderTouched = false;
   let currentPayload = '';
   let currentLink = '';
   let angle = 0;
@@ -126,6 +122,7 @@ async function boot(root: HTMLElement) {
   let userTurned = false;
   let addressTouched = false;
   let lastTurn = -1;
+  const listeners: ((origin: Origin) => void)[] = [];
 
   /* ---- Curves ----------------------------------------------------------- */
   interface Curve {
@@ -216,15 +213,6 @@ async function boot(root: HTMLElement) {
     });
   }
 
-  function docFor(s: State): ProfileDoc {
-    const base = { name: s.spec.name, base: s.spec.base, color: colorOf(s.spec.base), physics: s.spec.physics };
-    if (s.source.kind === 'library') {
-      const e = s.source.entry;
-      return { ...base, id: e.id, author: e.author, app: e.kind === 'community' ? e.app : undefined };
-    }
-    return base;
-  }
-
   function paintSheet() {
     const { spec, source } = state;
     const e = source.kind === 'library' ? source.entry : null;
@@ -276,9 +264,6 @@ async function boot(root: HTMLElement) {
         );
       }
     }
-    const doc = docFor(state);
-    if (sheet.fileName) sheet.fileName.textContent = e ? `${e.id}.detent.json` : profileFileName(spec.name);
-    if (sheet.fileCode) sheet.fileCode.innerHTML = highlightJson(profileJson(doc));
   }
 
   function paintSelection() {
@@ -333,20 +318,23 @@ async function boot(root: HTMLElement) {
     paintSheet();
     paintSelection();
     paintDial();
-    if (origin !== 'builder') syncBuilder();
-    paintOutputs();
     schedulePaint(origin === 'library' || origin === 'link');
     scheduleLink(origin === 'builder' ? 220 : 0);
     if (next.source.kind !== 'link' && sheet.error && origin !== 'init') sheet.error.hidden = true;
+    listeners.forEach((fn) => fn(origin));
+    // The server rendered the workbench for the first library profile; anything else needs it live.
+    if (!(next.source.kind === 'library' && next.source.entry === LIBRARY[0])) void loadTools();
   }
 
-  function selectEntry(entry: LibraryEntry, origin: Origin, opts: { scroll?: boolean } = {}) {
-    nameEdited = false;
+  function selectEntry(entry: LibraryEntry, origin: Origin, opts: { scroll?: boolean; focus?: boolean } = {}) {
     setState({ spec: specOf(entry), source: { kind: 'library', entry } }, origin);
     announce(`${entry.name} is on the dial. ${readouts(entry.physics)[0]!.value === 'None' ? 'No detents' : readouts(entry.physics)[0]!.value}, range ${formatRange(entry.physics.stops).toLowerCase()}.`);
     if (origin === 'library') track('feel_select', { id: entry.id, kind: entry.kind });
     if (opts.scroll && !wide.matches) {
       stage.scrollIntoView({ behavior: reduced.matches ? 'auto' : 'smooth', block: 'start' });
+      // Keyboard users go where the page went: to the dial, ready for the arrow keys
+      // (not left on a row that is now a screen or more below).
+      if (opts.focus) dial?.focus({ preventScroll: true });
     }
   }
 
@@ -356,7 +344,9 @@ async function boot(root: HTMLElement) {
     if (!btn) return;
     const entry = libraryEntry(btn.dataset.select);
     if (!entry) return;
-    selectEntry(entry, 'library', { scroll: !!btn.closest('[data-list]') });
+    const inList = !!btn.closest('[data-list]');
+    // detail 0: activated with Enter/Space (or assistive tech), not a pointer.
+    selectEntry(entry, 'library', { scroll: inList, focus: inList && ev.detail === 0 });
   });
 
   let filter = 'All';
@@ -404,132 +394,28 @@ async function boot(root: HTMLElement) {
     buttons[Math.max(0, Math.min(buttons.length - 1, i + (ev.key === 'ArrowDown' ? 1 : -1)))]?.focus();
   });
 
-  /* ---- Builder ---------------------------------------------------------- */
-  const pct = (el: HTMLInputElement | null) => (el ? Number(el.value) / 100 : 0);
-
-  function evenSnaps(n: number, stops: [number, number] | null): number[] {
-    if (n <= 0) return [];
-    if (stops) {
-      const span = stops[1] - stops[0];
-      return Array.from({ length: n }, (_, i) => Math.round(stops[0] + ((i + 0.5) * span) / n));
-    }
-    return Array.from({ length: n }, (_, i) => Math.round(wrap((i * 360) / n)));
-  }
-
-  function readBuilder(): FeelSpec {
-    const prev = state.spec.physics;
-    const stops: [number, number] | null = b.stopsOn?.checked ? [-Number(b.stops?.value ?? 135), Number(b.stops?.value ?? 135)] : null;
-    const snapCount = Number(b.snaps?.value ?? 0);
-    let snaps = prev.snaps ?? [];
-    const outside = stops && snaps.some((s) => s < stops[0] || s > stops[1]);
-    if (snapCount !== snaps.length || outside) snaps = evenSnaps(snapCount, stops);
-    let accents = (prev.accents ?? []).filter((a) => a !== 0);
-    if (b.accent?.checked) accents = [0, ...accents];
-    const base = (form?.querySelector<HTMLInputElement>('[data-b="base"]:checked')?.value as ProfileId) ?? state.spec.base;
-    const physics: FeelPhysics = {
-      detents: Number(b.detents?.value ?? 0),
-      strength: pct(b.strength),
-      damping: pct(b.damping),
-      spring: pct(b.spring),
-      stops,
-      accents,
-      snaps,
-    };
-    return clampSpec({ name: b.name?.value ?? '', base, physics });
-  }
-
-  function syncBuilder() {
-    if (!form) return;
-    const p = state.spec.physics;
-    if (b.name) b.name.value = state.spec.name;
-    form.querySelectorAll<HTMLInputElement>('[data-b="base"]').forEach((r) => (r.checked = r.value === state.spec.base));
-    if (b.detents) b.detents.value = String(p.detents);
-    if (b.strength) b.strength.value = String(Math.round(p.strength * 100));
-    if (b.accent) b.accent.checked = (p.accents ?? []).includes(0);
-    if (b.damping) b.damping.value = String(Math.round(p.damping * 100));
-    if (b.spring) b.spring.value = String(Math.round(p.spring * 100));
-    if (b.stopsOn) b.stopsOn.checked = !!p.stops;
-    if (b.stops) {
-      b.stops.disabled = !p.stops;
-      if (p.stops) b.stops.value = String(Math.max(-p.stops[0], p.stops[1]));
-    }
-    if (b.snaps) b.snaps.value = String((p.snaps ?? []).length);
-  }
-
-  function paintOutputs() {
-    if (!form) return;
-    const p = state.spec.physics;
-    // Only touch what changed. The outputs are aria-live="off" (the slider's own
-    // aria-valuetext speaks the value), and rewriting all six every keypress is churn.
-    const set = (key: string, input: HTMLInputElement | null, text: string) => {
-      const o = outs(key);
-      if (o && o.textContent !== text) o.textContent = text;
-      if (input) {
-        if (input.getAttribute('aria-valuetext') !== text) input.setAttribute('aria-valuetext', text);
-        const min = Number(input.min || 0);
-        const max = Number(input.max || 100);
-        input.style.setProperty('--fill', `${((Number(input.value) - min) / (max - min || 1)) * 100}%`);
-      }
-    };
-    set('detents', b.detents, p.detents ? `${p.detents} per turn` : 'None');
-    set('strength', b.strength, `${clickTorque(p).toFixed(1)} mN·m`);
-    set('damping', b.damping, p.damping.toFixed(2));
-    set('spring', b.spring, p.spring ? p.spring.toFixed(2) : 'Off');
-    set('stops', b.stops, p.stops ? formatRange(p.stops) : 'Off');
-    const n = (p.snaps ?? []).length;
-    set('snaps', b.snaps, n ? `${n} point${n === 1 ? '' : 's'}` : 'None');
-  }
-
-  function builderChanged(ev: Event) {
-    const target = ev.target as HTMLInputElement;
-    if (target === b.stopsOn && b.stops) b.stops.disabled = !b.stopsOn.checked;
-    const src = state.source;
-    const from =
-      src.kind === 'library' ? src.entry.name : src.kind === 'custom' ? src.from : state.spec.name;
-    if (target === b.name) nameEdited = true;
-    else if (!nameEdited && src.kind !== 'custom' && b.name) b.name.value = sanitizeName(`${from ?? 'Ratchet'} remix`);
-    const spec = readBuilder();
-    setState({ spec, source: { kind: 'custom', from } }, 'builder');
-    if (target !== b.name && target.type !== 'radio') flashReadout(target.dataset.b);
-    if (!builderTouched) {
-      builderTouched = true;
-      track('feel_builder_edit', { from: from ?? '' });
-    }
-  }
-  form?.addEventListener('input', builderChanged);
-  form?.addEventListener('submit', (ev) => ev.preventDefault());
-
-  let flashTimer = 0;
-  function flashReadout(key: string | undefined) {
-    const map: Record<string, string> = { stopsOn: 'range', stops: 'range', accent: 'accents' };
-    const k = key ? (map[key] ?? key) : '';
-    sheet.readouts?.querySelectorAll('[data-changed]').forEach((n) => n.removeAttribute('data-changed'));
-    sheet.readouts?.querySelector(`[data-key="${k}"]`)?.setAttribute('data-changed', '');
-    clearTimeout(flashTimer);
-    flashTimer = window.setTimeout(
-      () => sheet.readouts?.querySelectorAll('[data-changed]').forEach((n) => n.removeAttribute('data-changed')),
-      900,
-    );
-  }
-
   /* ---- Feel Links + address bar ----------------------------------------- */
   let linkTimer = 0;
   let linkSeq = 0;
+  let linkStale = true;
   function scheduleLink(delay: number) {
+    linkStale = true;
     clearTimeout(linkTimer);
     linkTimer = window.setTimeout(refreshLink, delay);
   }
   async function refreshLink() {
+    clearTimeout(linkTimer);
     const seq = ++linkSeq;
     const payload = await encodeFeel(state.spec);
     if (seq !== linkSeq) return;
+    linkStale = false;
     currentPayload = payload;
     const lib = state.source.kind === 'library' ? state.source.entry : null;
     currentLink = lib ? new URL(`${url('/profiles/')}?p=${lib.id}`, location.origin).toString() : feelLinkUrl(payload);
     const [ver, ...rest] = payload.split('.');
-    if (anatomy.ver) anatomy.ver.textContent = `${ver}.`;
-    if (anatomy.body) anatomy.body.textContent = rest.join('.');
     const body = rest.join('.');
+    if (anatomy.ver) anatomy.ver.textContent = `${ver}.`;
+    if (anatomy.body) anatomy.body.textContent = body;
     if (anatomy.bytes) anatomy.bytes.textContent = String(body.length - 1);
     if (anatomy.mode)
       anatomy.mode.textContent = body.startsWith('z') ? 'deflated, then base64url-encoded' : 'base64url-encoded (too short to be worth deflating)';
@@ -547,7 +433,7 @@ async function boot(root: HTMLElement) {
     if (u.href !== location.href) history.replaceState(history.state, '', u.href);
   }
 
-  /* ---- Actions ---------------------------------------------------------- */
+  /* ---- Status line (the one nearest the button that spoke) -------------- */
   const statusEls = $$('[data-status]');
   let statusTimer = 0;
   function status(msg: string, near?: Element | null) {
@@ -558,102 +444,81 @@ async function boot(root: HTMLElement) {
     statusTimer = window.setTimeout(() => statusEls.forEach((s) => (s.textContent = '')), 5000);
   }
 
-  async function copyText(text: string): Promise<boolean> {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.cssText = 'position:fixed;inset-block-start:-100px;opacity:0';
-      document.body.appendChild(ta);
-      ta.select();
-      let ok = false;
-      try {
-        ok = document.execCommand('copy');
-      } catch {
-        ok = false;
-      }
-      ta.remove();
-      return ok;
+  /* ---- The workbench (builder, file, export), loaded on demand ---------- */
+  const station: Station = {
+    root,
+    state: () => state,
+    setState,
+    onState: (fn) => void listeners.push(fn),
+    async link() {
+      if (linkStale || !currentLink) await refreshLink();
+      return { url: currentLink, payload: currentPayload };
+    },
+    status,
+  };
+  type Tools = ReturnType<typeof import('./station-tools').attach>;
+  let tools: Promise<Tools> | null = null;
+  let pendingInput: EventTarget | null = form && early.input instanceof Node && form.contains(early.input) ? early.input : null;
+  function loadTools(): Promise<Tools> {
+    tools ??= import('./station-tools').then(
+      (m) => {
+        form?.removeEventListener('input', onEarlyInput);
+        return m.attach(station, pendingInput);
+      },
+      (err: unknown) => {
+        tools = null; // let the next intent try again
+        throw err;
+      },
+    );
+    return tools;
+  }
+  // An edit made before the workbench arrives is kept and applied when it does.
+  const onEarlyInput = (ev: Event) => {
+    pendingInput = ev.target;
+    void loadTools().catch(() => undefined);
+  };
+  form?.addEventListener('input', onEarlyInput);
+  // Without this, Enter in the name field would submit the form and reload the page.
+  form?.addEventListener('submit', (ev) => ev.preventDefault());
+  // Intent: a finger, a pointer press or keyboard focus on any of its controls.
+  const toolZone = '[data-builder], [data-action], .file';
+  const onIntent = (ev: Event) => {
+    if ((ev.target as Element | null)?.closest?.(toolZone)) void loadTools().catch(() => undefined);
+  };
+  root.addEventListener('pointerdown', onIntent, { passive: true });
+  root.addEventListener('focusin', onIntent);
+  // Or simply scrolling it into view.
+  const near = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) {
+      near.disconnect();
+      void loadTools().catch(() => undefined);
     }
-  }
-
-  function download(text: string, name: string, type = 'application/json') {
-    const blob = new Blob([text], { type });
-    const href = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href, download: name });
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(href), 1000);
-  }
-
-  /** Saving a feel you made in the builder (link, share or file) is authoring one. */
-  function authored() {
-    if (state.source.kind !== 'custom') return;
-    window.dispatchEvent(new CustomEvent(PROFILE_AUTHORED_EVENT, { detail: { name: state.spec.name } }));
-  }
+  });
+  $$('[data-builder], [data-file-code]').forEach((el) => near.observe(el));
+  if (pendingInput) void loadTools().catch(() => undefined);
 
   const canShare = typeof navigator.share === 'function';
   $$<HTMLButtonElement>('[data-action="share"]').forEach((btn) => (btn.hidden = !canShare));
 
+  /* ---- Actions ---------------------------------------------------------- */
   root.addEventListener('click', async (ev) => {
     const el = (ev.target as Element).closest<HTMLElement>('[data-action]');
     if (!el) return;
-    const action = el.dataset.action;
-    const fileName = state.source.kind === 'library' ? `${state.source.entry.id}.detent.json` : profileFileName(state.spec.name);
+    const action = el.dataset.action ?? '';
+    if (TOOL_ACTIONS.has(action)) {
+      try {
+        await (await loadTools()).act(action as ToolAction, el);
+      } catch {
+        status('That didn’t load. Check your connection and try again.', el);
+      }
+      return;
+    }
     switch (action) {
-      case 'copy-link': {
-        if (!currentLink) await refreshLink();
-        const ok = await copyText(currentLink);
-        status(
-          ok
-            ? state.source.kind === 'library'
-              ? `Link copied. It opens ${state.spec.name} on the dial.`
-              : `Feel Link copied. ${currentPayload.length} characters, and the whole feel is in them.`
-            : `Couldn’t reach the clipboard. The address bar has the same link.`,
-          el,
-        );
-        if (ok) authored();
-        track('feel_link_copy', { kind: state.source.kind });
-        break;
-      }
-      case 'share': {
-        if (!currentLink) await refreshLink();
-        try {
-          await navigator.share({
-            title: `${state.spec.name} · Detent feel`,
-            text: `Turn this: ${state.spec.name}, a Detent feel.`,
-            url: currentLink,
-          });
-          authored();
-          track('feel_share', { kind: state.source.kind });
-        } catch {
-          /* dismissed */
-        }
-        break;
-      }
-      case 'copy-json': {
-        const ok = await copyText(profileJson(docFor(state)));
-        status(ok ? `${fileName} copied.` : `Couldn’t reach the clipboard. Try Download instead.`, el);
-        if (ok) authored();
-        track('feel_export', { how: 'copy' });
-        break;
-      }
-      case 'download-json': {
-        download(profileJson(docFor(state)) + '\n', fileName);
-        status(`Saved ${fileName}.`, el);
-        authored();
-        track('feel_export', { how: 'download' });
-        break;
-      }
       case 'remix': {
         ev.preventDefault();
         const target = document.getElementById('make');
         target?.scrollIntoView({ behavior: reduced.matches ? 'auto' : 'smooth', block: 'start' });
-        b.detents?.focus({ preventScroll: true });
+        document.getElementById('b-detents')?.focus({ preventScroll: true });
         track('feel_remix_click', { kind: state.source.kind });
         break;
       }
@@ -675,16 +540,41 @@ async function boot(root: HTMLElement) {
     }
   });
 
-  /* ---- Demo sweep: plays the feel for people who haven't touched it ----- */
+  /* ---- Demo turn: plays the feel for people who haven't touched it ------ */
+  // Out, back past noon, home, driven through the dial's physics like an
+  // invisible finger: the knob catches in every detent and snap on the way
+  // (so the ring flashes and, with sound on, it clicks), the spring pulls it
+  // back, and each leg ends resting where the feel rests. Reduced motion gets a
+  // plain eased turn instead: no catching, no spring-back.
   let sweepToken = 0;
-  function demoSweep(loop = false): Promise<void> {
-    if (!dial) return Promise.resolve();
+  async function demoSweep(loop = false): Promise<void> {
+    if (!dial) return;
     const token = ++sweepToken;
-    const p = state.spec.physics;
-    const reach = p.stops ? Math.min(110, p.stops[1] - 4) : 110;
-    const back = p.stops ? Math.max(-70, p.stops[0] + 4) : -70;
-    const start = dial.angle;
-    const keys = [start, reach, back, 0];
+    // Pressed before the engine arrived (it loads on its own, the dial being on screen).
+    await customElements.whenDefined('detent-dial');
+    do {
+      const p = state.spec.physics;
+      // Endless feels turn around the current revolution instead of unwinding to zero.
+      const turn = p.stops ? 0 : Math.round(dial.angle / 360) * 360;
+      const keys = sweepKeys(p).map((k) => turn + k);
+      if (reduced.matches) await easedTurn(token, keys);
+      else {
+        for (const key of keys) {
+          if (token !== sweepToken) return;
+          dial.setAngle(key);
+          await rested(token);
+        }
+      }
+    } while (loop && token === sweepToken);
+  }
+  /** Wait until the knob has come to rest (or give up waiting), then hold a beat. */
+  async function rested(token: number) {
+    const settle = dial?.whenSettled?.() ?? new Promise<void>((r) => setTimeout(r, 900));
+    await Promise.race([settle, new Promise<void>((r) => setTimeout(r, 1800))]);
+    if (token === sweepToken) await new Promise<void>((r) => setTimeout(r, 140));
+  }
+  function easedTurn(token: number, legs: number[]): Promise<void> {
+    const keys = [dial!.angle, ...legs];
     const dur = 2400;
     return new Promise((resolve) => {
       const t0 = performance.now();
@@ -694,9 +584,8 @@ async function boot(root: HTMLElement) {
         const seg = Math.min(keys.length - 2, Math.floor(u * (keys.length - 1)));
         const local = u * (keys.length - 1) - seg;
         const e = local < 0.5 ? 4 * local ** 3 : 1 - (-2 * local + 2) ** 3 / 2;
-        dial.setAngle(keys[seg]! + (keys[seg + 1]! - keys[seg]!) * e, { instant: true });
+        dial!.setAngle(keys[seg]! + (keys[seg + 1]! - keys[seg]!) * e, { instant: true });
         if (u < 1) requestAnimationFrame(step);
-        else if (loop) requestAnimationFrame(() => demoSweep(true).then(resolve));
         else resolve();
       };
       requestAnimationFrame(step);
@@ -770,7 +659,7 @@ async function boot(root: HTMLElement) {
       if (!userTurned) void demoSweep(true);
     }, 700);
     try {
-      const { recordClip } = await import('./record');
+      const { recordClip, showClip } = await import('./record');
       const clip = await recordClip({
         dial,
         seconds: 6,
@@ -788,7 +677,11 @@ async function boot(root: HTMLElement) {
           if (label && label.textContent !== left) label.textContent = left;
         },
       });
-      openClip(clip);
+      const dialog = document.querySelector<HTMLDialogElement>('[data-clip]');
+      if (dialog) {
+        const { url: link } = await station.link();
+        showClip(dialog, clip, { title: `${state.spec.name} · Detent feel`, text: link, onShare: () => track('feel_clip_share', {}) });
+      }
       track('feel_record_done', { type: clip.ext, kind: state.source.kind });
     } catch (err) {
       status(`The clip didn’t record (${err instanceof Error ? err.message : 'unknown error'}). Your browser may not support it.`, stage);
@@ -800,45 +693,6 @@ async function boot(root: HTMLElement) {
       recordBtn.removeAttribute('aria-disabled');
       if (label) label.textContent = idle;
     }
-  });
-
-  const clipDialog = document.querySelector<HTMLDialogElement>('[data-clip]');
-  let clipUrl = '';
-  function openClip(clip: import('./record').Clip) {
-    if (!clipDialog) return;
-    const video = clipDialog.querySelector<HTMLVideoElement>('[data-clip-video]');
-    const dl = clipDialog.querySelector<HTMLAnchorElement>('[data-clip-download]');
-    const share = clipDialog.querySelector<HTMLButtonElement>('[data-clip-share]');
-    const meta = clipDialog.querySelector<HTMLElement>('[data-clip-meta]');
-    if (clipUrl) URL.revokeObjectURL(clipUrl);
-    clipUrl = clip.url;
-    if (video) {
-      video.src = clip.url;
-      void video.play().catch(() => undefined);
-    }
-    if (dl) {
-      dl.href = clip.url;
-      dl.download = clip.file.name;
-    }
-    if (meta) meta.textContent = `${clip.ext.toUpperCase()} · ${clip.width} × ${clip.height} · ${(clip.blob.size / 1e6).toFixed(1)} MB`;
-    if (share) {
-      share.hidden = !(navigator.canShare?.({ files: [clip.file] }) ?? false);
-      share.onclick = async () => {
-        try {
-          await navigator.share({ files: [clip.file], title: `${state.spec.name} · Detent feel`, text: currentLink });
-          track('feel_clip_share', {});
-        } catch {
-          /* dismissed */
-        }
-      };
-    }
-    clipDialog.showModal();
-  }
-  clipDialog?.addEventListener('click', (ev) => {
-    if (ev.target === clipDialog || (ev.target as Element).closest('[data-clip-close]')) clipDialog.close();
-  });
-  clipDialog?.addEventListener('close', () => {
-    clipDialog.querySelector<HTMLVideoElement>('[data-clip-video]')?.pause();
   });
 
   /* ---- Announcements ---------------------------------------------------- */
@@ -855,7 +709,6 @@ async function boot(root: HTMLElement) {
     if (isFeelFragment(location.hash)) {
       const spec = await decodeFeel(location.hash);
       if (spec) {
-        nameEdited = false;
         setState({ spec, source: { kind: 'link' } }, origin === 'init' ? 'init' : 'link');
         if (sheet.error) sheet.error.hidden = true;
         announce(`Feel Link opened: ${spec.name} is on the dial.`);
@@ -878,6 +731,10 @@ async function boot(root: HTMLElement) {
 
   applyFilter();
   await loadFromLocation('init');
+  // Buttons pressed while this module was on its way.
+  for (const { el, detail } of early.clicks) {
+    if (el.isConnected) el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail }));
+  }
 
   if (dial) {
     await customElements.whenDefined('detent-dial');
@@ -910,6 +767,32 @@ function restingOn(p: FeelPhysics, deg: number): number | null {
   }
   if (best === null && (p.accents ?? []).some((a) => Math.abs(wrap(deg - a)) < 6)) {
     best = (p.accents ?? []).find((a) => Math.abs(wrap(deg - a)) < 6) ?? null;
+  }
+  return best;
+}
+
+/** The demo turn's legs: out past 90°, back past noon, home, each ending where the feel rests. */
+function sweepKeys(p: FeelPhysics): number[] {
+  const hi = p.stops ? Math.min(110, p.stops[1] - 4) : 110;
+  const lo = p.stops ? Math.max(-70, p.stops[0] + 4) : -70;
+  return [restNear(p, hi, 30), restNear(p, lo, 30), restNear(p, 0, 15)];
+}
+
+/** The nearest detent (inside the stops), or a snap point within `reach` degrees, else `deg` itself. */
+function restNear(p: FeelPhysics, deg: number, reach: number): number {
+  const inside = (a: number) => !p.stops || (a >= p.stops[0] && a <= p.stops[1]);
+  if (p.detents) {
+    const step = 360 / p.detents;
+    const at = Math.round(deg / step) * step;
+    if (inside(at)) return at;
+    const back = at - Math.sign(at) * step;
+    return inside(back) ? back : deg;
+  }
+  let best = deg;
+  let gap = reach;
+  for (const s of p.snaps ?? []) {
+    const d = Math.abs(s - deg);
+    if (inside(s) && d <= gap) [best, gap] = [s, d];
   }
   return best;
 }

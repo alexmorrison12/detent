@@ -10,6 +10,7 @@ import { PROFILES } from '@/data/product';
 import { FEEL_LIMITS } from '@/lib/feel-link';
 import type { LibraryEntry } from '@/data/community-profiles';
 import { PEAK_TORQUE } from '@/scripts/feel/model';
+import { builderText, trackFill } from '@/scripts/feel/builder-text';
 
 interface Props {
   initial: LibraryEntry;
@@ -18,6 +19,17 @@ const { initial } = Astro.props;
 const p = initial.physics;
 const [dMin, dMax] = FEEL_LIMITS.detents;
 const [sMin, sMax] = FEEL_LIMITS.stop;
+// The first state is rendered here (readouts, spoken values, track fills); the station keeps it live.
+const text = builderText(p);
+const v = {
+  detents: p.detents,
+  strength: Math.round(p.strength * 100),
+  damping: Math.round(p.damping * 100),
+  spring: Math.round(p.spring * 100),
+  stops: p.stops ? Math.max(-p.stops[0], p.stops[1]) : 135,
+  snaps: (p.snaps ?? []).length,
+};
+const fill = (value: number, min: number, max: number) => `--fill: ${trackFill(value, min, max)}`;
 ---
 
 <section class="builder" id="make" aria-labelledby="make-title">
@@ -72,13 +84,33 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       <legend>Clicks</legend>
       <div class="ctl">
         <label for="b-detents">Detents per turn</label>
-        <output for="b-detents" class="readout" aria-live="off" data-out="detents"></output>
-        <input id="b-detents" type="range" min={dMin} max={dMax} step="1" value={p.detents} data-b="detents" />
+        <output for="b-detents" class="readout" aria-live="off" data-out="detents">{text.detents}</output>
+        <input
+          id="b-detents"
+          type="range"
+          min={dMin}
+          max={dMax}
+          step="1"
+          value={v.detents}
+          aria-valuetext={text.detents}
+          style={fill(v.detents, dMin, dMax)}
+          data-b="detents"
+        />
       </div>
       <div class="ctl">
         <label for="b-strength">Click strength</label>
-        <output for="b-strength" class="readout" aria-live="off" data-out="strength"></output>
-        <input id="b-strength" type="range" min="0" max="100" step="1" value={Math.round(p.strength * 100)} data-b="strength" />
+        <output for="b-strength" class="readout" aria-live="off" data-out="strength">{text.strength}</output>
+        <input
+          id="b-strength"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={v.strength}
+          aria-valuetext={text.strength}
+          style={fill(v.strength, 0, 100)}
+          data-b="strength"
+        />
       </div>
       <label class="toggle">
         <input type="checkbox" data-b="accent" checked={(p.accents ?? []).includes(0)} />
@@ -91,13 +123,33 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       <legend>Weight</legend>
       <div class="ctl">
         <label for="b-damping">Damping</label>
-        <output for="b-damping" class="readout" aria-live="off" data-out="damping"></output>
-        <input id="b-damping" type="range" min="0" max="100" step="1" value={Math.round(p.damping * 100)} data-b="damping" />
+        <output for="b-damping" class="readout" aria-live="off" data-out="damping">{text.damping}</output>
+        <input
+          id="b-damping"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={v.damping}
+          aria-valuetext={text.damping}
+          style={fill(v.damping, 0, 100)}
+          data-b="damping"
+        />
       </div>
       <div class="ctl">
         <label for="b-spring">Spring back to noon</label>
-        <output for="b-spring" class="readout" aria-live="off" data-out="spring"></output>
-        <input id="b-spring" type="range" min="0" max="100" step="1" value={Math.round(p.spring * 100)} data-b="spring" />
+        <output for="b-spring" class="readout" aria-live="off" data-out="spring">{text.spring}</output>
+        <input
+          id="b-spring"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={v.spring}
+          aria-valuetext={text.spring}
+          style={fill(v.spring, 0, 100)}
+          data-b="spring"
+        />
       </div>
     </fieldset>
 
@@ -110,14 +162,16 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       </label>
       <div class="ctl">
         <label for="b-stops">Stops at</label>
-        <output for="b-stops" class="readout" aria-live="off" data-out="stops"></output>
+        <output for="b-stops" class="readout" aria-live="off" data-out="stops">{text.stops}</output>
         <input
           id="b-stops"
           type="range"
           min={sMin}
           max={sMax}
           step="5"
-          value={p.stops ? p.stops[1] : 135}
+          value={v.stops}
+          aria-valuetext={text.stops}
+          style={fill(v.stops, sMin, sMax)}
           disabled={!p.stops}
           data-b="stops"
         />
@@ -128,8 +182,18 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       <legend>Magnet</legend>
       <div class="ctl">
         <label for="b-snaps">Snap points</label>
-        <output for="b-snaps" class="readout" aria-live="off" data-out="snaps"></output>
-        <input id="b-snaps" type="range" min="0" max="12" step="1" value={(p.snaps ?? []).length} data-b="snaps" />
+        <output for="b-snaps" class="readout" aria-live="off" data-out="snaps">{text.snaps}</output>
+        <input
+          id="b-snaps"
+          type="range"
+          min="0"
+          max="12"
+          step="1"
+          value={v.snaps}
+          aria-valuetext={text.snaps}
+          style={fill(v.snaps, 0, 12)}
+          data-b="snaps"
+        />
       </div>
     </fieldset>
 
@@ -179,14 +243,37 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
     display: none;
   }
 
-  /* On small screens the dial is far above, so the curve rides along. */
+  /*
+   * On small screens the dial is far above, so the curve rides along, pinned
+   * under the header. Only where there is height for it: on a landscape phone
+   * or at 300–400% zoom, header + monitor would cover most of the form, so it
+   * stays in the flow there. While pinned, every control scrolls into view
+   * below it (scroll-margin), so keyboard focus never lands underneath.
+   */
   .builder__monitor {
-    position: sticky;
-    inset-block-start: var(--header-h);
-    z-index: var(--z-raised);
     padding-block: var(--space-2xs) var(--space-xs);
     background: var(--bg);
     border-block-end: 1px solid var(--line);
+  }
+  @media (max-width: 63.99rem) and (min-height: 36rem) {
+    .builder {
+      /* Monitor height: plot + caption line + padding + rule. */
+      --monitor-h: calc(var(--curve-compact-h, 7.5rem) + 3.1rem);
+    }
+    .builder__monitor {
+      position: sticky;
+      inset-block-start: var(--header-h);
+      z-index: var(--z-raised);
+    }
+    .builder__form :is(input, button) {
+      scroll-margin-block-start: var(--monitor-h);
+    }
+  }
+  /* Short but pinned (small phones, tablets in landscape): a flatter plot. */
+  @media (max-width: 63.99rem) and (min-height: 36rem) and (max-height: 48rem) {
+    .builder {
+      --curve-compact-h: 5rem;
+    }
   }
   @media (min-width: 64rem) {
     .builder__monitor {
