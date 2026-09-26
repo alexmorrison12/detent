@@ -142,6 +142,11 @@ class DailyDetent extends HTMLElement {
   #bind() {
     const dial = this.#dial;
     if (dial) {
+      // The range is the protractor's, the same for every feel. Left to the
+      // engine it would count today's detents or measure its stops.
+      dial.setAttribute('aria-valuemin', '-180');
+      dial.setAttribute('aria-valuemax', '180');
+      dial.setAttribute('aria-valuenow', '0');
       dial.valueText = this.#valueText;
       const ready = () => {
         dial.physics = { ...this.#physics };
@@ -156,6 +161,16 @@ class DailyDetent extends HTMLElement {
       dial.addEventListener('detent:ready', ready);
       dial.addEventListener('detent:change', (e) => this.#onChange(e.detail));
     }
+
+    // The −/+ steppers turn one step of the hidden feel, exactly like an arrow key.
+    this.#q('[data-dial-step]').forEach((b) =>
+      b.setAttribute(
+        'aria-label',
+        Number(b.dataset.dialStep) > 0
+          ? 'Turn clockwise one step'
+          : 'Turn counterclockwise one step',
+      ),
+    );
 
     this.#q<HTMLButtonElement>('[data-guess]').forEach((b) =>
       b.addEventListener('click', () => void this.#guess(b.dataset.guess as ProfileId)),
@@ -258,13 +273,21 @@ class DailyDetent extends HTMLElement {
   }
 
   /**
-   * What a screen reader hears: the angle and what the contact mic picked up.
-   * Owned by the dial (its valueText contract) so its trailing aria update
-   * can't swap in the stock readout, which names the feel ("Centered",
-   * "Detent 3 of 24") and would give the answer away.
+   * What a screen reader hears: the angle on the readout and what the contact
+   * mic picked up, exactly what a sighted player reads. Owned by the dial (its
+   * valueText contract) so its trailing aria update can't swap in the stock
+   * readout, which names the feel ("Centered", "Detent 3 of 24") and would
+   * give the answer away. The engine calls this at its own pace (throttled,
+   * and at the destination of a key or stepper press), which is also the
+   * right moment to move aria-valuenow: the page owns it (see #bind), and the
+   * engine's own value would be today's detent index.
    */
-  #valueText = (s: DialValueState): string =>
-    `${Math.round(s.angle)} degrees${this.#lastWord ? `. ${this.#lastWord}` : ''}`;
+  #valueText = (s: DialValueState): string => {
+    const deg = Math.round(s.angle);
+    const onScale = ((((deg + 180) % 360) + 360) % 360) - 180;
+    this.#dial?.setAttribute('aria-valuenow', String(onScale));
+    return `${deg} degrees${this.#lastWord ? `. ${this.#lastWord}` : ''}`;
+  };
 
   /* ---------------------------------------------------------------- guess */
 

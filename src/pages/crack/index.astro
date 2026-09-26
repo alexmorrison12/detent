@@ -200,7 +200,9 @@ const scale = Array.from({ length: 50 }, (_, k) => ({ rot: k * 7.2, long: k % 5 
           <kbd>Enter</kbd> sets.
         </p>
         <p class="crack__keys crack__keys--coarse">
-          Drag the numbered ring or the knob in a circle. To set a number, tap Set or the knob.
+          Drag the numbered ring or the knob in a circle, or tap <span class="crack__glyph">−</span>
+          and <span class="crack__glyph">+</span> to move one number at a time. To set a number, tap
+          Set or the knob.
         </p>
       </div>
 
@@ -720,6 +722,17 @@ const scale = Array.from({ length: 50 }, (_, k) => ({ rot: k * 7.2, long: k % 5 
     border-radius: var(--r-xs);
     color: var(--ink);
     white-space: nowrap;
+  }
+  /* The stepper buttons, drawn in the copy the way they look on the safe. */
+  .crack__glyph {
+    display: inline-grid;
+    place-items: center;
+    inline-size: 1.6em;
+    block-size: 1.6em;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--ink);
+    line-height: 1;
   }
 
   /* ---- Open state ------------------------------------------------------------ */

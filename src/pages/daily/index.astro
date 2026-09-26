@@ -134,7 +134,10 @@ const HH = 112;
         <p class="daily__keys daily__keys--fine">
           Keyboard: focus the dial, then <kbd>←</kbd> <kbd>→</kbd> to turn.
         </p>
-        <p class="daily__keys daily__keys--coarse">Drag the knob in a circle.</p>
+        <p class="daily__keys daily__keys--coarse">
+          Drag the knob in a circle, or tap <span class="daily__glyph">−</span> and{' '}
+          <span class="daily__glyph">+</span> to turn it one step at a time.
+        </p>
       </div>
 
       <div class="daily__play">
@@ -508,6 +511,17 @@ const HH = 112;
     border-radius: var(--r-xs);
     color: var(--ink);
   }
+  /* The stepper buttons, drawn in the copy the way they look by the dial. */
+  .daily__glyph {
+    display: inline-grid;
+    place-items: center;
+    inline-size: 1.6em;
+    block-size: 1.6em;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--ink);
+    line-height: 1;
+  }
 
   /* ---- Tries ------------------------------------------------------------------ */
   .daily__tries {
@@ -574,8 +588,10 @@ const HH = 112;
       background-color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .key:hover {
-    border-color: var(--ink-strong);
+  @media (hover: hover) {
+    .key:hover {
+      border-color: var(--ink-strong);
+    }
   }
   .key:active {
     transform: translateY(1px);

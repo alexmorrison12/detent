@@ -256,6 +256,14 @@ class SafeGame extends HTMLElement {
       dial.addEventListener('detent:release', () => this.#snap());
     }
 
+    // The dial's −/+ steppers (a tap alternative to dragging) say what they do here.
+    this.#q('[data-dial-step]').forEach((b) =>
+      b.setAttribute(
+        'aria-label',
+        Number(b.dataset.dialStep) > 0 ? 'Turn right one number' : 'Turn left one number',
+      ),
+    );
+
     this.#bindGrip();
     this.#one('[data-set]')?.addEventListener('click', () => this.#set());
     this.#one('[data-practice]')?.addEventListener('click', () => this.#startPractice());
