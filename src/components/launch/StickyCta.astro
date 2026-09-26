@@ -1,0 +1,91 @@
+---
+/**
+ * Mobile-only bottom bar that keeps the page's one action in thumb reach
+ * once the hero CTA has scrolled away. Driven by common.ts (initStickyCta);
+ * hidden without JS so it never covers content it can't manage.
+ *
+ * Either pass label+target (in-page form) or use the default slot (e.g. PhaseCTA).
+ */
+interface Props {
+  /** Selector of the hero CTA; the bar appears once it leaves the viewport. */
+  watch: string;
+  /** Selector(s) that hide the bar while visible (the form itself, the footer). */
+  hideOver: string;
+  label?: string;
+  /** In-page target to scroll to and focus. */
+  target?: string;
+  note?: string;
+}
+const { watch, hideOver, label, target, note } = Astro.props;
+---
+
+<div
+  class="sticky-cta"
+  data-sticky-cta
+  data-watch={watch}
+  data-hide-over={hideOver}
+  data-target={target}
+>
+  {note && <p class="sticky-cta__note">{note}</p>}
+  {label && target ? (
+    <a
+      class="btn btn--primary sticky-cta__btn"
+      href={target}
+      data-sticky-go
+      data-track="cta_click"
+      data-track-placement="sticky"
+    >
+      {label}
+    </a>
+  ) : (
+    <slot />
+  )}
+</div>
+
+<style>
+  .sticky-cta {
+    display: none;
+  }
+  @media (max-width: 48rem) {
+    .sticky-cta[data-visible] {
+      position: fixed;
+      inset: auto 0 0 0;
+      z-index: var(--z-sticky);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-s);
+      padding: var(--space-xs) var(--gutter) calc(var(--space-xs) + env(safe-area-inset-bottom));
+      background: var(--graphite-900);
+      color: var(--alu-100);
+      border-top: 1px solid oklch(1 0 0 / 0.12);
+      animation: sticky-in var(--dur-3) var(--ease-out);
+    }
+  }
+  .sticky-cta__note {
+    font-size: var(--step--1);
+    line-height: 1.3;
+    color: var(--alu-300);
+    max-inline-size: 18ch;
+  }
+  .sticky-cta__btn {
+    flex: 1 0 auto;
+    max-inline-size: 16rem;
+  }
+  .sticky-cta :global(.phase-cta) {
+    flex: 1;
+  }
+  .sticky-cta :global(.phase-cta__buttons) {
+    justify-content: flex-end;
+  }
+  @keyframes sticky-in {
+    from {
+      translate: 0 100%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sticky-cta[data-visible] {
+      animation: none;
+    }
+  }
+</style>

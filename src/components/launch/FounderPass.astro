@@ -1,0 +1,442 @@
+---
+/**
+ * The Founder Pass section. Before joining it shows a sample pass that
+ * follows the dial; after joining it becomes yours: handle, finish, feel,
+ * share/download, referral link, and the reward ladder.
+ * Behaviour: src/scripts/launch/pass.ts (lazy-loaded by the page).
+ */
+import { FINISHES, PROFILES } from '@/data/product';
+import { PHASES } from '@/config/launch';
+import { longDate } from '@/scripts/launch/format';
+import RewardLadder from './RewardLadder.astro';
+
+const reserveLong = longDate(PHASES.reserve.starts);
+---
+
+<section id="pass" class="pass" data-pass data-state="preview" aria-labelledby="pass-title">
+  <div class="container pass__grid">
+    <div class="pass__head">
+      <h2 id="pass-title" class="pass__title" tabindex="-1">
+        <span data-preview-only>Everyone on the list gets a pass.</span>
+        <span data-mine-only>Your pass. Send it around.</span>
+      </h2>
+      <p class="pass__lede" data-preview-only>
+        Your handle, your finish, and a ring drawn from the torque curve of the feel you picked. No
+        two are the same. Share it, and every friend who confirms their email moves you up the
+        ladder.
+      </p>
+      <p class="pass__lede" data-mine-only>
+        The ring is your feel’s torque curve, engraved 28 times with a twist only your pass ID
+        makes. Change anything; the image follows.
+      </p>
+    </div>
+
+    <figure class="pass__figure">
+      <div class="pass__card" data-pass-card data-layout="landscape">
+        <canvas data-pass-canvas role="img" aria-label="Sample Founder Pass"></canvas>
+        <div class="pass__foil" aria-hidden="true"></div>
+      </div>
+      <figcaption class="pass__caption">
+        <span data-preview-only>Sample. The ring follows the dial above.</span>
+        <span data-mine-only>Tilt it. The foil is only on screen; the PNG is clean.</span>
+      </figcaption>
+    </figure>
+
+    <div class="pass__panel" data-mine-only>
+      <div class="pass__controls">
+        <div class="field">
+          <label for="pass-handle">Name on the pass</label>
+          <div class="pass__handle">
+            <span aria-hidden="true">@</span>
+            <input
+              id="pass-handle"
+              class="input"
+              data-pass-handle
+              type="text"
+              maxlength="20"
+              autocomplete="nickname"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="yourhandle"
+              aria-describedby="pass-handle-hint"
+            />
+          </div>
+          <p id="pass-handle-hint" class="pass__hint">
+            Letters, numbers, dots and dashes. Only you type it; we never pull it from anywhere.
+          </p>
+        </div>
+
+        <fieldset class="pass__set">
+          <legend>Finish</legend>
+          <div class="swatches">
+            {FINISHES.map((f) => (
+              <label class="swatch" title={f.line}>
+                <input type="radio" name="pass-finish" value={f.id} checked={f.id === 'graphite'} />
+                <span class="swatch__chip" style={`--swatch:${f.body}`} aria-hidden="true" />
+                <span class="swatch__name">
+                  {f.name}
+                  {f.foundersOnly && <span class="swatch__tag"> · Founders</span>}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset class="pass__set">
+          <legend>Feel</legend>
+          <div class="feels">
+            {PROFILES.map((p) => (
+              <label class="feel" style={`--feel:${p.color}`}>
+                <input type="radio" name="pass-profile" value={p.id} checked={p.id === 'ratchet'} />
+                <span class="feel__dot" aria-hidden="true" />
+                {p.name}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="pass__actions">
+        <button class="btn btn--primary btn--lg" type="button" data-share-pass>
+          Share your pass
+        </button>
+        <div class="pass__downloads">
+          <button class="btn btn--sm" type="button" data-download="landscape">
+            Download 1200 × 630
+          </button>
+          <button class="btn btn--sm" type="button" data-download="story">
+            Story 1080 × 1920
+          </button>
+        </div>
+      </div>
+
+      <div class="pass__ref field">
+        <label for="ref-link">Your referral link</label>
+        <div class="pass__ref-row">
+          <input id="ref-link" class="input readout" data-ref-link type="text" readonly />
+          <button class="btn" type="button" data-copy-ref>
+            Copy
+          </button>
+          <button class="btn btn--quiet" type="button" data-share-ref>
+            Share
+          </button>
+        </div>
+      </div>
+
+      <p class="pass__status" role="status" data-share-status></p>
+
+      <button class="link-arrow pass__ics" type="button" data-ics-reserve>
+        Add {reserveLong} to your calendar. The list reserves first.
+      </button>
+    </div>
+  </div>
+
+  <div class="container pass__ladder">
+    <h3 id="ladder-title" class="pass__ladder-title">
+      What sharing earns
+    </h3>
+    <RewardLadder headingId="ladder-title" />
+  </div>
+</section>
+
+<style is:global>
+  @property --foil-angle {
+    syntax: '<angle>';
+    inherits: true;
+    initial-value: 0deg;
+  }
+  @property --foil-x {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 50%;
+  }
+  @property --foil-y {
+    syntax: '<percentage>';
+    inherits: true;
+    initial-value: 50%;
+  }
+</style>
+
+<style>
+  .pass {
+    padding-block: var(--section-y);
+    scroll-margin-top: var(--header-h);
+  }
+  .pass[data-state='preview'] [data-mine-only],
+  .pass[data-state='mine'] [data-preview-only] {
+    display: none;
+  }
+
+  .pass__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-areas:
+      'head figure'
+      'panel figure';
+    align-items: start;
+    gap: var(--space-l) clamp(var(--space-l), 5vw, var(--space-3xl));
+  }
+  .pass__head {
+    grid-area: head;
+    display: grid;
+    gap: var(--space-s);
+  }
+  .pass__title {
+    font-size: var(--step-4);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .pass__title:focus {
+    outline: none;
+  }
+  .pass__lede {
+    color: var(--ink-muted);
+    max-inline-size: 46ch;
+  }
+  .pass__figure {
+    grid-area: figure;
+    position: sticky;
+    inset-block-start: calc(var(--header-h) + var(--space-m));
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .pass__panel {
+    grid-area: panel;
+    display: grid;
+    gap: var(--space-l);
+  }
+
+  /* ---- The card: canvas + holographic foil -------------------------- */
+  .pass__card {
+    --rx: 0deg;
+    --ry: 0deg;
+    position: relative;
+    aspect-ratio: 1200 / 630;
+    border-radius: var(--r-l);
+    overflow: hidden;
+    transform: perspective(1400px) rotateX(var(--rx)) rotateY(var(--ry));
+    transition:
+      transform var(--dur-4) var(--ease-out),
+      --foil-angle var(--dur-4) var(--ease-out),
+      --foil-x var(--dur-4) var(--ease-out),
+      --foil-y var(--dur-4) var(--ease-out);
+    touch-action: pan-y;
+  }
+  .pass__card[data-live] {
+    transition-duration: 120ms;
+  }
+  .pass__card[data-layout='story'] {
+    aspect-ratio: 1080 / 1920;
+    max-inline-size: 26rem;
+    margin-inline: auto;
+  }
+  .pass__card canvas {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .pass__foil {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: color-dodge;
+    opacity: 0.42;
+    /* Foil lives where the light hits: strongest around the pointer, fading out. */
+    mask-image: radial-gradient(circle at var(--foil-x) var(--foil-y), black, transparent 70%);
+    background:
+      radial-gradient(circle at var(--foil-x) var(--foil-y), oklch(1 0 0 / 0.32), transparent 38%),
+      conic-gradient(
+        from var(--foil-angle) at var(--foil-x) var(--foil-y),
+        oklch(0.58 0.12 355),
+        oklch(0.62 0.1 70),
+        oklch(0.64 0.11 128),
+        oklch(0.6 0.08 210),
+        oklch(0.56 0.11 290),
+        oklch(0.58 0.12 355)
+      );
+  }
+  .pass[data-state='preview'] .pass__foil {
+    opacity: 0.26;
+  }
+  .pass__caption {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  :global(html:not([data-js])) .pass__figure {
+    display: none;
+  }
+
+  /* ---- Controls ------------------------------------------------------- */
+  .pass__controls {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .pass__handle {
+    position: relative;
+  }
+  .pass__handle span {
+    position: absolute;
+    inset-inline-start: 1rem;
+    inset-block-start: 50%;
+    translate: 0 -52%;
+    color: var(--ink-muted);
+    pointer-events: none;
+  }
+  .pass__handle .input {
+    inline-size: 100%;
+    padding-inline-start: 2.1rem;
+    font-size: max(16px, var(--step-0));
+  }
+  .pass__hint {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .pass__set {
+    border: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .pass__set legend {
+    font-size: var(--step--1);
+    font-weight: 600;
+    margin-block-end: var(--space-2xs);
+  }
+  .swatches,
+  .feels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .swatch,
+  .feel {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55em;
+    min-block-size: 2.75rem;
+    padding: 0.4rem 0.9rem 0.4rem 0.45rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .feel {
+    padding-inline-start: 0.8rem;
+  }
+  .swatch input,
+  .feel input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    cursor: pointer;
+  }
+  .swatch:hover,
+  .feel:hover {
+    border-color: var(--ink-muted);
+  }
+  .swatch:has(input:checked),
+  .feel:has(input:checked) {
+    border-color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .swatch:has(input:focus-visible),
+  .feel:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .swatch__chip {
+    inline-size: 1.85rem;
+    block-size: 1.85rem;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.25);
+  }
+  .swatch__tag {
+    font-weight: 450;
+    color: var(--ink-muted);
+  }
+  .feel__dot {
+    inline-size: 0.7rem;
+    block-size: 0.7rem;
+    border-radius: 50%;
+    background: var(--feel);
+  }
+
+  .pass__actions {
+    display: grid;
+    gap: var(--space-xs);
+    justify-items: start;
+  }
+  .pass__downloads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .pass__ref-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: var(--space-2xs);
+  }
+  .pass__ref-row .input {
+    min-inline-size: 0;
+    font-size: var(--step--1);
+  }
+  .pass__status {
+    min-block-size: 1.4em;
+    font-size: var(--step--1);
+    color: var(--accent-text);
+  }
+  .pass__status:empty {
+    min-block-size: 0;
+  }
+  .pass__ics {
+    justify-self: start;
+    font-size: var(--step--1);
+    text-align: start;
+  }
+
+  .pass__ladder {
+    display: grid;
+    gap: var(--space-m);
+    margin-block-start: var(--space-3xl);
+  }
+  .pass__ladder-title {
+    font-size: var(--step-2);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+  }
+
+  @media (max-width: 56rem) {
+    .pass__grid {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        'head'
+        'figure'
+        'panel';
+    }
+    .pass__figure {
+      position: static;
+    }
+  }
+  @media (max-width: 30rem) {
+    .pass__ref-row {
+      grid-template-columns: 1fr auto;
+    }
+    .pass__ref-row .input {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pass__card {
+      transform: none;
+      transition: none;
+    }
+  }
+</style>

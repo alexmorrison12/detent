@@ -1,0 +1,441 @@
+---
+/**
+ * #film: the launch film, rendered live. Server-renders the stage (a
+ * DialStage still), chapter list and full script, so the film's content
+ * exists without JS; film.ts (lazy) turns it into a player.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import { SHOTS, FILM_LENGTH, clock } from '@/scripts/launch/film-script';
+
+const first = SHOTS[0]!;
+---
+
+<section id="film" class="film" aria-labelledby="film-title" data-film>
+  <div class="container film__head">
+    <h2 id="film-title" class="film__title">
+      This isn’t a video.
+    </h2>
+    <p class="film__lede">
+      It’s the dial, rendered live in your browser, running a {FILM_LENGTH}-second script. Pause it
+      and the knob is yours: turn it.
+    </p>
+  </div>
+
+  <div class="film__frame container">
+    <div class="film__stage" data-film-stage>
+      <p class="film__rec" aria-hidden="true">
+        <span class="film__dot"></span>Live render
+      </p>
+      <div class="film__dial">
+        <DialStage
+          id="film-dial"
+          finish="raw"
+          profile="ratchet"
+          camera="hero"
+          display="DETENT"
+          label="Detent One, playing the launch film"
+        />
+      </div>
+      <div class="film__lower">
+        <p class="film__chapter readout" data-film-chapter>
+          {first.title}
+        </p>
+        <p class="film__caption" data-film-caption aria-live="polite">
+          {first.caption}
+        </p>
+      </div>
+      <p class="film__hint readout" data-film-hint hidden>
+        Paused. Drag the knob.
+      </p>
+    </div>
+
+    <div class="film__controls">
+      <button
+        class="btn btn--sm film__play"
+        type="button"
+        data-film-play
+        aria-label="Play the film"
+      >
+        <svg
+          class="film__icon film__icon--play"
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          aria-hidden="true"
+        >
+          <path d="M4 2.5v11l9-5.5z" fill="currentColor"></path>
+        </svg>
+        <svg
+          class="film__icon film__icon--pause"
+          viewBox="0 0 16 16"
+          width="14"
+          height="14"
+          aria-hidden="true"
+        >
+          <path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor"></path>
+        </svg>
+        <span data-label>Play</span>
+      </button>
+      <div class="film__track">
+        <input
+          class="film__scrub"
+          type="range"
+          min="0"
+          max={FILM_LENGTH * 10}
+          step="1"
+          value="0"
+          aria-label="Film position"
+          data-film-scrub
+        />
+        <div class="film__ticks" aria-hidden="true">
+          {SHOTS.map((s) => (
+            <span style={`--x:${(s.start / FILM_LENGTH) * 100}%`} />
+          ))}
+        </div>
+      </div>
+      <p class="film__time readout" data-film-time>
+        {clock(0)} / {clock(FILM_LENGTH)}
+      </p>
+    </div>
+
+    <nav class="film__chapters" aria-label="Film chapters">
+      <button class="film__step" type="button" data-film-prev aria-label="Previous chapter">
+        ←
+      </button>
+      <ol role="list">
+        {SHOTS.map((s, i) => (
+          <li>
+            <button type="button" data-film-seek={s.id} aria-current={i === 0 ? 'true' : 'false'}>
+              <span class="readout">{clock(s.start)}</span>
+              {s.title}
+            </button>
+          </li>
+        ))}
+      </ol>
+      <button class="film__step" type="button" data-film-next aria-label="Next chapter">
+        →
+      </button>
+    </nav>
+
+    <details class="film__script">
+      <summary>Read the script</summary>
+      <ol role="list">
+        {SHOTS.map((s) => (
+          <li>
+            <span class="readout">{clock(s.start)}</span>
+            <p>
+              <strong>{s.title}.</strong> {s.caption}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </details>
+  </div>
+</section>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-film]');
+  if (root) {
+    // Load the player when the film is near the viewport.
+    const io = new IntersectionObserver(
+      ([en]) => {
+        if (!en?.isIntersecting) return;
+        io.disconnect();
+        void import('@/scripts/launch/film').then((m) => m.mountFilm(root));
+      },
+      { rootMargin: '400px 0px' },
+    );
+    io.observe(root);
+  }
+</script>
+
+<style>
+  .film {
+    --progress: 0;
+    padding-block: var(--space-2xl) var(--section-y);
+    scroll-margin-top: var(--header-h);
+  }
+  .film__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-s) var(--space-xl);
+    margin-block-end: var(--space-l);
+  }
+  .film__title {
+    font-size: var(--step-4);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .film__lede {
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+  .film__frame {
+    display: grid;
+    gap: var(--space-s);
+  }
+
+  /* ---- The stage: letterboxed, one lamp, one knob ---------------------- */
+  .film__stage {
+    position: relative;
+    aspect-ratio: 21 / 9;
+    border-radius: var(--r-l);
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse 60% 70% at 50% 42%, var(--graphite-800), transparent 70%),
+      var(--graphite-950);
+    border: 1px solid var(--line);
+  }
+  .film__dial {
+    position: absolute;
+    inset-block: 8% 14%;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+    aspect-ratio: 1;
+  }
+  .film__dial :global(.dial-stage) {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .film__dial :global(detent-dial:focus-visible) {
+    border-radius: 50%;
+    outline-offset: 6px;
+  }
+  .film__rec {
+    position: absolute;
+    inset-block-start: var(--space-s);
+    inset-inline-start: var(--space-m);
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: var(--step--2);
+    font-weight: 620;
+    color: var(--ink-muted);
+  }
+  .film__dot {
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  .film[data-playing] .film__dot {
+    animation: rec 1.6s steps(2, jump-none) infinite;
+  }
+  @keyframes rec {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  .film__lower {
+    position: absolute;
+    inset-inline: var(--space-m);
+    inset-block-end: var(--space-m);
+    display: grid;
+    gap: 0.25rem;
+    max-inline-size: 46ch;
+  }
+  .film__chapter {
+    color: var(--accent-text);
+    font-size: var(--step--2);
+  }
+  .film__caption {
+    font-size: var(--step-1);
+    line-height: 1.35;
+    color: var(--ink-strong);
+    font-weight: 560;
+    text-wrap: balance;
+  }
+  .film__hint {
+    position: absolute;
+    inset-block-start: var(--space-s);
+    inset-inline-end: var(--space-m);
+    color: var(--ink);
+    font-size: var(--step--2);
+  }
+
+  /* ---- Controls --------------------------------------------------------- */
+  .film__controls {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-s);
+  }
+  .film__play {
+    min-inline-size: 6.5rem;
+    min-block-size: 2.75rem;
+  }
+  .film__icon--pause,
+  .film[data-playing] .film__icon--play {
+    display: none;
+  }
+  .film[data-playing] .film__icon--pause {
+    display: block;
+  }
+  :global(html:not([data-js])) .film__controls,
+  :global(html:not([data-js])) .film__chapters .film__step {
+    display: none;
+  }
+  .film__track {
+    position: relative;
+    block-size: 2.75rem;
+    display: grid;
+    align-items: center;
+  }
+  .film__scrub {
+    appearance: none;
+    inline-size: 100%;
+    block-size: 2.75rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .film__scrub::-webkit-slider-runnable-track {
+    block-size: 3px;
+    border-radius: 2px;
+    background: linear-gradient(
+      to right,
+      var(--tally) calc(var(--progress) * 100%),
+      var(--line-strong) 0
+    );
+  }
+  .film__scrub::-moz-range-track {
+    block-size: 3px;
+    background: var(--line-strong);
+  }
+  .film__scrub::-moz-range-progress {
+    block-size: 3px;
+    background: var(--tally);
+  }
+  .film__scrub::-webkit-slider-thumb {
+    appearance: none;
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    margin-block-start: -0.45rem;
+    border-radius: 50%;
+    background: var(--ink-strong);
+    border: 3px solid var(--graphite-950);
+  }
+  .film__scrub::-moz-range-thumb {
+    inline-size: 1rem;
+    block-size: 1rem;
+    border-radius: 50%;
+    background: var(--ink-strong);
+    border: 3px solid var(--graphite-950);
+  }
+  .film__ticks {
+    position: absolute;
+    inset-inline: 0.55rem;
+    inset-block-start: calc(50% + 0.45rem);
+    pointer-events: none;
+  }
+  .film__ticks span {
+    position: absolute;
+    inset-inline-start: var(--x);
+    inline-size: 1px;
+    block-size: 0.45rem;
+    background: var(--ink-faint);
+  }
+  .film__time {
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  /* ---- Chapters --------------------------------------------------------- */
+  .film__chapters {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+  .film__chapters ol {
+    display: flex;
+    gap: var(--space-3xs);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .film__chapters li {
+    flex: 1 0 auto;
+  }
+  .film__chapters ol button {
+    display: grid;
+    gap: 0.1rem;
+    inline-size: 100%;
+    min-block-size: 2.75rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: var(--r-s);
+    text-align: start;
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink-muted);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .film__chapters ol button .readout {
+    font-size: var(--step--2);
+  }
+  .film__chapters ol button:hover {
+    color: var(--ink-strong);
+  }
+  .film__chapters ol button[aria-current='true'] {
+    background: var(--surface);
+    color: var(--ink-strong);
+  }
+  .film__step {
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+  }
+  .film__step:hover {
+    border-color: var(--ink-muted);
+  }
+
+  .film__script {
+    margin-block-start: var(--space-xs);
+    font-size: var(--step--1);
+  }
+  .film__script summary {
+    cursor: pointer;
+    font-weight: 620;
+    color: var(--ink);
+    inline-size: fit-content;
+    padding-block: 0.6rem;
+  }
+  .film__script ol {
+    display: grid;
+    gap: var(--space-xs);
+    margin-block-start: var(--space-xs);
+    max-inline-size: 70ch;
+  }
+  .film__script li {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: var(--space-s);
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 48rem) {
+    .film__stage {
+      aspect-ratio: 4 / 5;
+    }
+    .film__dial {
+      inset-block: 14% 32%;
+    }
+    .film__caption {
+      font-size: var(--step-0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .film[data-playing] .film__dot {
+      animation: none;
+    }
+  }
+</style>

@@ -1,0 +1,136 @@
+---
+/**
+ * Launch-price countdown to LAUNCH.launchPriceEnds. Honest by construction:
+ * a real date from config, shown in full before JS; the browser adds the
+ * remaining time in days/hours/minutes (no seconds ticker) and, once the
+ * date passes, says launch pricing has ended.
+ */
+import { LAUNCH } from '@/config/launch';
+import { EDITIONS, formatUsd } from '@/data/product';
+import { utcDateTime, dotDate } from '@/scripts/launch/format';
+
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+const one = EDITIONS.find((e) => e.id === 'one')!;
+---
+
+<div
+  class:list={['countdown', className]}
+  data-countdown
+  data-start={LAUNCH.launchDate}
+  data-end={LAUNCH.launchPriceEnds}
+  data-regular={formatUsd(one.priceUsd)}
+>
+  <p class="countdown__label" data-cd-label>
+    {formatUsd(one.launchPriceUsd)} launch pricing: {dotDate(LAUNCH.launchDate)} to{' '}
+    {dotDate(LAUNCH.launchPriceEnds)}. Ends
+    <time datetime={LAUNCH.launchPriceEnds}>{utcDateTime(LAUNCH.launchPriceEnds)}</time>.
+  </p>
+  <p class="countdown__digits" data-cd-digits role="timer" aria-live="off" hidden>
+    <span class="countdown__unit">
+      <span class="readout" data-cd="d">
+        00
+      </span>
+      <span class="countdown__u">days</span>
+    </span>
+    <span class="countdown__unit">
+      <span class="readout" data-cd="h">
+        00
+      </span>
+      <span class="countdown__u">hours</span>
+    </span>
+    <span class="countdown__unit">
+      <span class="readout" data-cd="m">
+        00
+      </span>
+      <span class="countdown__u">min</span>
+    </span>
+  </p>
+</div>
+
+<script>
+  const short = (iso: string) =>
+    new Date(iso).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    });
+
+  document.querySelectorAll<HTMLElement>('[data-countdown]').forEach((el) => {
+    const start = new Date(el.dataset.start!).getTime();
+    const end = new Date(el.dataset.end!).getTime();
+    const label = el.querySelector<HTMLElement>('[data-cd-label]')!;
+    const digits = el.querySelector<HTMLElement>('[data-cd-digits]')!;
+    const out = (k: string) => el.querySelector<HTMLElement>(`[data-cd="${k}"]`)!;
+    const endLocal = short(el.dataset.end!);
+    const startLocal = short(el.dataset.start!);
+    let timer = 0;
+    const tick = () => {
+      const now = Date.now();
+      if (now >= end) {
+        label.textContent = `Launch pricing ended ${endLocal}. Detent One is ${el.dataset.regular} from here on.`;
+        digits.hidden = true;
+        el.dataset.state = 'ended';
+        clearInterval(timer);
+        return;
+      }
+      el.dataset.state = now >= start ? 'running' : 'upcoming';
+      label.textContent =
+        now >= start
+          ? `Launch pricing ends ${endLocal}.`
+          : `Launch pricing runs ${startLocal} to ${endLocal}. It ends in`;
+      const s = Math.floor((end - now) / 1000);
+      out('d').textContent = String(Math.floor(s / 86400)).padStart(2, '0');
+      out('h').textContent = String(Math.floor((s % 86400) / 3600)).padStart(2, '0');
+      out('m').textContent = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      digits.setAttribute(
+        'aria-label',
+        `${Math.floor(s / 86400)} days, ${Math.floor((s % 86400) / 3600)} hours, ${Math.floor((s % 3600) / 60)} minutes`,
+      );
+      digits.hidden = false;
+    };
+    tick();
+    timer = window.setInterval(tick, 10_000);
+  });
+</script>
+
+<style>
+  .countdown {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .countdown__label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 34ch;
+  }
+  .countdown__label time {
+    color: var(--ink);
+  }
+  .countdown__digits {
+    display: flex;
+    gap: var(--space-s);
+  }
+  .countdown__unit {
+    display: grid;
+    gap: 0.2rem;
+    min-inline-size: 4.2rem;
+    padding: var(--space-xs) var(--space-s);
+    border-radius: var(--r-m);
+    border: 1px solid var(--line-strong);
+  }
+  .countdown__unit .readout {
+    font-size: var(--step-3);
+    line-height: 1;
+    color: var(--ink-strong);
+    letter-spacing: -0.02em;
+  }
+  .countdown__u {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+</style>

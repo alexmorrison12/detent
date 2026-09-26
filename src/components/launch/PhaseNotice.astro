@@ -1,0 +1,64 @@
+---
+/**
+ * Campaign URLs live forever in old posts. When someone lands on a phase's
+ * page during a different phase, a slim on-air bar says where the launch is
+ * now and links to that phase's page (the header already carries the phase
+ * CTA button, so this stays a quiet link). Pure CSS phase gating
+ * (data-phase-only), so it is right before JS runs.
+ */
+import { PHASES, type Phase } from '@/config/launch';
+import { url } from '@/lib/url';
+
+interface Props {
+  notices: Partial<Record<Phase, string>>;
+  placement: string;
+}
+const { notices, placement } = Astro.props;
+const entries = Object.entries(notices) as [Phase, string][];
+---
+
+{entries.map(([phase, text]) => (
+  <aside class="phase-notice" data-phase-only={phase} aria-label="Launch status">
+    <div class="container phase-notice__inner">
+      <span class="phase-notice__dot" aria-hidden="true" />
+      <a
+        class="phase-notice__link"
+        href={url(PHASES[phase].landing)}
+        data-track="phase_notice_click"
+        data-track-placement={placement}
+      >
+        {text}
+      </a>
+    </div>
+  </aside>
+))}
+
+<style>
+  .phase-notice {
+    border-block-end: 1px solid var(--line);
+    background: var(--bg-raised);
+    font-size: var(--step--1);
+  }
+  .phase-notice__inner {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+    padding-block: 0.7rem;
+  }
+  .phase-notice__dot {
+    flex: none;
+    inline-size: 0.55em;
+    block-size: 0.55em;
+    border-radius: 50%;
+    background: var(--tally);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--tally) 25%, transparent);
+  }
+  .phase-notice__link {
+    color: var(--ink);
+    text-decoration-color: color-mix(in oklch, currentColor 35%, transparent);
+  }
+  .phase-notice__link::after {
+    content: ' →';
+    color: var(--accent-text);
+  }
+</style>

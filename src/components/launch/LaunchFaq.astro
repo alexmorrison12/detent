@@ -1,0 +1,109 @@
+---
+/**
+ * FAQ as question-shaped HTML (<details name> = one open at a time). The
+ * marker is a tiny knob whose indicator turns a quarter when opened.
+ * Pair with faqLd() from ./ld for FAQPage JSON-LD.
+ */
+import type { Faq } from '@/data/product';
+
+interface Props {
+  faqs: Faq[];
+  /** Group name for exclusive accordions. */
+  name: string;
+  /** Open the first item by default. */
+  openFirst?: boolean;
+  class?: string;
+}
+const { faqs, name, openFirst = false, class: className } = Astro.props;
+---
+
+<div class:list={['faq', className]}>
+  {faqs.map((f, i) => (
+    <details name={name} open={openFirst && i === 0}>
+      <summary>
+        <span class="faq__q">{f.q}</span>
+        <svg class="faq__knob" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10.5" fill="none" stroke="currentColor" stroke-width="1.2" />
+          <line
+            class="faq__ind"
+            x1="12"
+            y1="4.5"
+            x2="12"
+            y2="9"
+            stroke="var(--accent)"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </summary>
+      <p class="faq__a">{f.a}</p>
+    </details>
+  ))}
+</div>
+
+<style>
+  .faq {
+    border-top: 1px solid var(--line);
+  }
+  details {
+    border-bottom: 1px solid var(--line);
+  }
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-m);
+    padding-block: var(--space-m);
+    cursor: pointer;
+    list-style: none;
+    font-size: var(--step-1);
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.3;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  summary:focus-visible {
+    outline-offset: 4px;
+  }
+  .faq__knob {
+    flex: none;
+    color: var(--ink-muted);
+    transition: color var(--dur-2) var(--ease-out);
+  }
+  summary:hover .faq__knob {
+    color: var(--ink-strong);
+  }
+  .faq__ind {
+    transform-origin: 12px 12px;
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+  details[open] .faq__ind {
+    transform: rotate(90deg);
+  }
+  .faq__a {
+    max-inline-size: 62ch;
+    padding-block-end: var(--space-m);
+    color: var(--ink-muted);
+  }
+  @supports selector(::details-content) {
+    details::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size var(--dur-3) var(--ease-out),
+        content-visibility var(--dur-3) allow-discrete;
+    }
+    details[open]::details-content {
+      block-size: auto;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq__ind,
+    details::details-content {
+      transition: none;
+    }
+  }
+</style>
