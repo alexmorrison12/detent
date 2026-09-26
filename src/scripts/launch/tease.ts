@@ -83,6 +83,14 @@ async function init(root: HTMLElement) {
     const d = Math.abs(norm(a) - target) % 360;
     return d > 180 ? 360 - d : d;
   };
+  // What a screen reader hears: the time the knob points at (or is heading to:
+  // the engine asks with the destination the moment a key is pressed).
+  const revealTime = revealDot.replace('.', ':');
+  dial.valueText = (s) => {
+    if (solved && dist(s.angle) <= step / 2) return `Set to ${revealTime}`;
+    const t = timeOf(s.angle);
+    return `${t.h}:${String(t.m).padStart(2, '0')}`;
+  };
 
   let touched = false;
   let hintLevel = 0;
@@ -134,7 +142,6 @@ async function init(root: HTMLElement) {
   const paint = rafThrottle((angle: number) => {
     const t = timeOf(angle);
     dial.setAttribute('display', t.text);
-    dial.setAttribute('aria-valuetext', `${t.h}:${String(t.m).padStart(2, '0')}`);
     const idx = Math.round(norm(angle) / step) % detents;
     if (idx !== current) {
       ticks[current]?.classList.remove('is-here');
@@ -185,7 +192,7 @@ async function init(root: HTMLElement) {
     root.style.setProperty('--tune', '1');
     setHint(root.dataset.hintSet!);
     dial.setAttribute('display', revealDot);
-    dial.setAttribute('aria-valuetext', `Set to ${revealDot.replace('.', ':')}`);
+    dial.refreshAria?.();
     trace?.set(1, true);
     track('tease_solve', { seconds: Math.round((performance.now() - startedAt) / 1000) });
     open('solved');

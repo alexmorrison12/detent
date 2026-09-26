@@ -29,13 +29,16 @@ import {
   formatUsd,
 } from '@/data/product';
 import { url } from '@/lib/url';
-import { dotDate, serialRange } from '@/scripts/launch/format';
+import { dotDate, hoursBetween, ptDateTime, serialRange } from '@/scripts/launch/format';
 
 const one = EDITIONS.find((e) => e.id === 'one')!;
 const founders = EDITIONS.find((e) => e.id === 'founders')!;
 const usd = formatUsd;
 const launchDot = dotDate(LAUNCH.launchDate);
 const endDot = dotDate(LAUNCH.launchPriceEnds);
+// The launch price is a window with an end time, not a "week": 72 hours, to Friday, Dec 4, 09:00 PT.
+const windowHours = hoursBetween(LAUNCH.launchDate, LAUNCH.launchPriceEnds);
+const priceEnds = ptDateTime(LAUNCH.launchPriceEnds);
 const spec = (label: string) =>
   SPECS.flatMap((g) => g.rows).find((r) => r.label === label)?.value ?? '';
 const faqs = FAQS.filter(
@@ -70,12 +73,12 @@ const editionCtas = (id: 'one' | 'founders') => [
   title={`${SITE.product} is here`}
   description={`Launch day for ${SITE.product}, a concept dial whose feel changes with every app. ${usd(one.launchPriceUsd)} until ${dotDate(LAUNCH.launchPriceEnds)}, then ${usd(one.priceUsd)}. Watch the 45-second film, rendered live in your browser.`}
   ogImage={ogPath('launch')}
-  ogImageAlt="Detent One is here. Launch week pricing."
+  ogImageAlt={`${SITE.product} is here. ${usd(one.launchPriceUsd)} launch pricing.`}
   chrome="minimal"
   jsonLd={[
     eventLd({
-      name: `${SITE.product} launch week`,
-      description: `${usd(one.launchPriceUsd)} launch pricing on ${SITE.product}.`,
+      name: `${SITE.product} launch`,
+      description: `${usd(one.launchPriceUsd)} launch pricing on ${SITE.product} for ${windowHours} hours, until ${priceEnds}.`,
       start: LAUNCH.launchDate,
       end: LAUNCH.launchPriceEnds,
       url: pageUrl,
@@ -92,7 +95,7 @@ const editionCtas = (id: 'one' | 'founders') => [
       tease: `You’re looking at launch day early: it’s ${launchDot}. The reveal comes first, on ${dotDate(PHASES.waitlist.starts)}.`,
       waitlist: `Launch day is ${launchDot}. Until then, the waitlist gets the ${usd(one.launchPriceUsd)} price.`,
       reserve: `Launch day is ${launchDot}. Reservations are open now and lock the same ${usd(one.launchPriceUsd)}.`,
-      live: `Launch week is over. ${SITE.product} is in the store at ${usd(one.priceUsd)}.`,
+      live: `The launch price ended ${endDot}. ${SITE.product} is in the store at ${usd(one.priceUsd)}.`,
     }}
   />
 
@@ -114,7 +117,8 @@ const editionCtas = (id: 'one' | 'founders') => [
         <p class="lh__lede">
           A machined aluminum dial whose feel changes with the app you’re in.{' '}
           <span data-phase-only="tease waitlist reserve launch">
-            {usd(one.launchPriceUsd)} for launch week, then {usd(one.priceUsd)}.
+            {usd(one.launchPriceUsd)} for the first {windowHours} hours, until {priceEnds}. Then{' '}
+            {usd(one.priceUsd)}.
           </span>
           <span data-phase-only="live">{usd(one.priceUsd)}.</span>
           Free shipping and a {PAYMENT.trialDays}-day studio trial.
@@ -172,9 +176,7 @@ const editionCtas = (id: 'one' | 'founders') => [
               <li>{i}</li>
             ))}
           </ul>
-          <p class="ed__pay" data-phase-only="tease waitlist reserve launch">
-            {PAYMENT.installmentLabel(one.launchPriceUsd)}
-          </p>
+          {/* Pay over time arrives with the live store (docs/LAUNCH_PLAN.md). */}
           <p class="ed__pay" data-phase-only="live">
             {PAYMENT.installmentLabel(one.priceUsd)}
           </p>
@@ -214,7 +216,9 @@ const editionCtas = (id: 'one' | 'founders') => [
               <li>{i}</li>
             ))}
           </ul>
-          <p class="ed__pay">{PAYMENT.installmentLabel(founders.priceUsd)}</p>
+          <p class="ed__pay" data-phase-only="live">
+            {PAYMENT.installmentLabel(founders.priceUsd)}
+          </p>
           {editionCtas('founders').map((c) => (
             <a
               class="btn btn--primary ed__cta"

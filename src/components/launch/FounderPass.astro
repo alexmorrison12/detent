@@ -336,9 +336,11 @@ const reserveLong = longDate(PHASES.reserve.starts);
     inset: 0;
     cursor: pointer;
   }
-  .swatch:hover,
-  .feel:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .swatch:hover,
+    .feel:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .swatch:has(input:checked),
   .feel:has(input:checked) {
@@ -367,6 +369,34 @@ const reserveLong = longDate(PHASES.reserve.starts);
     border-radius: 50%;
     background: var(--feel);
   }
+  /* Windows high contrast: the picked finish and feel take the system selection
+     colors (every border would otherwise read the same); swatches keep their metal. */
+  @media (forced-colors: active) {
+    .swatch:has(input:checked),
+    .feel:has(input:checked) {
+      forced-color-adjust: none;
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+    }
+    .swatch:has(input:checked) .swatch__tag {
+      color: HighlightText;
+    }
+    .swatch:has(input:focus-visible),
+    .feel:has(input:focus-visible) {
+      outline-color: CanvasText;
+    }
+    .swatch__chip {
+      forced-color-adjust: none;
+      box-shadow: inset 0 0 0 1px CanvasText;
+    }
+    .feel__dot {
+      background: CanvasText;
+    }
+    .feel:has(input:checked) .feel__dot {
+      background: HighlightText;
+    }
+  }
 
   .pass__actions {
     display: grid;
@@ -385,7 +415,7 @@ const reserveLong = longDate(PHASES.reserve.starts);
   }
   .pass__ref-row .input {
     min-inline-size: 0;
-    font-size: var(--step--1);
+    font-size: max(16px, var(--step--1)); /* 16px floor: no iOS zoom on focus */
   }
   .pass__status {
     min-block-size: 1.4em;

@@ -16,13 +16,14 @@ import LaunchTimeline from '@/components/launch/LaunchTimeline.astro';
 import FounderPass from '@/components/launch/FounderPass.astro';
 import StickyCta from '@/components/launch/StickyCta.astro';
 import { productLd } from '@/components/launch/ld';
+import { shipsByPhase } from '@/components/launch/ships';
 import { SEGMENT_ANGLE, SEGMENT_SHORT, REST_ANGLE } from '@/components/launch/segments';
 import { PHASES, LAUNCH } from '@/config/launch';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
 import { EDITIONS, PAYMENT, byProfile, formatUsd } from '@/data/product';
 import { SEGMENTS } from '@/lib/waitlist';
-import { dotDate, longDate } from '@/scripts/launch/format';
+import { dotDate, longDate, ptDateTime, shortDate } from '@/scripts/launch/format';
 
 const one = EDITIONS.find((e) => e.id === 'one')!;
 const launchPrice = formatUsd(one.launchPriceUsd);
@@ -30,9 +31,11 @@ const fullPrice = formatUsd(one.priceUsd);
 const reserveDot = dotDate(PHASES.reserve.starts);
 const reserveLong = longDate(PHASES.reserve.starts);
 const endDot = dotDate(LAUNCH.launchPriceEnds);
+// The launch price ends at a time, not a week: "Friday, Dec 4, 09:00 PT".
+const priceEnds = ptDateTime(LAUNCH.launchPriceEnds);
 const deposit = formatUsd(LAUNCH.depositUsd);
-// One string, so a formatter can never wrap a line inside the parentheses (it did: "Batch 1 ( February").
-const batches = `Batch 1 (${LAUNCH.firstShipBatch}) and Batch 2 (${LAUNCH.secondShipBatch})`;
+// When a reservation ships, per phase (PHASES[p].ships): never a batch number typed here.
+const reservationShips = shipsByPhase(['tease', 'waitlist', 'reserve']);
 
 // Selector geometry (degrees, 0 = 12 o'clock) for the arc around the dial.
 const polar = (deg: number, r: number) => {
@@ -60,7 +63,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 
 <BaseLayout
   title="Join the waitlist"
-  description={`Tell us what you’d turn and get on the ${SITE.product} list: the ${launchPrice} launch price (${fullPrice} after launch week), first pick when reservations open ${reserveLong}, and a Feel Pass that’s yours alone.`}
+  description={`Tell us what you’d turn and get on the ${SITE.product} list: the ${launchPrice} launch price (${fullPrice} from ${shortDate(LAUNCH.launchPriceEnds)}), first pick when reservations open ${reserveLong}, and a Feel Pass that’s yours alone.`}
   ogImage={ogPath('waitlist')}
   ogImageAlt="Get in line. Move up. The Detent One waitlist."
   chrome="minimal"
@@ -184,7 +187,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
           <p class="join__offer" id="join-offer">
             <span data-phase-only="tease waitlist">
               The list gets the <strong>{launchPrice}</strong> launch price and reserves first, from{' '}
-              {reserveLong}. After launch week it’s {fullPrice}.
+              {reserveLong}. From {priceEnds}, it’s {fullPrice}.
             </span>
             <span data-phase-only="reserve">
               The list gets one email on launch day and a Feel Pass. The{' '}
@@ -313,11 +316,20 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
         </p>
         <p data-phase-only="tease waitlist">
           <strong>First in line.</strong> Reservations open to the list on {reserveLong}: {deposit},
-          fully refundable, filled in order into {batches}.
+          fully refundable.{' '}
+          {reservationShips.map((g) => (
+            <span data-phase-only={g.phases}>
+              They ship in {g.ships}, in the order they came in.
+            </span>
+          ))}
         </p>
         <p data-phase-only="reserve">
-          <strong>Reservations are open.</strong> {deposit}, fully refundable, filled in order into{' '}
-          {batches}.
+          <strong>Reservations are open.</strong> {deposit}, fully refundable.{' '}
+          {reservationShips.map((g) => (
+            <span data-phase-only={g.phases}>
+              They ship in {g.ships}, in the order they came in.
+            </span>
+          ))}
         </p>
         <p data-phase-only="tease waitlist">
           <strong>Four emails, not forty.</strong> Confirm once, then: the date, reservations open,
@@ -466,14 +478,16 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     color: var(--ink-muted);
   }
   /* While reservations are open, joining the list is the second choice. */
-  :global(html[data-phase='reserve']) .join__row .btn,
-  :global(html[data-phase='reserve']) .join__row .btn:hover {
+  :global(html[data-phase='reserve']) .join__row .btn {
     --btn-bg: transparent;
     --btn-ink: var(--ink-strong);
     --btn-line: var(--line-strong);
   }
-  :global(html[data-phase='reserve']) .join__row .btn:hover {
-    --btn-line: var(--ink);
+  @media (hover: hover) {
+    :global(html[data-phase='reserve']) .join__row .btn:hover {
+      --btn-bg: transparent;
+      --btn-line: var(--ink);
+    }
   }
   .wl__line {
     font-size: var(--step-1);
@@ -546,8 +560,10 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     opacity: 0;
     cursor: pointer;
   }
-  .chip:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .chip:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .chip:active {
     transform: translateY(1px);
@@ -566,6 +582,25 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     block-size: 0.62rem;
     border-radius: 50%;
     background: var(--feel);
+  }
+  /* Windows high contrast: every border turns CanvasText, so the tinted pick
+     would look like the rest. The pick takes the system selection colors. */
+  @media (forced-colors: active) {
+    .chip__dot {
+      background: CanvasText;
+    }
+    .chip:has(input:checked) {
+      forced-color-adjust: none;
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+    }
+    .chip:has(input:checked) .chip__dot {
+      background: HighlightText;
+    }
+    .chip:has(input:focus-visible) {
+      outline-color: CanvasText;
+    }
   }
   .join__row {
     display: grid;

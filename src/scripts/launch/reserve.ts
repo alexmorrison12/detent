@@ -4,15 +4,28 @@
  * one-click cancel.
  *
  * Ritual: the dial gets a physics override of 12 detents (30° each) with a
- * hard stop at 90°. Three clicks reach the stop; the stop "thuds" (sound if
+ * hard stop at 90°. Three clicks reach the stop (drag, wheel, or three arrow
+ * presses: the engine's key step is one detent); the stop "thuds" (sound if
  * enabled, vibrate([12,40,12]) on Android) and arms the button with a tally
  * fill. The button never waits for any of it.
+ *
+ * The shop and /products.json hand a build over as ?edition=&finish= (the
+ * configurator's own field names); the form starts on it. Values that aren't
+ * a real edition or finish, or a finish that edition doesn't come in, are ignored.
  *
  * Deposits are taken only in the reserve phase. In any other phase the form
  * is hidden by CSS (data-phase-only) and this script leaves it unwired, so a
  * stale campaign link can't take a deposit at an expired price.
  */
-import { byEdition, byFinish, formatUsd, type EditionId, type FinishId } from '@/data/product';
+import {
+  EDITIONS,
+  FINISHES,
+  byEdition,
+  byFinish,
+  formatUsd,
+  type EditionId,
+  type FinishId,
+} from '@/data/product';
 import { LAUNCH } from '@/config/launch';
 import { track } from '@/lib/analytics';
 import {
@@ -23,18 +36,14 @@ import {
   reserve,
   type Reservation,
 } from '@/lib/waitlist';
+import type { DetentDialElement } from '@/scripts/dial/types';
 import { initLanding, goToForm, setStickyEnabled, whenDial } from './common';
 import { buzz, prefersReducedMotion, thud } from './feedback';
 import { checkEmail, focusRegion, liveClear, setError, withBusy } from './forms';
 import { downloadIcs } from './ics';
 
-const hero = document.querySelector<HTMLElement>('[data-rv]');
 /** Read live: the phase is set before first paint and can be previewed with ?phase=. */
 const reservationsOpen = () => document.documentElement.dataset.phase === 'reserve';
-if (hero) {
-  if (reservationsOpen()) void init(hero);
-  else void idle();
-}
 
 /** Outside the reserve phase the dial is just the product: turn it, nothing to arm. */
 async function idle() {
@@ -45,6 +54,33 @@ async function idle() {
 
 const deposit = (e: EditionId) =>
   e === 'founders' ? LAUNCH.foundersDepositUsd : LAUNCH.depositUsd;
+
+/** The ritual's geometry, in one place so the page counts exactly what the engine steps. */
+const RITUAL = { detents: 12, stop: 90 };
+const DETENT_DEG = 360 / RITUAL.detents;
+const CLICKS_TO_ARM = Math.round(RITUAL.stop / DETENT_DEG);
+const clicksAt = (angle: number) =>
+  Math.floor((Math.max(0, Math.min(RITUAL.stop, angle)) + 1) / DETENT_DEG);
+
+/** The finish the form starts on (checked in the markup). */
+const START_FINISH: FinishId = 'graphite';
+
+/** A build handed over by the shop or products.json, made whole: an edition and a finish it comes in. */
+function buildFromLink(): { edition: EditionId; finish: FinishId } | null {
+  const q = new URLSearchParams(location.search);
+  const edition = EDITIONS.find((e) => e.id === q.get('edition'));
+  const finish = FINISHES.find((f) => f.id === q.get('finish'));
+  if (edition) {
+    // A finish the edition doesn't come in (One in Tally) is dropped, not obeyed.
+    if (finish && edition.finishes.includes(finish.id))
+      return { edition: edition.id, finish: finish.id };
+    const fallback = edition.finishes.includes(START_FINISH) ? START_FINISH : edition.finishes[0];
+    return fallback ? { edition: edition.id, finish: fallback } : null;
+  }
+  // A finish alone picks the edition it comes in (Tally: Founders).
+  const home = finish && EDITIONS.find((e) => e.finishes.includes(finish.id));
+  return finish && home ? { edition: home.id, finish: finish.id } : null;
+}
 
 async function init(hero: HTMLElement) {
   initLanding({ formTarget: '#reserve-email', doneTarget: '.rv__done-title' });
@@ -66,14 +102,15 @@ async function init(hero: HTMLElement) {
   const stickyLabel = document.querySelector<HTMLElement>('[data-sticky-go]');
   liveClear(email);
 
-  const dial = await whenDial('reserve-dial');
+  /** The live dial, once its engine arrives (it loads lazily; the form doesn't wait for it). */
+  let dial: DetentDialElement | null = null;
 
   /* ---- Edition <-> finish: Tally is Founders, Founders is Tally ---------- */
   const state = (): { edition: EditionId; finish: FinishId } => ({
     edition: (editions.find((i) => i.checked)?.value as EditionId) ?? 'one',
-    finish: (finishes.find((i) => i.checked)?.value as FinishId) ?? 'graphite',
+    finish: (finishes.find((i) => i.checked)?.value as FinishId) ?? START_FINISH,
   });
-  let lastStandard: FinishId = 'graphite';
+  let lastStandard: FinishId = START_FINISH;
   const check = (inputs: HTMLInputElement[], v: string) =>
     inputs.forEach((i) => (i.checked = i.value === v));
 
@@ -127,21 +164,6 @@ async function init(hero: HTMLElement) {
   /* ---- The ritual -------------------------------------------------------- */
   const marks = [...hero.querySelectorAll<SVGGElement>('[data-detent]')];
   let armed = false;
-  if (dial) {
-    dial.physics = { detents: 12, strength: 1, damping: 0.25, spring: 0, stops: [0, 90] };
-    dial.setAngle(0, { instant: true });
-    dial.addEventListener('detent:change', (e) => {
-      const a = Math.max(0, Math.min(90, e.detail.angle));
-      const clicks = Math.floor((a + 1) / 30);
-      marks.forEach((m) => m.classList.toggle('is-on', Number(m.dataset.detent) <= clicks));
-      if (!armed) {
-        hero.style.setProperty('--arm', (a / 90).toFixed(3));
-        dial.setAttribute('display', clicks ? `${clicks} / 3` : 'TURN');
-        dial.setAttribute('aria-valuetext', clicks ? `${clicks} of 3 clicks` : 'Not turned');
-      }
-      if (!armed && a >= 89.5) arm();
-    });
-  }
 
   function arm() {
     armed = true;
@@ -150,7 +172,7 @@ async function init(hero: HTMLElement) {
     thud();
     buzz([12, 40, 12]);
     dial?.setAttribute('display', 'ARMED');
-    dial?.setAttribute('aria-valuetext', 'Armed. Press Reserve when you’re ready');
+    dial?.refreshAria?.();
     track('reserve_ritual_armed', {});
   }
 
@@ -271,6 +293,56 @@ async function init(hero: HTMLElement) {
     render();
     showDone(existing, false);
   } else {
+    const handed = buildFromLink();
+    if (handed) {
+      check(editions, handed.edition);
+      check(finishes, handed.finish);
+      if (!byFinish(handed.finish).foundersOnly) lastStandard = handed.finish;
+    }
     render();
   }
+
+  /* ---- The dial arrives: the ritual, and the finish it previews ---------------- */
+  const d = await whenDial('reserve-dial');
+  if (!d) return;
+  dial = d;
+  d.finish = state().finish;
+  d.physics = {
+    detents: RITUAL.detents,
+    strength: 1,
+    damping: 0.25,
+    spring: 0,
+    stops: [0, RITUAL.stop],
+  };
+  d.setAngle(0, { instant: true });
+  // What a screen reader hears, asked by the engine with the destination the
+  // moment a key is pressed: the third press says "Armed" as it's made.
+  d.valueText = (s) => {
+    const clicks = clicksAt(s.angle);
+    if (armed || clicks >= CLICKS_TO_ARM) return 'Armed. Press Reserve when you’re ready';
+    return clicks ? `${clicks} of ${CLICKS_TO_ARM} clicks` : 'Not turned';
+  };
+  d.addEventListener('detent:change', (e) => {
+    const a = Math.max(0, Math.min(RITUAL.stop, e.detail.angle));
+    const clicks = clicksAt(a);
+    marks.forEach((m) => m.classList.toggle('is-on', Number(m.dataset.detent) <= clicks));
+    // Reserved: the display keeps saying so.
+    if (!armed && hero.dataset.done === undefined) {
+      hero.style.setProperty('--arm', (a / RITUAL.stop).toFixed(3));
+      d.setAttribute('display', clicks ? `${clicks} / ${CLICKS_TO_ARM}` : 'TURN');
+    }
+    if (!armed && a >= RITUAL.stop - 0.5) arm();
+  });
+  // A reservation shown on load: the dial shows the build, and rests.
+  if (hero.dataset.done !== undefined) {
+    d.setAttribute('display', 'RESERVED');
+    d.removeAttribute('interactive');
+  }
+}
+
+// Last, so every constant above is initialised before init runs its synchronous part.
+const hero = document.querySelector<HTMLElement>('[data-rv]');
+if (hero) {
+  if (reservationsOpen()) void init(hero);
+  else void idle();
 }

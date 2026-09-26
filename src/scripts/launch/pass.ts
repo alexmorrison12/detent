@@ -14,7 +14,7 @@ import {
   type FinishId,
   type ProfileId,
 } from '@/data/product';
-import { PHASES } from '@/config/launch';
+import { LAUNCH, PHASES } from '@/config/launch';
 import {
   getEntry,
   referralUrl,
@@ -264,7 +264,7 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
       {
         start: PHASES.reserve.starts,
         title: 'Detent One: reservations open (the list goes first)',
-        description: `Reserve for $20, fully refundable. ${location.origin}${location.pathname.replace(/waitlist\/?$/, 'reserve/')}`,
+        description: `Reserve for ${formatUsd(LAUNCH.depositUsd)}, fully refundable. ${location.origin}${location.pathname.replace(/waitlist\/?$/, 'reserve/')}`,
         url: `${location.origin}${location.pathname.replace(/waitlist\/?$/, 'reserve/')}`,
         alarm: 9,
       },
