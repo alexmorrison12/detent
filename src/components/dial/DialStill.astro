@@ -1,34 +1,72 @@
 ---
 /**
- * A static picture of Detent One. SCAFFOLD: draws an SVG illustration.
- * The dial feature replaces this with real renders (public/renders/*),
- * keeping the same props.
+ * A static picture of Detent One: product stills rendered from the live
+ * three.js scene by scripts/render-stills.mjs (public/renders/*).
+ * AVIF first, WebP fallback, 800 w and 1600 w, transparent background, square.
+ *
+ *   <DialStill finish="glacier" view="top" />
+ *   <DialStill finish="graphite" view="hero" priority />   // above the fold: eager + fetchpriority=high
  */
 import { byFinish, type FinishId } from '@/data/product';
+import { url } from '@/lib/url';
+
+export type StillView = 'hero' | 'top' | 'side' | 'front' | 'exploded';
 
 interface Props {
   finish?: FinishId;
-  view?: 'hero' | 'top' | 'side' | 'front';
+  view?: StillView;
   alt?: string;
   priority?: boolean;
+  /** Rendered width hint for the browser's srcset choice. */
+  sizes?: string;
   class?: string;
 }
-const { finish = 'graphite', view = 'hero', alt, class: className } = Astro.props;
+const {
+  finish = 'graphite',
+  view = 'hero',
+  alt,
+  priority = false,
+  sizes = '(min-width: 64rem) 44vw, 92vw',
+  class: className,
+} = Astro.props;
 const f = byFinish(finish);
-const label = alt ?? `Detent One in ${f.name}, ${view === 'top' ? 'seen from above' : 'three-quarter view'}`;
+const phrase: Record<StillView, string> = {
+  hero: 'three-quarter view from above, display lit',
+  top: 'seen from directly above, the round display showing the Ratchet feel',
+  side: 'in profile: the knurled knob ring on its heavy base',
+  front: 'from the front, at desk height',
+  exploded:
+    'exploded into its parts: glass, display, knob ring, magnet rotor, copper stator, encoder board, battery, base and foot',
+};
+const label = alt ?? `Detent One in ${f.name}, ${phrase[view]}`;
+const src = (ext: 'avif' | 'webp', small: boolean) =>
+  url(`/renders/${finish}-${view}${small ? '-800' : ''}.${ext}`);
+const set = (ext: 'avif' | 'webp') => `${src(ext, true)} 800w, ${src(ext, false)} 1600w`;
 ---
 
-<svg class:list={['dial-still', className]} viewBox="-110 -110 220 220" role="img" aria-label={label}>
-  <circle r="92" fill={f.body} opacity="0.55"></circle>
-  <circle r="74" fill={f.body}></circle>
-  <circle r="52" fill="#0b0a0b"></circle>
-  <circle r="46" fill="none" stroke={f.accent} stroke-width="3" opacity="0.8"></circle>
-  <line x1="0" y1="-70" x2="0" y2="-58" stroke={f.accent} stroke-width="5" stroke-linecap="round" transform="rotate(35)"></line>
-</svg>
+<picture class:list={['dial-still', className]}>
+  <source type="image/avif" srcset={set('avif')} sizes={sizes} />
+  <source type="image/webp" srcset={set('webp')} sizes={sizes} />
+  <img
+    src={src('webp', true)}
+    width="1600"
+    height="1600"
+    alt={label}
+    loading={priority ? 'eager' : 'lazy'}
+    fetchpriority={priority ? 'high' : undefined}
+    decoding={priority ? undefined : 'async'}
+  />
+</picture>
 
 <style>
   .dial-still {
+    display: block;
     inline-size: 100%;
     block-size: 100%;
+  }
+  .dial-still img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
   }
 </style>

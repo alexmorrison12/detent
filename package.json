@@ -9,6 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "render:stills": "node scripts/render-stills.mjs",
     "astro": "astro",
     "check": "astro check",
     "test": "playwright test",

@@ -1,12 +1,19 @@
 ---
 /**
- * The way pages place a Detent dial. Server-renders a still (so there is an
- * image before JS, for no-JS, and as the LCP candidate), then upgrades to
- * the <detent-dial> element. Pages never import three.js directly.
+ * The way pages place a Detent dial. Server-renders a product still (so there
+ * is an image before JS, for no-JS, and as the LCP candidate), then upgrades
+ * to the live <detent-dial>: SVG right away if needed, three.js when the dial
+ * nears the viewport and the browser is idle. Pages never import three.js.
+ *
+ *   <DialStage interactive finish="graphite" profile="ratchet" priority />
+ *   <DialStage camera="exploded" finish="raw" />
+ *   <DialStage interactive steppers profile="wall" label="Master volume" />
+ *
+ * The stage is square by default; give it another aspect-ratio with a class.
  */
 import type { FinishId, ProfileId } from '@/data/product';
 import type { CameraPreset } from '@/scripts/dial/types';
-import DialStill from './DialStill.astro';
+import DialStill, { type StillView } from './DialStill.astro';
 
 interface Props {
   finish?: FinishId;
@@ -21,6 +28,16 @@ interface Props {
   priority?: boolean;
   id?: string;
   class?: string;
+  /** Visible −/+ buttons under the dial: a single-pointer alternative to dragging (WCAG 2.5.7). */
+  steppers?: boolean;
+  /** No sound and no vibration from this dial (decorative dials, grids). */
+  muted?: boolean;
+  /** Boot 3D immediately instead of on idle (above-the-fold toys). */
+  eager?: boolean;
+  /** sizes attribute for the still's srcset. */
+  sizes?: string;
+  /** Opt-in cross-document view transition name (must be unique on the page). */
+  transitionName?: string;
 }
 const {
   finish = 'graphite',
@@ -34,28 +51,107 @@ const {
   priority = false,
   id,
   class: className,
+  steppers = false,
+  muted = false,
+  eager = false,
+  sizes,
+  transitionName,
 } = Astro.props;
+
+// The still whose framing matches this camera; 'config' starts on the hero still
+// and the live dial glides from there once it takes over.
+const stillView: StillView = camera === 'config' ? 'hero' : camera;
+const dialId = id ?? (steppers ? `dial-${Math.random().toString(36).slice(2, 8)}` : undefined);
+const style = transitionName ? `view-transition-name: ${transitionName}` : undefined;
 ---
 
-<detent-dial
-  id={id}
-  class:list={['dial-stage', className]}
-  finish={finish}
-  profile={profile}
-  camera={camera}
-  quality={quality}
-  interactive={interactive || undefined}
-  autorotate={autorotate || undefined}
-  label={label}
-  display={display}
->
-  <div data-dial-fallback class="dial-stage__fallback">
-    <DialStill finish={finish} view={camera === 'top' ? 'top' : 'hero'} priority={priority} />
+{steppers ? (
+  <div class="dial-stage-wrap">
+    <detent-dial
+      id={dialId}
+      class:list={['dial-stage', className]}
+      style={style}
+      finish={finish}
+      profile={profile}
+      camera={camera}
+      quality={quality}
+      interactive={interactive || undefined}
+      autorotate={autorotate || undefined}
+      muted={muted || undefined}
+      loading={eager ? 'eager' : undefined}
+      label={label}
+      display={display}
+    >
+      <div data-dial-fallback data-camera={stillView} class="dial-stage__fallback">
+        <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
+      </div>
+    </detent-dial>
+    <div class="dial-stage__steppers">
+      <button
+        class="dial-step"
+        type="button"
+        data-dial-step="-1"
+        aria-controls={dialId}
+        aria-label="Turn back one step"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M6 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      </button>
+      <button
+        class="dial-step"
+        type="button"
+        data-dial-step="1"
+        aria-controls={dialId}
+        aria-label="Turn forward one step"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path
+            d="M6 12h12M12 6v12"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </div>
   </div>
-</detent-dial>
+) : (
+  <detent-dial
+    id={dialId}
+    class:list={['dial-stage', className]}
+    style={style}
+    finish={finish}
+    profile={profile}
+    camera={camera}
+    quality={quality}
+    interactive={interactive || undefined}
+    autorotate={autorotate || undefined}
+    muted={muted || undefined}
+    loading={eager ? 'eager' : undefined}
+    label={label}
+    display={display}
+  >
+    <div data-dial-fallback data-camera={stillView} class="dial-stage__fallback">
+      <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
+    </div>
+  </detent-dial>
+)}
 
 <script>
   import '@/scripts/dial/detent-dial';
+  import { hapticTap } from '@/scripts/dial/haptics';
+  import { unlockAudio } from '@/scripts/dial/audio';
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as Element | null)?.closest<HTMLButtonElement>('[data-dial-step]');
+    if (!btn) return;
+    const dial = btn.closest('.dial-stage-wrap')?.querySelector('detent-dial');
+    if (!dial) return;
+    unlockAudio();
+    hapticTap();
+    dial.nudge(Number(btn.dataset.dialStep) || 0);
+  });
 </script>
 
 <style>
@@ -68,7 +164,40 @@ const {
   .dial-stage__fallback {
     position: absolute;
     inset: 0;
+  }
+  .dial-stage-wrap {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-s);
+  }
+  .dial-stage__steppers {
+    display: flex;
+    gap: var(--space-xs);
+  }
+  :global(html:not([data-js])) .dial-stage__steppers {
+    display: none;
+  }
+  .dial-step {
     display: grid;
     place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    color: var(--ink-strong);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .dial-step:hover {
+    border-color: var(--ink);
+  }
+  .dial-step:active {
+    transform: translateY(1px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dial-step:active {
+      transform: none;
+    }
   }
 </style>

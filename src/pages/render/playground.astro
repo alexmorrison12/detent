@@ -1,0 +1,585 @@
+---
+/**
+ * Dial lab (noindex): the QA bench for the dial engine. One big dial with
+ * every control, then every feel in every finish, all sharing one WebGL
+ * context. Not linked from the site.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import SoundToggle from '@/components/SoundToggle.astro';
+import { ogPath } from '@/config/og';
+import { FINISHES, PROFILES } from '@/data/product';
+import type { CameraPreset } from '@/scripts/dial/types';
+
+const cameras: { id: CameraPreset; label: string }[] = [
+  { id: 'hero', label: 'Hero' },
+  { id: 'top', label: 'Top' },
+  { id: 'side', label: 'Side' },
+  { id: 'front', label: 'Front' },
+  { id: 'exploded', label: 'Exploded' },
+  { id: 'config', label: 'Config' },
+];
+const partLabels: Record<string, string> = {
+  glass: 'Strengthened glass',
+  display: '1.43″ AMOLED',
+  knob: 'Knob ring, 6061-T6',
+  rotor: 'Magnet rotor',
+  stator: 'Gimbal stator',
+  encoder: '14-bit encoder board',
+  battery: '2,000 mAh cell',
+  base: 'Machined base',
+  foot: 'Micro-suction foot',
+};
+---
+
+<BaseLayout
+  title="Dial lab"
+  description="Internal test bench for the Detent One dial engine: every finish, every feel, camera presets and physics readouts."
+  chrome="none"
+  noindex
+  ogImage={ogPath('default')}
+>
+  <div class="lab container">
+    <header class="lab__head">
+      <h1 class="display display--m">Dial lab</h1>
+      <p class="lede">
+        Every feel in every finish, one GPU context for the whole page. Grab the knob, use the arrow
+        keys, or scroll the wheel while it has focus.
+      </p>
+    </header>
+
+    <section class="bench" aria-label="Main dial and controls">
+      <div class="bench__stage">
+        <DialStage
+          id="lab-dial"
+          interactive
+          eager
+          steppers
+          finish="graphite"
+          profile="ratchet"
+          priority
+          label="Lab dial"
+        />
+        <ol class="parts" role="list" aria-label="Exploded view parts" data-parts hidden>
+          {Object.entries(partLabels).map(([id, text]) => (
+            <li data-part={id}>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div class="panel">
+        <fieldset class="group">
+          <legend>Camera</legend>
+          <div class="seg" role="group">
+            {cameras.map((c) => (
+              <button
+                type="button"
+                class="seg__btn"
+                data-camera={c.id}
+                aria-pressed={c.id === 'hero' ? 'true' : 'false'}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>Finish</legend>
+          <div class="swatches">
+            {FINISHES.map((f) => (
+              <label class="swatch" style={`--swatch: ${f.body}`}>
+                <input type="radio" name="finish" value={f.id} checked={f.id === 'graphite'} />
+                <span class="swatch__dot" aria-hidden="true" />
+                <span>{f.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset class="group">
+          <legend>Feel</legend>
+          <div class="chips">
+            {PROFILES.map((p) => (
+              <label class="chip" style={`--feel: ${p.color}`}>
+                <input type="radio" name="profile" value={p.id} checked={p.id === 'ratchet'} />
+                <span class="chip__dot" aria-hidden="true" />
+                <span>{p.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div class="group group--row">
+          <label class="slider">
+            <span>Explode</span>
+            <input type="range" min="0" max="1" step="0.01" value="0" data-explode />
+          </label>
+          <label class="toggle">
+            <input type="checkbox" data-svg />
+            <span>Vector fallback</span>
+          </label>
+          <span class="sound">
+            Sound <SoundToggle />
+          </span>
+        </div>
+
+        <dl class="readouts" aria-live="off">
+          <div>
+            <dt>Renderer</dt>
+            <dd class="readout" data-out="renderer">
+              none
+            </dd>
+          </div>
+          <div>
+            <dt>Angle</dt>
+            <dd class="readout" data-out="angle">
+              0.0°
+            </dd>
+          </div>
+          <div>
+            <dt>Value</dt>
+            <dd class="readout" data-out="value">
+              0.000
+            </dd>
+          </div>
+          <div>
+            <dt>Index</dt>
+            <dd class="readout" data-out="index">
+              0
+            </dd>
+          </div>
+          <div>
+            <dt>Velocity</dt>
+            <dd class="readout" data-out="velocity">
+              0°/s
+            </dd>
+          </div>
+          <div>
+            <dt>Ticks</dt>
+            <dd class="readout" data-out="ticks">
+              0
+            </dd>
+          </div>
+          <div class="wide">
+            <dt>Last event</dt>
+            <dd class="readout" data-out="event">
+              waiting for a turn
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="matrix" aria-labelledby="matrix-title">
+      <h2 id="matrix-title" class="display display--s">
+        Six feels, four finishes
+      </h2>
+      {PROFILES.map((p) => (
+        <div class="feel" style={`--feel: ${p.color}`}>
+          <div class="feel__text">
+            <h3>{p.name}</h3>
+            <p>{p.feel}</p>
+          </div>
+          <ul class="feel__dials" role="list">
+            {FINISHES.map((f) => (
+              <li>
+                <DialStage
+                  interactive
+                  finish={f.id}
+                  profile={p.id}
+                  label={`${p.name} in ${f.name}`}
+                  sizes="12rem"
+                />
+                <span class="feel__cap">{f.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import type { DetentDialElement, CameraPreset, DialPartId } from '@/scripts/dial/types';
+  import type { FinishId, ProfileId } from '@/data/product';
+
+  const dial = document.getElementById('lab-dial') as DetentDialElement;
+  const out = (k: string) => document.querySelector<HTMLElement>(`[data-out="${k}"]`)!;
+  const parts = document.querySelector<HTMLOListElement>('[data-parts]')!;
+  let ticks = 0;
+
+  document.querySelectorAll<HTMLButtonElement>('[data-camera]').forEach((b) =>
+    b.addEventListener('click', () => {
+      document
+        .querySelectorAll('[data-camera]')
+        .forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      dial.setAttribute('camera', b.dataset.camera as CameraPreset);
+      void dial.whenSettled?.().then(placeParts);
+      follow();
+    }),
+  );
+  document
+    .querySelectorAll<HTMLInputElement>('input[name="finish"]')
+    .forEach((r) => r.addEventListener('change', () => (dial.finish = r.value as FinishId)));
+  document
+    .querySelectorAll<HTMLInputElement>('input[name="profile"]')
+    .forEach((r) => r.addEventListener('change', () => (dial.profile = r.value as ProfileId)));
+  const explode = document.querySelector<HTMLInputElement>('[data-explode]')!;
+  explode.addEventListener('input', () => {
+    dial.explode = Number(explode.value);
+    requestAnimationFrame(placeParts);
+  });
+  document.querySelector<HTMLInputElement>('[data-svg]')!.addEventListener('change', (e) => {
+    dial.setAttribute('quality', (e.target as HTMLInputElement).checked ? 'low' : 'auto');
+  });
+
+  dial.addEventListener('detent:ready', (e) => (out('renderer').textContent = e.detail.renderer));
+  out('renderer').textContent = dial.renderer ?? 'none';
+  dial.addEventListener('detent:change', (e) => {
+    const d = e.detail;
+    out('angle').textContent = `${d.angle.toFixed(1)}°`;
+    out('value').textContent = d.value.toFixed(3);
+    out('index').textContent = String(d.index ?? 0);
+    out('velocity').textContent = `${Math.round(d.velocity ?? 0)}°/s`;
+  });
+  dial.addEventListener('detent:tick', (e) => {
+    ticks++;
+    out('ticks').textContent = String(ticks);
+    out('event').textContent =
+      `${e.detail.kind ?? 'detent'} #${e.detail.index}${e.detail.accent ? ', accent' : ''}`;
+  });
+  dial.addEventListener(
+    'detent:press',
+    (e) => (out('event').textContent = `press, level ${e.detail.level}`),
+  );
+
+  /** Label the exploded parts using the dial's projected anchors. */
+  function placeParts() {
+    explode.value = String(dial.explode);
+    const anchors = dial.partAnchors?.() ?? [];
+    const show = dial.explode > 0.35;
+    parts.hidden = !show;
+    if (!show) return;
+    // One clean label column right of the widest part; leader lines run to each part.
+    const column = Math.max(...anchors.filter((a) => a.visible).map((a) => a.x)) + 20;
+    for (const a of anchors) {
+      const li = parts.querySelector<HTMLElement>(`[data-part="${a.id as DialPartId}"]`);
+      if (!li) continue;
+      li.hidden = !a.visible;
+      li.style.transform = `translate(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px)`;
+      li.style.setProperty('--lead', `${Math.max(12, column - a.x).toFixed(1)}px`);
+    }
+  }
+  /** Keep labels attached during camera glides. */
+  function follow() {
+    const t0 = performance.now();
+    const step = () => {
+      placeParts();
+      if (performance.now() - t0 < 1600) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+  dial.addEventListener('detent:ready', () => requestAnimationFrame(placeParts));
+</script>
+
+<style>
+  .lab {
+    padding-block: var(--space-2xl) var(--section-y);
+  }
+  .lab__head {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-end: var(--space-xl);
+  }
+
+  .bench {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--space-xl);
+    align-items: start;
+  }
+  .bench__stage {
+    position: relative;
+  }
+  .parts {
+    position: absolute;
+    inset: 0 0 auto 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+  }
+  .parts li {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    font-size: var(--step--2);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .parts li::before {
+    content: '';
+    inline-size: var(--lead, 1.75rem);
+    block-size: 1px;
+    background: var(--line-strong);
+  }
+  .parts li span {
+    translate: 0 -0.05em;
+  }
+  .parts li {
+    translate: 0 -50%;
+  }
+
+  .panel {
+    display: grid;
+    gap: var(--space-l);
+    padding-block-start: var(--space-s);
+  }
+  .group {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: var(--space-xs);
+    min-inline-size: 0;
+  }
+  .group legend,
+  .slider span {
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    margin-block-end: var(--space-xs);
+  }
+  .group--row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-m);
+  }
+
+  .seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs);
+    padding: var(--space-3xs);
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    inline-size: fit-content;
+    max-inline-size: 100%;
+  }
+  .seg__btn {
+    min-block-size: 2.75rem;
+    padding-inline: 1rem;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    transition:
+      color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .seg__btn:hover {
+    color: var(--ink-strong);
+  }
+  .seg__btn[aria-pressed='true'] {
+    background: var(--ink-strong);
+    color: var(--bg);
+  }
+
+  .swatches,
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .swatch,
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55em;
+    min-block-size: 2.75rem;
+    padding: 0 1rem 0 0.7rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    cursor: pointer;
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+  .swatch input,
+  .chip input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .swatch:has(input:checked),
+  .chip:has(input:checked) {
+    border-color: var(--ink-strong);
+  }
+  .swatch:has(input:focus-visible),
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .swatch__dot {
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.25);
+  }
+  .chip__dot {
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--feel);
+  }
+
+  .slider {
+    display: grid;
+    gap: var(--space-3xs);
+    flex: 1 1 12rem;
+  }
+  .slider span {
+    margin: 0;
+  }
+  .slider input {
+    accent-color: var(--accent);
+    inline-size: 100%;
+    min-block-size: 2rem;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 560;
+    cursor: pointer;
+  }
+  .toggle input {
+    accent-color: var(--accent);
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+  }
+  .sound {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    font-size: var(--step--1);
+    font-weight: 560;
+  }
+
+  .readouts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-s) var(--space-m);
+    margin: 0;
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--line);
+  }
+  .readouts div {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .readouts .wide {
+    grid-column: 1 / -1;
+  }
+  .readouts dt {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .readouts dd {
+    margin: 0;
+    color: var(--ink-strong);
+  }
+
+  .matrix {
+    margin-block-start: var(--section-y);
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  .feel {
+    display: grid;
+    grid-template-columns: minmax(12rem, 1fr) 3fr;
+    gap: var(--space-l);
+    align-items: center;
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--line);
+  }
+  .feel__text {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .feel__text h3 {
+    font-size: var(--step-2);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    color: var(--feel);
+  }
+  .feel__text p {
+    color: var(--ink-muted);
+    max-inline-size: 32ch;
+  }
+  .feel__dials {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-s);
+    margin: 0;
+    padding: 0;
+  }
+  .feel__dials li {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-3xs);
+  }
+  .feel__cap {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 60rem) {
+    .bench {
+      grid-template-columns: 1fr;
+    }
+    .feel {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 30rem) {
+    .seg {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      inline-size: 100%;
+      border-radius: var(--r-l);
+    }
+    .seg__btn {
+      border-radius: var(--r-m);
+      padding-inline: 0.5rem;
+    }
+    .feel__dials {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .readouts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .parts {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,121 @@
+---
+/**
+ * Render harness (noindex). One dial, full-bleed, transparent background.
+ * scripts/render-stills.mjs drives it with Playwright to make the product
+ * stills in public/renders/. Query parameters (all optional):
+ *
+ *   finish   raw | graphite | glacier | tally          (default graphite)
+ *   camera   hero | top | side | front | exploded | config (default hero)
+ *   profile  ratchet | fluid | spring | clock | wall | magnet (default ratchet)
+ *   angle    knob angle in degrees                       (default 0)
+ *   explode  0..1                                        (default: 1 for camera=exploded, else 0)
+ *   display  text on the round display                   (default: the profile's readout)
+ *   w        square size in CSS px                       (default: the viewport)
+ *   renderer svg to capture the vector fallback instead of 3D (QA)
+ *
+ * window.__renderReady becomes true once the final 3D frame is on screen.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { ogPath } from '@/config/og';
+---
+
+<BaseLayout
+  title="Render harness"
+  description="Internal render harness for Detent One product stills. Not for visitors."
+  chrome="none"
+  noindex
+  ogImage={ogPath('default')}
+>
+  <detent-dial
+    id="render-dial"
+    class="render-dial"
+    quality="high"
+    loading="eager"
+    muted
+    camera="hero"
+    finish="graphite"
+    profile="ratchet"
+  ></detent-dial>
+</BaseLayout>
+
+<script>
+  import type { DetentDialElement } from '@/scripts/dial/types';
+
+  declare global {
+    interface Window {
+      __renderReady?: boolean;
+      __renderError?: string;
+    }
+  }
+
+  const q = new URLSearchParams(location.search);
+  const dial = document.getElementById('render-dial') as DetentDialElement;
+  const pick = (key: string, allowed: string[]) => {
+    const v = q.get(key);
+    return v && allowed.includes(v) ? v : null;
+  };
+  const finish = pick('finish', ['raw', 'graphite', 'glacier', 'tally']);
+  const camera = pick('camera', ['hero', 'top', 'side', 'front', 'exploded', 'config']);
+  const profile = pick('profile', ['ratchet', 'fluid', 'spring', 'clock', 'wall', 'magnet']);
+  if (finish) dial.setAttribute('finish', finish);
+  if (camera) dial.setAttribute('camera', camera);
+  if (profile) dial.setAttribute('profile', profile);
+  const display = q.get('display');
+  if (display) dial.setAttribute('display', display.slice(0, 10));
+  const w = Number(q.get('w'));
+  if (w > 0) dial.style.setProperty('--render-size', `${Math.min(4096, w)}px`);
+
+  const svgOnly = q.get('renderer') === 'svg';
+  if (svgOnly) {
+    dial.setAttribute('quality', 'low');
+    dial.removeAttribute('loading');
+  }
+  const want = svgOnly ? 'svg' : 'webgl2';
+  const angle = Number(q.get('angle'));
+  const explode = q.get('explode');
+
+  const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+  async function run() {
+    await import('@/scripts/dial/detent-dial');
+    if (Number.isFinite(angle) && angle) dial.setAngle(angle, { instant: true });
+    if (explode !== null && Number.isFinite(Number(explode))) dial.explode = Number(explode);
+    await document.fonts.ready;
+    if (dial.renderer !== want) {
+      await new Promise<void>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error(`${want} renderer did not start`)), 45000);
+        dial.addEventListener('detent:ready', function onReady(e) {
+          if (e.detail.renderer !== want) return;
+          clearTimeout(t);
+          dial.removeEventListener('detent:ready', onReady);
+          resolve();
+        });
+      });
+    }
+    await dial.whenSettled?.();
+    await frame();
+    await frame();
+    window.__renderReady = true;
+  }
+  run().catch((err) => {
+    window.__renderError = String(err);
+  });
+</script>
+
+<style is:global>
+  html,
+  body,
+  body[data-world] {
+    background: transparent !important;
+    margin: 0;
+    overflow: hidden;
+  }
+  .render-dial {
+    inline-size: var(--render-size, 100vmin);
+    block-size: var(--render-size, 100vmin);
+    margin: 0 auto;
+  }
+  .render-dial > * {
+    transition: none !important;
+  }
+</style>
