@@ -1,18 +1,20 @@
 ---
 /**
- * Launch week as a short date table: orders open, launch price ends, first
- * batch ships. Honest by construction: every date is from config and shown
+ * The launch price window as a short date table: orders open, launch price
+ * ends, and when an order placed in this phase ships (PHASES[p].ships, one
+ * row per phase group). Honest by construction: every date is from config and shown
  * in full before JS. The browser then marks the next real event and says how
  * far off it is ("in 66 days", "in 2 days, 4 hours"): before launch day that is the
- * day orders open, never the end of a sale that hasn't started; during
- * launch week it is the end of the launch price; after it, nothing counts.
+ * day orders open, never the end of a sale that hasn't started; while the
+ * launch price runs it is its end; after it, nothing counts.
  *
  * The phase preview (?phase=) wins over the calendar for which state shows,
  * so a launch-phase preview never counts down to launch day.
  */
-import { LAUNCH } from '@/config/launch';
+import { LAUNCH, phaseIndex, type Phase } from '@/config/launch';
 import { EDITIONS, formatUsd } from '@/data/product';
 import { dotDate, utcDateTime } from '@/scripts/launch/format';
+import { shipsByPhase, shortMonth } from './ships';
 
 interface Props {
   class?: string;
@@ -20,7 +22,13 @@ interface Props {
 const { class: className } = Astro.props;
 const one = EDITIONS.find((e) => e.id === 'one')!;
 const launchPrice = formatUsd(one.launchPriceUsd);
-const batchShort = LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1');
+const ships = shipsByPhase();
+/** Before launch day the thing that ships is a reservation; from launch day on, an order. */
+const shipper = (phases: string) => {
+  const ordering = phases.split(' ').map((p) => phaseIndex(p as Phase) >= phaseIndex('launch'));
+  if (ordering.every(Boolean)) return 'Orders';
+  return ordering.some(Boolean) ? 'Orders and reservations' : 'Reservations';
+};
 ---
 
 <div
@@ -36,7 +44,7 @@ const batchShort = LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1');
     {dotDate(LAUNCH.launchPriceEnds)}. It ends
     <time datetime={LAUNCH.launchPriceEnds}>{utcDateTime(LAUNCH.launchPriceEnds)}</time>.
   </p>
-  <ol class="countdown__rows" role="list" aria-label="Launch week">
+  <ol class="countdown__rows" role="list" aria-label="Launch price dates">
     <li data-cd-row="start">
       <time class="readout countdown__date" datetime={LAUNCH.launchDate}>
         {dotDate(LAUNCH.launchDate)}
@@ -51,10 +59,14 @@ const batchShort = LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1');
       <span class="countdown__what">Launch price ends</span>
       <span class="readout countdown__left" data-cd-left></span>
     </li>
-    <li>
-      <span class="readout countdown__date">{batchShort}</span>
-      <span class="countdown__what">Batch 1 ships</span>
-    </li>
+    {ships.map((g) => (
+      <li data-phase-only={g.phases}>
+        <span class="readout countdown__date">{shortMonth(g.when)}</span>
+        <span class="countdown__what">
+          {shipper(g.phases)} ship ({g.batch})
+        </span>
+      </li>
+    ))}
   </ol>
 </div>
 
@@ -116,7 +128,7 @@ const batchShort = LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1');
       if (running) {
         el.dataset.state = 'running';
         label.textContent = `Orders are open. The ${el.dataset.price} launch price ends ${endLocal}.`;
-        // A preview of launch week before launch day: no relative time, it would be wrong.
+        // A preview of the launch window before launch day: no relative time, it would be wrong.
         mark('end', now >= start ? end - now : 0);
         return;
       }

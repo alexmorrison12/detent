@@ -16,6 +16,7 @@ import LaunchTimeline from '@/components/launch/LaunchTimeline.astro';
 import LaunchFaq from '@/components/launch/LaunchFaq.astro';
 import StickyCta from '@/components/launch/StickyCta.astro';
 import { faqLd, productLd } from '@/components/launch/ld';
+import { shipsByPhase } from '@/components/launch/ships';
 import { PHASES, LAUNCH } from '@/config/launch';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
@@ -40,6 +41,8 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 const reserveLabel = (id: string) => `Reserve for ${usd(deposit(id))}`;
 const reserveDot = dotDate(PHASES.reserve.starts);
 const endDot = dotDate(LAUNCH.launchPriceEnds);
+// When a reservation ships, per phase (PHASES[p].ships): never a batch number typed here.
+const reservationShips = shipsByPhase(['tease', 'waitlist', 'reserve']);
 const shippingReadout =
   PAYMENT.freeShippingOverUsd === 0 ? 'Free' : `Over ${usd(PAYMENT.freeShippingOverUsd)}`;
 const shippingLine =
@@ -85,7 +88,7 @@ const stopB = polar(96, 138);
 
 <BaseLayout
   title={`Reserve for ${usd(LAUNCH.depositUsd)}. Fully refundable.`}
-  description={`Hold your place for ${SITE.product} with a ${usd(LAUNCH.depositUsd)} deposit that comes off the price. Locks the ${usd(one.launchPriceUsd)} launch price. Batch 1 ships ${LAUNCH.firstShipBatch}. Cancel any time before it ships for all of it back.`}
+  description={`Hold your place for ${SITE.product} with a ${usd(LAUNCH.depositUsd)} deposit that comes off the price. Locks the ${usd(one.launchPriceUsd)} launch price. Reservations ship in ${PHASES.reserve.ships}. Cancel any time before it ships for all of it back.`}
   ogImage={ogPath('reserve')}
   ogImageAlt={`Reserve Detent One for ${usd(LAUNCH.depositUsd)}. Fully refundable.`}
   chrome="minimal"
@@ -257,6 +260,7 @@ const stopB = polar(96, 138);
                 display="TURN"
                 label="Turn to reserve. Optional: the button works without it"
                 priority
+                sizes="(min-width: 60rem) 21.2rem, (min-width: 40rem) 14.2rem, (min-width: 25rem) 12.4rem, 50vw"
               />
             </div>
           </div>
@@ -322,10 +326,8 @@ const stopB = polar(96, 138);
           </div>
           <div>
             <dt>Ships</dt>
-            <dd>
-              Batch 1 ({LAUNCH.firstShipBatch}) or Batch 2 ({LAUNCH.secondShipBatch}), in
-              reservation order.
-            </dd>
+            {/* Shown only while reservations are open, so it's the reserve phase's batch. */}
+            <dd>{PHASES.reserve.ships}, in reservation order.</dd>
           </div>
         </dl>
         <div class="rv__done-actions">
@@ -376,8 +378,12 @@ const stopB = polar(96, 138);
           </span>
           <h3>We email when your batch is ready</h3>
           <p>
-            Batch 1 ships {LAUNCH.firstShipBatch}, Batch 2 {LAUNCH.secondShipBatch}. Reservations
-            fill in order, and you get a ship date before we ask for anything else.
+            {reservationShips.map((g) => (
+              <span data-phase-only={g.phases}>
+                Reservations ship in {g.ships}, in the order they came in.
+              </span>
+            ))}{' '}
+            You get a ship date before we ask for anything else.
           </p>
         </li>
         <li class="how__step how__step--stop">
@@ -413,7 +419,9 @@ const stopB = polar(96, 138);
           </h3>
           <p class="ed__price" data-phase-only="tease waitlist reserve launch">
             <span class="readout ed__now">{usd(one.launchPriceUsd)}</span>
-            <span class="ed__was">{usd(one.priceUsd)} after launch week</span>
+            <span class="ed__was">
+              {usd(one.priceUsd)} from {endDot}
+            </span>
           </p>
           <p class="ed__price" data-phase-only="live">
             <span class="readout ed__now">{usd(one.priceUsd)}</span>
@@ -718,8 +726,10 @@ const stopB = polar(96, 138);
     opacity: 0;
     cursor: pointer;
   }
-  .edition:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .edition:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .edition:has(input:checked) {
     border-color: var(--ink-strong);
@@ -775,8 +785,10 @@ const stopB = polar(96, 138);
     background: var(--swatch);
     box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.25);
   }
-  .finish:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .finish:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .finish:has(input:checked) {
     border-color: var(--ink-strong);
@@ -790,6 +802,41 @@ const stopB = polar(96, 138);
     color: var(--ink-muted);
     min-block-size: 3em;
     max-inline-size: 44ch;
+  }
+  /* Windows high contrast: borders all turn CanvasText and fills drop out, so
+     the picked edition and finish would look like the rest. The pick takes the
+     system selection colors; the swatches keep their metal (they are the choice). */
+  @media (forced-colors: active) {
+    .edition:has(input:checked) {
+      forced-color-adjust: none;
+      border-color: Highlight;
+      background: Highlight;
+      color: HighlightText;
+    }
+    .edition:has(input:checked) .edition__name,
+    .edition:has(input:checked) .edition__price,
+    .edition:has(input:checked) .edition__price s,
+    .edition:has(input:checked) .edition__meta {
+      color: HighlightText;
+    }
+    .edition:has(input:focus-visible),
+    .finish:has(input:focus-visible) {
+      outline-color: CanvasText;
+    }
+    .finish {
+      forced-color-adjust: none;
+      border-color: Canvas;
+    }
+    .finish:hover {
+      border-color: CanvasText;
+    }
+    .finish:has(input:checked) {
+      border: 3px solid Highlight;
+    }
+    .finish__chip {
+      forced-color-adjust: none;
+      box-shadow: inset 0 0 0 1px CanvasText;
+    }
   }
 
   /* ---- Stage + ritual -------------------------------------------------- */

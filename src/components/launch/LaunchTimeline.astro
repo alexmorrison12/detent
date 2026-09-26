@@ -4,9 +4,10 @@
  * The current phase's mark lights up (CSS reads <html data-phase>).
  * Horizontal on wide screens, a vertical rule on phones.
  */
-import { PHASES, LAUNCH } from '@/config/launch';
+import { PHASES, LAUNCH, phaseIndex } from '@/config/launch';
 import { EDITIONS, formatUsd } from '@/data/product';
 import { dotDate } from '@/scripts/launch/format';
+import { phasesShippingIn, shortMonth } from './ships';
 
 interface Props {
   class?: string;
@@ -15,7 +16,14 @@ interface Props {
 }
 const { class: className, labelledBy } = Astro.props;
 const one = EDITIONS.find((e) => e.id === 'one')!;
-const shortMonth = (s: string) => s.replace(/^(\w{3})\w*/, '$1');
+/** Who fills a batch, from the phases whose PHASES[p].ships name it. */
+const filledBy = (when: string) => {
+  const first = phasesShippingIn(when)[0];
+  if (!first) return '';
+  return phaseIndex(first) < phaseIndex('launch')
+    ? 'Reservations, in the order they came in.'
+    : `Orders from ${PHASES[first].name.toLowerCase()} on.`;
+};
 
 const items = [
   {
@@ -46,13 +54,13 @@ const items = [
     phase: 'batch-1',
     date: shortMonth(LAUNCH.firstShipBatch),
     label: 'Batch 1 ships',
-    detail: 'Reservations fill in order.',
+    detail: filledBy(LAUNCH.firstShipBatch),
   },
   {
     phase: 'batch-2',
     date: shortMonth(LAUNCH.secondShipBatch),
     label: 'Batch 2 ships',
-    detail: 'Then the store stays open.',
+    detail: filledBy(LAUNCH.secondShipBatch),
   },
 ];
 ---

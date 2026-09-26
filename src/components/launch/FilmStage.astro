@@ -378,8 +378,10 @@ const first = SHOTS[0]!;
   .film__chapters ol button .readout {
     font-size: var(--step--2);
   }
-  .film__chapters ol button:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .film__chapters ol button:hover {
+      color: var(--ink-strong);
+    }
   }
   .film__chapters ol button[aria-current='true'] {
     background: var(--surface);
@@ -394,8 +396,10 @@ const first = SHOTS[0]!;
     border: 1px solid var(--line-strong);
     color: var(--ink);
   }
-  .film__step:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .film__step:hover {
+      border-color: var(--ink-muted);
+    }
   }
 
   .film__script {

@@ -31,6 +31,39 @@ export function utcDateTime(iso: string): string {
   return `${longDate(iso)}, ${time} UTC`;
 }
 
+/** '2026-12-04T17:00:00Z' -> 'Dec 4' (UTC, like dotDate). */
+export function shortDate(iso: string): string {
+  return toDate(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/**
+ * The launch team's clock: '2026-12-04T17:00:00Z' -> 'Friday, Dec 4, 09:00 PT'
+ * (the same form as the launch banner in src/config/launch.ts);
+ * `weekday: false` -> 'Dec 4, 09:00 PT'.
+ */
+export function ptDateTime(iso: string, { weekday = true } = {}): string {
+  const s = toDate(iso).toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
+    ...(weekday ? { weekday: 'long' as const } : {}),
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  // No-break spaces keep "Dec 4" and "09:00 PT" whole when a line wraps.
+  return `${s.replace(/([A-Z][a-z]{2}) (\d)/, '$1 $2')} PT`;
+}
+
+/** Whole hours from one ISO time to another: the launch price window is 72. */
+export function hoursBetween(from: string, to: string): number {
+  return Math.round((toDate(to).getTime() - toDate(from).getTime()) / 3_600_000);
+}
+
 /** Browser-local version of utcDateTime, e.g. 'December 4, 9:00 AM PST'. */
 export function localDateTime(iso: string): string {
   return toDate(iso).toLocaleString('en-US', {

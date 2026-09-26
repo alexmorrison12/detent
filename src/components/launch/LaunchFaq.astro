@@ -73,8 +73,10 @@ const { faqs, name, openFirst = false, class: className } = Astro.props;
     color: var(--ink-muted);
     transition: color var(--dur-2) var(--ease-out);
   }
-  summary:hover .faq__knob {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    summary:hover .faq__knob {
+      color: var(--ink-strong);
+    }
   }
   .faq__ind {
     transform-origin: 12px 12px;

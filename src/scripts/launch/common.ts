@@ -56,10 +56,16 @@ export function goToForm(target: HTMLElement) {
   field?.focus({ preventScroll: true });
 }
 
+/** An element's own boxes: a display:contents wrapper (the reserve form) has none, its children do. */
+const boxes = (el: Element): Element[] =>
+  getComputedStyle(el).display === 'contents' ? [...el.children].flatMap(boxes) : [el];
+
 /**
  * <div data-sticky-cta data-watch="#hero-cta" data-hide-over="#join">: visible
  * (mobile only, via CSS) once the watched CTA has scrolled up out of view and
- * while the form it points to isn't on screen.
+ * while the form it points to isn't on screen. The form holding data-target
+ * always counts, whatever data-hide-over lists, while the bar's own button is
+ * the one in play: the bar never repeats the form's button or covers its fields.
  */
 function initStickyCta() {
   const bar = document.querySelector<HTMLElement>('[data-sticky-cta]');
@@ -68,13 +74,19 @@ function initStickyCta() {
   const watch = [...document.querySelectorAll(bar.dataset.watch || '__none__')].find(
     (el) => el.getClientRects().length > 0,
   );
-  const over = [...document.querySelectorAll(bar.dataset.hideOver ?? '__none__')];
+  const over = new Set(document.querySelectorAll(bar.dataset.hideOver || '__none__'));
+  const go = bar.querySelector('[data-sticky-go]');
+  const target = bar.dataset.target ? document.querySelector(bar.dataset.target) : null;
+  const ownForm = target?.closest('form');
+  // Phase-gated: in other phases the bar carries a PhaseCTA that goes elsewhere.
+  if (go && ownForm && getComputedStyle(go).display !== 'none')
+    boxes(ownForm).forEach((el) => over.add(el));
   const state = new Map<Element, boolean>();
   // "Gone" means scrolled past (above the viewport), not "not reached yet": a
   // CTA that starts below the fold must not summon the bar over the hero.
   let watchPassed = !watch;
   const update = () => {
-    const overVisible = over.some((el) => state.get(el));
+    const overVisible = [...over].some((el) => state.get(el));
     bar.toggleAttribute(
       'data-visible',
       watchPassed && !overVisible && !bar.hasAttribute('data-off'),
@@ -91,9 +103,8 @@ function initStickyCta() {
   });
   if (watch) io.observe(watch);
   over.forEach((el) => io.observe(el));
-  bar.querySelector('[data-sticky-go]')?.addEventListener('click', (e) => {
-    const target = document.querySelector<HTMLElement>(bar.dataset.target ?? '');
-    if (!target) return;
+  go?.addEventListener('click', (e) => {
+    if (!(target instanceof HTMLElement)) return;
     e.preventDefault();
     goToForm(target);
   });
