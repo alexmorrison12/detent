@@ -2,7 +2,10 @@
 /**
  * Closing: back to 11 p.m. A smaller dial (Raw, Clock: twelve heavy detents,
  * a deeper one at noon) that mounts only when it nears the viewport, so the
- * page never starts two renderers at load. The headline answers it too.
+ * page never starts two renderers at load. Once mounted it renders in full 3D
+ * on the page's one shared WebGL context (the hero dial is off-screen and idle
+ * by then), so the last look before the CTA is the best one. The headline
+ * answers it too.
  */
 import DialStage from '@/components/dial/DialStage.astro';
 import DialStill from '@/components/dial/DialStill.astro';
@@ -22,12 +25,12 @@ const clock = byProfile('clock');
           finish="raw"
           profile={clock.id}
           camera="hero"
-          quality="low"
+          sizes="(min-width: 64rem) 24rem, 78vw"
           label="Detent One in Raw, Clock profile. Drag it, or use the arrow keys, to turn it."
         />
       </template>
       <div class="closing__still" data-lazy-still>
-        <DialStill finish="raw" view="hero" />
+        <DialStill finish="raw" view="hero" sizes="(min-width: 64rem) 24rem, 78vw" />
       </div>
     </div>
     <div class="closing__copy">

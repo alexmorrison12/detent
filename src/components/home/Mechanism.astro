@@ -3,7 +3,8 @@
  * Mechanism: scroll takes the stage dial apart (dial.explode 0 → 1 → 0).
  * The part list is the exploded drawing's callouts, in stack order, top to
  * bottom, so the numbers are a real sequence. The knob's round display names
- * the part in focus. Reduced motion: a static exploded view.
+ * the part in focus, and on the side layout a callout on the model points at
+ * it (instrument.ts). Reduced motion: a static exploded view.
  */
 import { url } from '@/lib/url';
 import { SPECS } from '@/data/product';
@@ -40,6 +41,9 @@ const split = (figure: string) => {
         class="part"
         data-part={p.id}
         data-display={p.display}
+        data-anchor={p.anchor}
+        data-name={p.name}
+        data-figure={p.figure}
         data-active={i === 0 ? '' : undefined}
       >
         <svg class="part__stack" viewBox="0 0 28 40" aria-hidden="true" focusable="false">

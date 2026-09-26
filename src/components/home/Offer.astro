@@ -70,8 +70,7 @@ const tally = FINISHES.find((f) => f.foundersOnly)!;
               comes off the price.
             </p>
             <p class="price__line" data-phase-only="launch">
-              Launch price until {launchPriceEndsLabel}.{' '}
-              {PAYMENT.installmentLabel(one.launchPriceUsd)}.
+              {`Launch price until ${launchPriceEndsLabel}, ${PAYMENT.installmentLabel(one.launchPriceUsd)}.`}
             </p>
             <p class="price__line" data-phase-only="live">
               {PAYMENT.installmentLabel(one.priceUsd)}.
@@ -152,7 +151,11 @@ const tally = FINISHES.find((f) => f.foundersOnly)!;
     </div>
 
     <ul class="assure" role="list" aria-label="What every order includes">
-      <li data-phase-only="tease waitlist reserve">
+      <li data-phase-only="tease waitlist">
+        <strong>Free to join.</strong>
+        <span>No card and no deposit. You reserve when reservations open.</span>
+      </li>
+      <li data-phase-only="reserve">
         <strong>{formatUsd(LAUNCH.depositUsd)} deposit, fully refundable.</strong>
         <span>Cancel any time before your batch ships. No questions.</span>
       </li>
@@ -174,9 +177,14 @@ const tally = FINISHES.find((f) => f.foundersOnly)!;
       </li>
     </ul>
 
-    <p class="offer__batches" data-phase-only="tease waitlist reserve launch">
-      Reservations ship in the order they were made: Batch 1 in {LAUNCH.firstShipBatch}, Batch 2 in
-      {LAUNCH.secondShipBatch}.
+    <p class="offer__batches" data-phase-only="tease waitlist">
+      {`Batch 1 ships in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}.`}
+    </p>
+    <p class="offer__batches" data-phase-only="reserve">
+      {`Reservations ship in the order they were made: Batch 1 in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}.`}
+    </p>
+    <p class="offer__batches" data-phase-only="launch live">
+      {`Orders ship in the order they are placed: Batch 1 in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}.`}
     </p>
 
     <div class="offer__cta">
