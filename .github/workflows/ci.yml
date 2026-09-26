@@ -1,0 +1,97 @@
+# Pull request gate: types, build, internal links, and the Playwright suite
+# (smoke on every route, axe on the funnel, phase switching, cart, dial,
+# feeds) against the built site. A second job builds every other launch
+# phase so a CTA or date change can't break a phase nobody is looking at.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Check, build, links, e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUBLIC_LAUNCH_PHASE: reserve
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      - name: Check internal links
+        run: npm run check:links
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright
+        run: npm run test
+
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  phases:
+    name: Build ${{ matrix.phase }} (${{ matrix.mode }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { phase: tease, mode: demo }
+          - { phase: waitlist, mode: demo }
+          - { phase: launch, mode: demo }
+          - { phase: live, mode: live }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+        env:
+          PUBLIC_LAUNCH_PHASE: ${{ matrix.phase }}
+          PUBLIC_SITE_MODE: ${{ matrix.mode }}
+
+      - name: Check internal links
+        run: npm run check:links

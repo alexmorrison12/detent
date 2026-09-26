@@ -12,6 +12,7 @@
     "astro": "astro",
     "check": "astro check",
     "test": "playwright test",
+    "check:links": "node scripts/check-links.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
