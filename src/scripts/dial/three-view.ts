@@ -70,8 +70,10 @@ import {
 
 const DEG = Math.PI / 180;
 const SEGS = 192;
-/** Halo light on the desk: present, never a stain on a white page. */
+/** Halo light on the desk: a soft pool at night... */
 const GLOW = 0.6;
+/** ...and in a day world a faint line at the foot: the pool reads as a pink stain on white. */
+const GLOW_DAY = 0.4;
 type P = [number, number]; // [radius, y] in mm
 
 /* ------------------------------------------------------------------------ */
@@ -100,12 +102,15 @@ function lcg(seed: number) {
 /* Procedural textures (zero downloads)                                      */
 /* ------------------------------------------------------------------------ */
 
-const KNURL_TEETH = 144;
+/** Knurl lines around the band: the model's count, the one the specs page quotes. */
+const KNURL_TEETH = MM.knurlTeeth;
 const KNURL_ROWS = 12;
+/** Teeth per texture tile: the largest divisor of the count up to 8, so the band has no seam. */
+const KNURL_TILE = [8, 7, 6, 5, 4, 3, 2, 1].find((n) => KNURL_TEETH % n === 0)!;
 
-/** Diamond knurl normal map: one tile = 8 teeth × 1 row, repeated around the band. */
+/** Diamond knurl normal map: one tile = KNURL_TILE teeth × 1 row, repeated around the band. */
 function knurlNormalMap(): DataTexture {
-  const W = 256;
+  const W = 32 * KNURL_TILE;
   const H = 32;
   const data = new Uint8Array(W * H * 4);
   const tri = (x: number) => Math.abs(x - Math.floor(x) - 0.5) * 2;
@@ -115,7 +120,7 @@ function knurlNormalMap(): DataTexture {
   const h = (s: number, t: number) => Math.min(1, 1.25 * Math.min(tri(s + t), tri(s - t)));
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const s = (x / W) * 8;
+      const s = (x / W) * KNURL_TILE;
       const t = y / H;
       const e = 1e-3;
       const dhds = (h(s + e, t) - h(s - e, t)) / (2 * e);
@@ -132,7 +137,7 @@ function knurlNormalMap(): DataTexture {
   }
   const tex = new DataTexture(data, W, H, RGBAFormat);
   tex.wrapS = tex.wrapT = RepeatWrapping;
-  tex.repeat.set(KNURL_TEETH / 8, KNURL_ROWS);
+  tex.repeat.set(KNURL_TEETH / KNURL_TILE, KNURL_ROWS);
   tex.generateMipmaps = true;
   tex.minFilter = LinearMipmapLinearFilter;
   tex.magFilter = LinearFilter;
@@ -311,6 +316,18 @@ class Engine {
   geo!: Record<string, BufferGeometry>;
   mat!: Record<string, Material>;
   private finishes = new Map<FinishId, FinishMats>();
+  private glowDay: CanvasTexture | null = null;
+
+  /** The desk glow for a world. The day one is built the first time a day dial draws. */
+  glowMap(day: boolean): CanvasTexture {
+    if (!day) return this.tex.glow;
+    // Same ring of 24 LEDs, a third of the reach and no long tail.
+    return (this.glowDay ??= radialTexture(180, (r, a) => {
+      if (r < 35) return 0.7;
+      const d = r - 35.5;
+      return 0.62 * Math.exp(-d / 1.8) * (1 + 0.12 * Math.cos(a * 24)) * smooth(44, 37, r);
+    }));
+  }
 
   constructor(readonly antialias: boolean) {
     this.canvas = document.createElement('canvas');
@@ -1001,7 +1018,9 @@ export class ThreeView implements DialView {
     g.foot!.position.y = footY;
     g.ground!.position.y = footY;
     const apart = Math.min(1, s.explode * 1.6);
-    this.own.glow.opacity = GLOW * (1 - 0.85 * apart);
+    const glowMap = this.engine.glowMap(s.day);
+    if (this.own.glow.map !== glowMap) this.own.glow.map = glowMap;
+    this.own.glow.opacity = (s.day ? GLOW_DAY : GLOW) * (1 - 0.85 * apart);
     for (const id of ['battery', 'encoder', 'stator', 'rotor'] as const) {
       const part = PARTS.find((p) => p.id === id)!;
       const prog = partProgress(part.order, s.explode);

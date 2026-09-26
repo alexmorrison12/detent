@@ -174,6 +174,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     'interactive',
     'label',
     'display',
+    'display-sub',
     'camera',
     'autorotate',
     'quality',
@@ -256,6 +257,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #motionKind: 'fluid' | 'spring' | null = null;
   #settleWaiters: (() => void)[] = [];
   #lastHit = '';
+  /** In a day world (light color-scheme): see ViewState.day. Read on connect. */
+  #day = false;
 
   /* ------------------------------- properties ------------------------------- */
 
@@ -353,6 +356,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   connectedCallback() {
     injectStyles();
     if (!this.#init) this.#setup();
+    this.#readWorld();
     this.#observe();
     whenActivated(() => this.#scheduleBoot());
     this.#invalidate();
@@ -385,6 +389,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
         this.#invalidate();
         break;
       case 'display':
+      case 'display-sub':
         this.#invalidate();
         break;
       case 'profile':
@@ -488,6 +493,26 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     window.addEventListener('pageshow', (e) => {
       if (e.persisted) this.#invalidate();
     });
+  }
+
+  /**
+   * Day or night, from where the dial sits: the computed color-scheme (every world
+   * sets one), else the nearest data-world. Worlds are static, and a dial moved
+   * into another one reconnects, so connecting is the one time to look.
+   */
+  #readWorld() {
+    let day = false;
+    try {
+      const scheme = getComputedStyle(this).colorScheme ?? '';
+      day = /\blight\b/.test(scheme)
+        ? !/\bdark\b/.test(scheme)
+        : this.closest('[data-world]')?.getAttribute('data-world') === 'day';
+    } catch {
+      day = false;
+    }
+    if (day === this.#day) return;
+    this.#day = day;
+    this.#dirty = true;
   }
 
   #observe() {
@@ -1159,6 +1184,9 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       atStop: ph.atStop,
     });
     const disp = this.getAttribute('display');
+    // A page's own text owns the whole display: its sub line or none, never the
+    // engine's readout ("/ 24" under "ARMED" would describe a different number).
+    const sub = disp ? (this.getAttribute('display-sub') ?? '') : r.sub;
     const snap = nearestSnap(ph.theta, ph.p);
     let rig = this.#rig;
     if (this.#autoT >= 0) {
@@ -1178,10 +1206,11 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       value: ph.value,
       index: ph.index,
       text: disp ? disp.slice(0, 10) : r.text,
-      sub: r.sub,
+      sub: sub.slice(0, 16),
       rig: explodeRig(rig, this.#explode),
       press: this.#press,
       snap: snap && snap.d < 2.5 * DEG ? snap.i : -1,
+      day: this.#day,
     };
   }
 

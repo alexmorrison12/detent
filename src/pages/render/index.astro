@@ -10,6 +10,7 @@
  *   angle    knob angle in degrees                       (default 0)
  *   explode  0..1                                        (default: 1 for camera=exploded, else 0)
  *   display  text on the round display                   (default: the profile's readout)
+ *   sub      the small line under `display`              (default: none while display is set)
  *   w        square size in CSS px                       (default: the viewport)
  *   renderer svg to capture the vector fallback instead of 3D (QA)
  *
@@ -62,6 +63,8 @@ import { ogPath } from '@/config/og';
   if (profile) dial.setAttribute('profile', profile);
   const display = q.get('display');
   if (display) dial.setAttribute('display', display.slice(0, 10));
+  const sub = q.get('sub');
+  if (sub) dial.setAttribute('display-sub', sub.slice(0, 16));
   const w = Number(q.get('w'));
   if (w > 0) dial.style.setProperty('--render-size', `${Math.min(4096, w)}px`);
 

@@ -25,6 +25,8 @@ interface Props {
   autorotate?: boolean;
   label?: string;
   display?: string;
+  /** Small line under `display` on the knob (without it the line is blank while `display` is set). */
+  displaySub?: string;
   quality?: 'auto' | 'low' | 'high';
   /** Eager-load the still (use for the LCP dial above the fold). */
   priority?: boolean;
@@ -49,6 +51,7 @@ const {
   autorotate = false,
   label,
   display,
+  displaySub,
   quality = 'auto',
   priority = false,
   id,
@@ -83,6 +86,7 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
       loading={eager ? 'eager' : undefined}
       label={label}
       display={display}
+      display-sub={displaySub}
     >
       <div data-dial-fallback data-camera={stillView} class="dial-stage__fallback">
         <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
@@ -133,6 +137,7 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
     loading={eager ? 'eager' : undefined}
     label={label}
     display={display}
+    display-sub={displaySub}
   >
     <div data-dial-fallback data-camera={stillView} class="dial-stage__fallback">
       <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
@@ -182,8 +187,10 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
       border-color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .dial-step:hover {
-    border-color: var(--ink);
+  @media (hover: hover) {
+    .dial-step:hover {
+      border-color: var(--ink);
+    }
   }
   .dial-step:active {
     transform: translateY(1px);
