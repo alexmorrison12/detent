@@ -194,9 +194,15 @@ export async function drawSafeCard(d: SafeCardData): Promise<HTMLCanvasElement> 
   font(ctx, 800, 26, SANS, 'expanded');
   ctx.fillStyle = C.ink;
   ctx.fillText('detent', x + 38, 571);
-  font(ctx, 400, 18, MONO);
+  // The plain address, right of the wordmark: nobody types a ?ref= code off a
+  // picture (the text share carries it). Long hosts step the size down to fit.
+  const room = W - 60 - (x + 38 + ctx.measureText('detent').width + 28);
+  const link = d.url.replace(/^https?:\/\//, '').replace(/[?#].*$/, '');
+  let size = 18;
+  font(ctx, 400, size, MONO);
+  while (ctx.measureText(link).width > room && size > 12) font(ctx, 400, --size, MONO);
   ctx.fillStyle = C.muted;
   ctx.textAlign = 'right';
-  ctx.fillText(d.url.replace(/^https?:\/\//, ''), W - 60, 569);
+  ctx.fillText(link, W - 60, 569);
   return canvas;
 }

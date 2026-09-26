@@ -42,21 +42,56 @@ const jsonLd = [
 
 const steps = [
   {
-    dir: 'R',
+    dir: 'Right',
     title: 'Right to the first',
     body: 'Turn clockwise. Wheel one only listens on a right turn, so slow down when a click feels heavier.',
   },
   {
-    dir: 'L',
+    dir: 'Left',
     title: 'Left to the second',
     body: 'Reverse. Wheel two ignores everything you do going right. Counterclockwise only.',
   },
   {
-    dir: 'R',
+    dir: 'Right',
     title: 'Right to the third',
     body: 'Clockwise again. Set the last number and the bolt draws back.',
   },
 ];
+
+// The route, drawn: three turns on one dial, stepping inward. Degrees are
+// clockwise from noon; each turn ends on a set point (a tally pin, like the
+// pins the game drops on the bezel).
+const at = (deg: number, r: number) => {
+  const a = (deg * Math.PI) / 180;
+  return [+(r * Math.sin(a)).toFixed(2), +(-r * Math.cos(a)).toFixed(2)] as const;
+};
+const turns = [
+  { from: -24, to: 128, r: 94 },
+  { from: 128, to: -118, r: 72 },
+  { from: -118, to: 34, r: 50 },
+].map((t, i, all) => {
+  const cw = t.to > t.from;
+  const [x0, y0] = at(t.from, t.r);
+  const [x1, y1] = at(t.to, t.r);
+  const large = Math.abs(t.to - t.from) > 180 ? 1 : 0;
+  // Arc, then a short radial step in to where the next turn starts.
+  const next = all[i + 1];
+  const step = next ? ` L${at(t.to, next.r).join(' ')}` : '';
+  const arc = `M${x0} ${y0} A${t.r} ${t.r} 0 ${large} ${cw ? 1 : 0} ${x1} ${y1}${step}`;
+  // Arrowhead a few degrees before the set point, pointing along the turn.
+  const tipDeg = t.to - (cw ? 12 : -12);
+  const [hx, hy] = at(tipDeg, t.r);
+  const a = (tipDeg * Math.PI) / 180;
+  const d = cw ? 1 : -1;
+  const [tx, ty] = [Math.cos(a) * d, Math.sin(a) * d];
+  const [nx, ny] = [Math.sin(a), -Math.cos(a)];
+  const pt = (x: number, y: number) => `${x.toFixed(1)} ${y.toFixed(1)}`;
+  const head = `M${pt(hx + tx * 9, hy + ty * 9)} L${pt(hx + nx * 6 - tx * 3, hy + ny * 6 - ty * 3)} L${pt(hx - nx * 6 - tx * 3, hy - ny * 6 - ty * 3)} Z`;
+  // Step number sits on the middle of its turn, knocking out the line.
+  const [lx, ly] = at((t.from + t.to) / 2, t.r);
+  return { arc, head, pin: [x1, y1] as const, label: { x: lx, y: ly }, n: i + 1 };
+});
+const scale = Array.from({ length: 50 }, (_, k) => ({ rot: k * 7.2, long: k % 5 === 0 }));
 ---
 
 <BaseLayout
@@ -159,10 +194,13 @@ const steps = [
             </dd>
           </div>
         </dl>
-        <p class="crack__keys">
+        <p class="crack__keys crack__keys--fine">
           Keyboard: focus the dial. <kbd>←</kbd> <kbd>→</kbd> turn one number, <kbd>Page Up</kbd>{' '}
           <kbd>Page Down</kbd> turn four,
           <kbd>Enter</kbd> sets.
+        </p>
+        <p class="crack__keys crack__keys--coarse">
+          Drag the numbered ring or the knob in a circle. To set a number, tap Set or the knob.
         </p>
       </div>
 
@@ -245,11 +283,19 @@ const steps = [
           Every Detent One comes with{' '}
           {engraving ? engraving.toLowerCase() : 'engraving on the base'}. Safecrackers get one more
           option: the safe number and its combination, set around a tiny engraved dial, the way a
-          watchmaker signs a movement.
+          watchmaker signs a movement. The configurator opens with yours already typed in.
         </p>
         <p class="reward__code">
           Your code <span class="readout" data-code></span>
         </p>
+        <a
+          class="btn btn--solid reward__engrave"
+          href={url('/shop/#configure')}
+          data-engrave-link
+          data-track="crack_engrave"
+        >
+          Engrave it on a Detent One
+        </a>
         <p class="concept-note">
           Detent is a concept product, so there is nothing to redeem this against. The code is a
           keepsake, not a coupon.
@@ -261,17 +307,51 @@ const steps = [
       <h2 id="how-title" class="display display--m">
         How to crack it.
       </h2>
-      <ol class="how__steps" role="list">
-        {steps.map((s) => (
-          <li class="how__step">
-            <span class="how__dir" aria-hidden="true">
-              {s.dir}
-            </span>
-            <h3>{s.title}</h3>
-            <p>{s.body}</p>
-          </li>
-        ))}
-      </ol>
+      <div class="how__route">
+        <svg class="how__dial" viewBox="-124 -124 248 248" aria-hidden="true">
+          <circle r="120" class="how__rim"></circle>
+          {scale.map((t) => (
+            <line
+              class:list={['how__tick', t.long && 'how__tick--long']}
+              x1="0"
+              y1="-120"
+              x2="0"
+              y2={t.long ? -110 : -114}
+              transform={`rotate(${t.rot})`}
+            />
+          ))}
+          <path class="how__index" d="M0 -106 L-6 -122 L6 -122 Z"></path>
+          <circle r="30" class="how__knob"></circle>
+          {turns.map((t) => (
+            <g class="how__turn">
+              <path class="how__arc" d={t.arc}></path>
+              <path class="how__head" d={t.head}></path>
+              <circle class="how__pin" r="5" cx={t.pin[0]} cy={t.pin[1]}></circle>
+              <circle class="how__label" r="9" cx={t.label.x} cy={t.label.y}></circle>
+              <text
+                class="how__n"
+                x={t.label.x}
+                y={t.label.y}
+                text-anchor="middle"
+                dominant-baseline="central"
+              >
+                {t.n}
+              </text>
+            </g>
+          ))}
+        </svg>
+        <ol class="how__steps" role="list">
+          {steps.map((s, i) => (
+            <li class="how__step">
+              <p class="how__mark readout" aria-hidden="true">
+                <span class="how__num">{i + 1}</span> {s.dir}
+              </p>
+              <h3>{s.title}</h3>
+              <p class="how__body">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
       <div class="how__why">
         <h3 class="display display--s">What you’re feeling.</h3>
         <div class="how__why-body">
@@ -301,7 +381,10 @@ const steps = [
           Studio log
         </button>
       </div>
-      <dl class="record__grid">
+      <p class="record__empty" data-record-empty>
+        Nothing on record yet. Open today’s safe and your streak starts at one.
+      </p>
+      <dl class="record__grid" data-record-grid hidden>
         <div>
           <dt>Streak</dt>
           <dd class="readout record__value" data-stat="streak">
@@ -356,6 +439,9 @@ const steps = [
 
 <script>
   import '@/scripts/games/safe-game';
+  import { captureRef } from '@/lib/waitlist';
+  // Shared results link here with ?ref=; keep it so a later join credits the sharer.
+  captureRef();
   document.addEventListener('click', (e) => {
     if ((e.target as Element | null)?.closest('[data-reload]')) location.reload();
   });
@@ -399,7 +485,10 @@ const steps = [
     grid-area: done;
   }
 
-  @media (min-width: 60rem) {
+  /* Two columns on desktop, and on phones held sideways: there the dial can't
+     sit above the controls (it would be taller than the screen), so it pins
+     beside them like on desktop and you turn and set without scrolling. */
+  @media (min-width: 60rem), (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) {
     .crack {
       grid-template-columns: minmax(0, 1.08fr) minmax(21rem, 0.92fr);
       grid-template-areas:
@@ -461,13 +550,28 @@ const steps = [
 
   .crack__stage {
     margin-block-start: var(--space-m);
-    inline-size: min(100%, 40rem);
+    /* Never taller than the screen under the sticky header, so the index mark
+       at noon and the numbers under it are always in view while you turn. */
+    inline-size: min(100%, 40rem, max(15rem, 100svh - var(--header-h) - 2 * var(--space-m)));
     justify-self: center;
   }
   @media (min-width: 60rem) {
     .crack__stage {
       margin-block-start: 0;
       justify-self: stretch;
+    }
+  }
+  @media (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) {
+    .crack {
+      padding-block-start: var(--space-s);
+    }
+    .crack__stage {
+      top: calc(var(--header-h) + var(--space-s));
+      inline-size: min(100%, max(15rem, 100svh - var(--header-h) - 2 * var(--space-s)));
+      margin-block-start: 0;
+    }
+    .crack__controls {
+      margin-block-start: var(--space-s);
     }
   }
 
@@ -592,6 +696,18 @@ const steps = [
     font-size: var(--step--2);
     color: var(--ink-muted);
     line-height: 1.9;
+  }
+  /* Touch screens get touch instructions; the key list is for keyboards. */
+  .crack__keys--coarse {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .crack__keys--fine {
+      display: none;
+    }
+    .crack__keys--coarse {
+      display: block;
+    }
   }
   .sound-state {
     min-inline-size: 3ch;
@@ -744,6 +860,9 @@ const steps = [
     gap: var(--space-xs);
     font-weight: 600;
   }
+  .reward__engrave {
+    justify-self: start;
+  }
   .reward__code .readout {
     padding: 0.3em 0.7em;
     border: 1px dashed var(--line-strong);
@@ -758,33 +877,97 @@ const steps = [
     padding-block: var(--section-y) var(--space-2xl);
     border-block-start: 1px solid var(--line);
   }
-  .how__steps {
+  .how__route {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: var(--space-xl) var(--space-l);
+    gap: var(--space-l);
+    align-items: center;
     margin-block: var(--space-xl) var(--space-2xl);
   }
-  .how__dir {
+  @media (min-width: 48rem) {
+    .how__route {
+      grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
+      gap: clamp(var(--space-l), 5vw, var(--space-3xl));
+    }
+  }
+  .how__dial {
+    inline-size: min(100%, 17rem);
+    justify-self: center;
+    overflow: visible;
+  }
+  @media (min-width: 48rem) {
+    .how__dial {
+      inline-size: 100%;
+    }
+  }
+  .how__rim {
+    fill: var(--bg-raised);
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .how__tick {
+    stroke: var(--ink-faint);
+    stroke-width: 1.2;
+  }
+  .how__tick--long {
+    stroke: var(--ink-muted);
+    stroke-width: 1.8;
+  }
+  .how__index {
+    fill: var(--accent);
+  }
+  .how__knob {
+    fill: var(--surface-2);
+  }
+  .how__arc {
+    fill: none;
+    stroke: var(--ink-strong);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .how__head {
+    fill: var(--ink-strong);
+  }
+  .how__pin {
+    fill: var(--accent);
+  }
+  .how__label {
+    fill: var(--bg-raised);
+    stroke: var(--ink-strong);
+    stroke-width: 1.5;
+  }
+  .how__n {
+    fill: var(--ink-strong);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .how__steps {
+    border-block-start: 1px solid var(--line);
+  }
+  .how__step {
     display: grid;
-    place-items: center;
-    inline-size: 3.5rem;
-    block-size: 3.5rem;
-    margin-block-end: var(--space-s);
-    border-radius: 50%;
-    border: 1.5px solid var(--ink-strong);
-    font-size: var(--step-1);
-    font-weight: 780;
-    font-stretch: var(--stretch-display);
+    grid-template-columns: 5rem minmax(0, 1fr);
+    column-gap: var(--space-s);
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+  }
+  .how__mark {
+    grid-row: span 2;
+    padding-block-start: 0.3em;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .how__num {
     color: var(--ink-strong);
   }
   .how__step h3 {
     font-size: var(--step-1);
     font-stretch: var(--stretch-ui);
-    margin-block-end: var(--space-2xs);
+    margin-block-end: var(--space-3xs);
   }
-  .how__step p {
+  .how__body {
     color: var(--ink-muted);
-    max-inline-size: 34ch;
+    max-inline-size: 48ch;
   }
   .how__why {
     display: grid;
@@ -816,6 +999,19 @@ const steps = [
     justify-content: space-between;
     align-items: baseline;
     gap: var(--space-s);
+  }
+  .record__empty {
+    margin-block: var(--space-m) var(--space-s);
+    padding-block: var(--space-s);
+    border-block: 1px solid var(--line);
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+  .record__grid[hidden],
+  .record__empty[hidden] {
+    display: none;
   }
   .record__grid {
     display: grid;

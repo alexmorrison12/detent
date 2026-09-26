@@ -345,7 +345,7 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   .ach-dock {
     position: fixed;
     inset-inline-start: max(var(--space-s), env(safe-area-inset-left));
-    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom));
+    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom), var(--ach-lift) + var(--space-xs));
     z-index: var(--z-sticky);
     display: grid;
     place-items: center;
@@ -357,7 +357,8 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     box-shadow: var(--shadow-2);
     transition:
       opacity var(--dur-2) var(--ease-out),
-      transform var(--dur-1) var(--ease-out);
+      transform var(--dur-1) var(--ease-out),
+      inset-block-end var(--dur-3) var(--ease-out);
   }
   .ach-dock:not(:hover, :focus-visible) {
     opacity: 0.82;
@@ -389,7 +390,7 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   .ach-toast {
     position: fixed;
     inset-inline-start: max(var(--space-s), env(safe-area-inset-left));
-    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom));
+    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom), var(--ach-lift) + var(--space-xs));
     z-index: var(--z-toast);
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -677,6 +678,30 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     color: var(--ink-strong);
   }
 
+  /* A fixed bottom bar owns the bottom edge while it shows (the shop summary
+     bar below 75rem, a landing page's sticky CTA below 48rem): the dock and
+     toast step up and sit clear of it instead of covering its price or note.
+     An open summary sheet is taller than any fixed offset, so the dock bows
+     out until it closes. */
+  .ach {
+    --ach-lift: 0rem;
+  }
+  @media (max-width: 74.99rem) {
+    :global(html[data-js]:has(.summary-bar[data-visible])) .ach {
+      --ach-lift: calc(4.75rem + env(safe-area-inset-bottom));
+    }
+    :global(html[data-js]:has(.summary-bar[data-visible] [aria-expanded='true'])) .ach-dock {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+  }
+  @media (max-width: 48rem) {
+    :global(html:has(.sticky-cta[data-visible])) .ach {
+      --ach-lift: calc(4.75rem + env(safe-area-inset-bottom));
+    }
+  }
+
   /* Small screens: no resting dock (it would sit on content); toasts become a
      compact banner at the top, clear of game controls and thumb reach. */
   @media (max-width: 40rem) {
@@ -732,6 +757,9 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     }
     .ach-toast [data-ach-tick].is-new {
       animation: none;
+    }
+    .ach-dock {
+      transition: opacity var(--dur-2) var(--ease-out);
     }
     .ach-dock:hover {
       transform: none;
