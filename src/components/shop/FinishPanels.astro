@@ -134,17 +134,21 @@ const alloy = spec('Material').split(',')[0];
     content: '→';
     transition: translate var(--dur-2) var(--ease-out);
   }
-  .fin__link:hover::after {
-    translate: 3px 0;
-  }
-  .fin__link:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.25em;
+  @media (hover: hover) {
+    .fin__link:hover::after {
+      translate: 3px 0;
+    }
+    .fin__link:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.25em;
+    }
   }
   @media (prefers-reduced-motion: no-preference) {
     .fin__still {
       transition: rotate var(--dur-4) var(--ease-out);
     }
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
     .fin:hover .fin__still {
       rotate: 24deg;
     }

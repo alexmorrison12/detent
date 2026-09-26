@@ -14,7 +14,7 @@ import SummaryBar from './SummaryBar.astro';
 
 <section id="configure" class="configure" aria-labelledby="configure-title">
   <div class="container configure__grid">
-    <header class="configure__head">
+    <header class="configure__head" data-configure-head>
       <h1 id="configure-title" class="display configure__title" data-knob-type>
         <span>Build</span>
         <span>yours.</span>
@@ -24,7 +24,7 @@ import SummaryBar from './SummaryBar.astro';
         address, so the link is the save button.
       </p>
     </header>
-    <div class="configure__stage">
+    <div class="configure__stage" data-configure-stage>
       <ConfigStage />
     </div>
     <div class="configure__options">
@@ -181,11 +181,15 @@ import SummaryBar from './SummaryBar.astro';
     }
   }
 
-  /* Line items: shared by the panel and the summary sheet, rendered by script. */
+  /* Line items: shared by the panel and the summary sheet, rendered by script.
+     Labels in the UI face, amounts as readouts, both at the notes' size. */
   .configure :global(.qlines) {
     display: grid;
     gap: 0.55rem;
-    font-size: var(--step--2);
+    font-size: var(--step--1);
+  }
+  .configure :global(.qlines .readout) {
+    font-size: inherit;
   }
   .configure :global(.ql) {
     display: grid;

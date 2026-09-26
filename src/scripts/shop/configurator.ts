@@ -4,6 +4,7 @@
  * redraw stage and price panel → mirror to the URL (replaceState) and
  * localStorage → track config_change.
  */
+import { PHASES } from '@/config/launch';
 import { PAYMENT, byEdition, byFinish, byProfile, formatUsd, type FinishId } from '@/data/product';
 import { ENGRAVING, sanitizeEngraving } from '@/data/shop';
 import { addLine } from '@/lib/cart';
@@ -312,7 +313,8 @@ function init(form: HTMLFormElement) {
     const placement = submitter?.closest('.build-action--bar') ? 'bar' : 'panel';
     const lines = cartLinesFor(state, phase);
     if (!lines.length) {
-      location.href = url('/l/waitlist/');
+      // Nothing is on sale yet: go where this phase's primary action goes.
+      location.href = url(PHASES[phase].primary.href);
       return;
     }
     lines.forEach((l) => addLine(l));
@@ -419,30 +421,39 @@ function init(form: HTMLFormElement) {
   });
 
   /* ------------------------------------------------------- summary bar */
+  // Docked to the bottom on small screens. It earns its place once the
+  // headline and the dial have scrolled away (a sticky dial never leaves, so
+  // beside one only the headline counts), and it gets out of the way while
+  // the panel's own action is on screen: never two buy buttons at once.
   const bar = $<HTMLElement>('[data-summary-bar]');
   const toggle = $<HTMLButtonElement>('[data-summary-toggle]');
   const sheet = $<HTMLElement>('[data-summary-sheet]');
   const section = document.getElementById('configure');
+  const head = $<HTMLElement>('[data-configure-head]');
+  const stageBox = $<HTMLElement>('[data-configure-stage]');
   const panelAction = $<HTMLElement>('[data-panel] .build-action');
-  if (bar && section && panelAction && 'IntersectionObserver' in window) {
-    let inSection = false;
-    let panelSeen = false;
+  if (bar && section && head && stageBox && panelAction && 'IntersectionObserver' in window) {
+    const onScreen = new Map<Element, boolean>([[head, true]]);
     const sync = () => {
-      const show = inSection && !panelSeen;
+      const stageSticky = getComputedStyle(stageBox).position === 'sticky';
+      const intro = onScreen.get(head) || (!stageSticky && onScreen.get(stageBox));
+      const show = !!onScreen.get(section) && !intro && !onScreen.get(panelAction);
       bar.toggleAttribute('data-visible', show);
       if (!show && toggle?.getAttribute('aria-expanded') === 'true') setSheet(false);
     };
-    new IntersectionObserver(([entry]) => {
-      inSection = !!entry?.isIntersecting;
-      sync();
-    }).observe(section);
-    new IntersectionObserver(
-      ([entry]) => {
-        panelSeen = !!entry?.isIntersecting;
+    const watch = (els: Element[], options?: IntersectionObserverInit) => {
+      const io = new IntersectionObserver((entries) => {
+        for (const e of entries) onScreen.set(e.target, e.isIntersecting);
         sync();
-      },
-      { rootMargin: '0px 0px -40px 0px' },
-    ).observe(panelAction);
+      }, options);
+      els.forEach((el) => io.observe(el));
+    };
+    watch([section, head, stageBox]);
+    // The panel's action counts as on screen the moment it clears the bar.
+    watch([panelAction], { rootMargin: `0px 0px -${bar.offsetHeight || 64}px 0px` });
+    // Crossing a layout breakpoint can make the dial sticky (or not) without
+    // any intersection changing.
+    addEventListener('resize', sync, { passive: true });
   }
   function setSheet(open: boolean) {
     if (!toggle || !sheet) return;

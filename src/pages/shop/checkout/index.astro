@@ -8,12 +8,20 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import DialStill from '@/components/dial/DialStill.astro';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
-import { LAUNCH, PHASES } from '@/config/launch';
+import PhaseText from '@/components/shop/PhaseText.astro';
+import { PHASES } from '@/config/launch';
 import { PAYMENT } from '@/data/product';
-import { SHIP_REGIONS } from '@/data/shop';
+import { SHIP_REGIONS, shipParts } from '@/data/shop';
+import { byShips } from '@/data/shop-content';
 import { url } from '@/lib/url';
 
 const us = SHIP_REGIONS[0]!;
+/** An order placed now ships in this phase's batch (PHASES[phase].ships). */
+const ships = byShips();
+const shipsReadout = byShips((s) => {
+  const { batch, date } = shipParts(s);
+  return batch ? `${batch} · ${date}` : date;
+});
 ---
 
 <BaseLayout
@@ -290,7 +298,9 @@ const us = SHIP_REGIONS[0]!;
           </legend>
           <div class="co__delivery" data-co-delivery aria-live="polite">
             <p class="co__delivery-main">
-              <span class="readout">Batch 1 · {LAUNCH.firstShipBatch}</span>
+              <span class="readout">
+                <PhaseText variants={shipsReadout} />
+              </span>
             </p>
             <p data-co-delivery-text>
               Tracked and insured, free. To {us.name}, {us.transit[0]}–{us.transit[1]} business days
@@ -319,7 +329,11 @@ const us = SHIP_REGIONS[0]!;
             <ul role="list" class="co__assure" data-co-only="order">
               <li>{PAYMENT.trialDays}-day studio trial, free returns</li>
               <li>{PAYMENT.warrantyYears}-year warranty</li>
-              <li>Ships with Batch 1, {LAUNCH.firstShipBatch}</li>
+              <li>
+                <span>
+                  Ships with <PhaseText variants={ships} />
+                </span>
+              </li>
             </ul>
             <ul role="list" class="co__assure" data-co-only="reservation" hidden>
               <li>Refundable until your batch ships</li>
@@ -360,8 +374,10 @@ const us = SHIP_REGIONS[0]!;
     color: var(--ink-muted);
     text-decoration: none;
   }
-  .co__back:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .co__back:hover {
+      color: var(--ink-strong);
+    }
   }
   .co__title {
     font-size: var(--step-4);
@@ -667,8 +683,10 @@ const us = SHIP_REGIONS[0]!;
       background-color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .co__wallet:hover {
-    background: var(--graphite-700);
+  @media (hover: hover) {
+    .co__wallet:hover {
+      background: var(--graphite-700);
+    }
   }
   .co__wallet:active {
     transform: translateY(1px);

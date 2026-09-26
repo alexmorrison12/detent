@@ -6,6 +6,7 @@
 import { EDITIONS, FINISHES, SPECS, byEdition } from '@/data/product';
 import { COMPARE } from '@/data/shop-content';
 import { url } from '@/lib/url';
+import PhaseText from './PhaseText.astro';
 
 const inBox = SPECS.find((g) => g.title === 'In the box')?.rows ?? [];
 const founders = byEdition('founders');
@@ -53,10 +54,10 @@ const chips = (edition: (typeof EDITIONS)[number]) =>
                 {r.label}
               </th>
               <td role="cell" data-edition={EDITIONS[0]!.name}>
-                {r.one}
+                {typeof r.one === 'string' ? r.one : <PhaseText variants={r.one} />}
               </td>
               <td role="cell" data-edition={EDITIONS[1]!.name}>
-                {r.founders}
+                {typeof r.founders === 'string' ? r.founders : <PhaseText variants={r.founders} />}
               </td>
             </tr>
           ))}
@@ -215,6 +216,10 @@ const chips = (edition: (typeof EDITIONS)[number]) =>
   .compare__cta td {
     border-block-end: 0;
     padding-block-start: var(--space-m);
+  }
+  /* A full 44px target, whether the name fits on one line or wraps to two. */
+  .compare__cta .link-arrow {
+    min-block-size: 2.75rem;
   }
 
   @media (max-width: 40rem) {

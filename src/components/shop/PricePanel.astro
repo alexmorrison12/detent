@@ -8,10 +8,12 @@
 import { BUILD_PHASE, LAUNCH } from '@/config/launch';
 import { PAYMENT, byEdition, formatUsd } from '@/data/product';
 import { REFERRAL } from '@/data/shop';
+import { byShips } from '@/data/shop-content';
 import { url } from '@/lib/url';
 import { DEFAULT_BUILD, buildTitle, quote, type Build } from '@/scripts/shop/build';
 import { quoteLinesHtml } from '@/scripts/shop/render';
 import BuildAction from './BuildAction.astro';
+import PhaseText from './PhaseText.astro';
 
 interface Props {
   build?: Build;
@@ -31,6 +33,7 @@ const launchEndsShort = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-
   timeZone: 'UTC',
 });
 const one = byEdition('one');
+const founders = byEdition('founders');
 ---
 
 <aside class="panel" id="build-summary" aria-labelledby="build-summary-title" data-panel>
@@ -43,12 +46,7 @@ const one = byEdition('one');
     </p>
   </header>
 
-  <ul
-    role="list"
-    class="panel__lines qlines readout"
-    data-build-lines
-    set:html={quoteLinesHtml(q.lines)}
-  />
+  <ul role="list" class="panel__lines qlines" data-build-lines set:html={quoteLinesHtml(q.lines)} />
 
   <div class="panel__total">
     <span class="panel__total-label">Total</span>
@@ -62,9 +60,10 @@ const one = byEdition('one');
   </div>
 
   <div class="panel__notes">
+    <!-- The launch price is open to every reservation: no early-spot scarcity (launch.ts). -->
     <p data-phase-only="tease waitlist">
-      {one.name} is {formatUsd(one.launchPriceUsd)} for waitlist members who reserve. Founders
-      Edition is always {formatUsd(byEdition('founders').priceUsd)}.
+      Every reservation locks the {formatUsd(one.launchPriceUsd)} launch price. {founders.name} is
+      always {formatUsd(founders.priceUsd)}.
     </p>
     <p data-phase-only="reserve">
       Launch price, locked by your deposit. {formatUsd(one.priceUsd)} after {launchEndsShort}.
@@ -82,14 +81,18 @@ const one = byEdition('one');
     </p>
   </div>
 
-  <dl class="panel__due readout" data-phase-only="reserve">
+  <dl class="panel__due" data-phase-only="reserve">
     <div>
       <dt>Due today, refundable</dt>
-      <dd data-build-deposit>{formatUsd(q.deposit)}</dd>
+      <dd class="readout" data-build-deposit>
+        {formatUsd(q.deposit)}
+      </dd>
     </div>
     <div>
-      <dt>When Batch 1 ships</dt>
-      <dd data-build-balance>{formatUsd(q.total - q.deposit)}</dd>
+      <dt>When your batch ships</dt>
+      <dd class="readout" data-build-balance>
+        {formatUsd(q.total - q.deposit)}
+      </dd>
     </div>
   </dl>
 
@@ -104,7 +107,9 @@ const one = byEdition('one');
   <dl class="panel__facts">
     <div>
       <dt>Ships</dt>
-      <dd>Batch 1, {LAUNCH.firstShipBatch}</dd>
+      <dd>
+        <PhaseText variants={byShips()} />
+      </dd>
     </div>
     <div>
       <dt>Shipping</dt>
@@ -238,7 +243,7 @@ const one = byEdition('one');
     padding: var(--space-s);
     border-radius: var(--r-m);
     background: var(--bg-raised);
-    font-size: var(--step--2);
+    font-size: var(--step--1);
   }
   .panel__due div,
   .panel__facts div {
@@ -287,9 +292,11 @@ const one = byEdition('one');
     font-stretch: var(--stretch-ui);
     color: var(--accent-text);
   }
-  .panel__share-btn:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
+  @media (hover: hover) {
+    .panel__share-btn:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
   }
   .panel__share-status {
     flex-basis: 100%;

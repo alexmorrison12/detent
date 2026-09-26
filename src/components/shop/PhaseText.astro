@@ -1,0 +1,19 @@
+---
+/**
+ * Inline copy that differs by launch phase: one span per variant, each
+ * gated with data-phase-only, so CSS shows the one matching <html
+ * data-phase> (build phase or ?phase= preview) before first paint.
+ *
+ *   Ships <PhaseText variants={byShips()} />
+ */
+import type { PhaseText } from '@/data/shop-content';
+
+interface Props {
+  variants: PhaseText[];
+}
+const { variants } = Astro.props;
+---
+
+{variants.map((v) => (
+  <span data-phase-only={v.phases}>{v.text}</span>
+))}

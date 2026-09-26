@@ -177,8 +177,10 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
           <label class="acc" data-acc={a.id}>
             <input type="checkbox" name="acc" value={a.id} checked={build.acc.includes(a.id)} />
             <span class="acc__name">{a.name}</span>
-            <span class="acc__price readout">
-              <span data-acc-price>+{formatUsd(a.priceUsd)}</span>
+            <span class="acc__price">
+              <span class="readout" data-acc-price>
+                +{formatUsd(a.priceUsd)}
+              </span>
               <span data-acc-included hidden>
                 Included
               </span>
@@ -302,10 +304,12 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .edition:hover,
-  .feel:hover,
-  .acc:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .edition:hover,
+    .feel:hover,
+    .acc:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .edition:has(:checked),
   .feel:has(:checked),
@@ -433,8 +437,10 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
     transform-origin: 50% 172%;
     transform: rotate(35deg);
   }
-  .swatch:hover .swatch__chip {
-    box-shadow: 0 0 0 1px var(--ink-muted);
+  @media (hover: hover) {
+    .swatch:hover .swatch__chip {
+      box-shadow: 0 0 0 1px var(--ink-muted);
+    }
   }
   .swatch:has(:checked) .swatch__chip {
     box-shadow:
@@ -530,9 +536,11 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .chip:hover {
-    border-color: var(--ink);
-    background: var(--bg-raised);
+  @media (hover: hover) {
+    .chip:hover {
+      border-color: var(--ink);
+      background: var(--bg-raised);
+    }
   }
   .chip:active {
     transform: translateY(1px);
@@ -637,8 +645,10 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
     font-stretch: var(--stretch-ui);
     color: var(--ink-strong);
   }
+  /* The price is a readout; "Included" is a word, so it stays in the UI face. */
   .acc__price {
     grid-area: price;
+    font-size: var(--step--1);
     color: var(--ink);
     white-space: nowrap;
   }
@@ -665,8 +675,10 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
     color: var(--ink-strong);
     transition: background-color var(--dur-2) var(--ease-out);
   }
-  .stepper__btn:hover {
-    background: var(--surface);
+  @media (hover: hover) {
+    .stepper__btn:not([aria-disabled='true']):hover {
+      background: var(--surface);
+    }
   }
   .stepper__btn:active {
     transform: translateY(1px);
@@ -675,11 +687,11 @@ const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
     color: var(--ink-faint);
     cursor: default;
   }
-  .stepper__btn[aria-disabled='true']:hover {
-    background: none;
-  }
+  /* The field between the steppers is a 44px target too. */
   .stepper__input {
-    inline-size: 3ch;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    padding: 0;
     border: 0;
     background: none;
     text-align: center;

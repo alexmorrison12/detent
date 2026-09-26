@@ -11,19 +11,33 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import DialStage from '@/components/dial/DialStage.astro';
+import PhaseText from '@/components/shop/PhaseText.astro';
 import { ogPath } from '@/config/og';
-import { LAUNCH } from '@/config/launch';
+import { BUILD_PHASE, LAUNCH, PHASES } from '@/config/launch';
 import { PAYMENT, byEdition, formatUsd } from '@/data/product';
-import { REFERRAL } from '@/data/shop';
+import { REFERRAL, shipParts, shipsOnKnob } from '@/data/shop';
+import { byShips, shipsWith, type PhaseText as Variants } from '@/data/shop-content';
 import { url } from '@/lib/url';
 
 const one = byEdition('one');
 const deposit = formatUsd(LAUNCH.depositUsd);
 const balance = formatUsd(one.launchPriceUsd - LAUNCH.depositUsd);
 
+/*
+ * Ship dates come from PHASES[phase].ships. An order ships in the batch of
+ * the phase it was placed in (phase-gated below, so ?phase= previews agree);
+ * a reservation always holds a place in the reserve phase's batch.
+ */
+const shipsTitle = (ships: string) => {
+  const { batch } = shipParts(ships);
+  return batch ? `${batch} ships` : 'It ships';
+};
+const reserved = shipParts(PHASES.reserve.ships);
+
 interface Step {
-  when: string;
-  title: string;
+  /** Plain text, or phase variants (see byShips). */
+  when: string | Variants[];
+  title: string | Variants[];
   /** {deposit} and {balance} become spans the script fills from the order. */
   text: string;
   /** Append the delivery window / the first feel (filled by the script). */
@@ -46,8 +60,8 @@ const orderSteps: Step[] = [
     text: 'One email when your body comes off the mill, one when it passes its haptics test. That’s all the email you get.',
   },
   {
-    when: LAUNCH.firstShipBatch,
-    title: 'Batch 1 ships',
+    when: byShips((s) => shipParts(s).date),
+    title: byShips(shipsTitle),
     text: 'Tracked, insured and free.',
     transit: true,
   },
@@ -82,8 +96,8 @@ const reservationSteps: Step[] = [
     text: 'When your batch is ready we email a ship date and a link to pay the balance: {balance}, with your {deposit} already taken off. Or cancel, and the {deposit} comes back in full.',
   },
   {
-    when: LAUNCH.firstShipBatch,
-    title: 'Batch 1 ships',
+    when: reserved.date,
+    title: shipsTitle(PHASES.reserve.ships),
     text: 'Tracked, insured and free, to the address you give us with the balance.',
   },
   {
@@ -132,15 +146,15 @@ const reservationSteps: Step[] = [
         </h1>
         <p class="lede">
           <span data-ty-show="none">
-            Your Detent ships with Batch 1 in {LAUNCH.firstShipBatch}.
+            Your Detent ships <PhaseText variants={byShips(shipsWith)} />.
           </span>
           <span data-ty-show="order">
-            Your Detent ships with Batch 1 in {LAUNCH.firstShipBatch}. Here’s everything between now
-            and your desk.
+            Your Detent ships <PhaseText variants={byShips(shipsWith)} />. Here’s everything between
+            now and your desk.
           </span>
           <span data-ty-show="reservation">
-            Your place in Batch 1 is held, and the launch price with it. The deposit comes off the
-            price when your batch is ready.
+            Your place in {reserved.batch || 'line'} is held, and the launch price with it. The
+            deposit comes off the price when your batch is ready.
           </span>
           <span data-ty-show="empty">
             Orders you place in the demo checkout show up here, in this browser. Build one first.
@@ -158,7 +172,7 @@ const reservationSteps: Step[] = [
           camera="hero"
           finish="graphite"
           profile="ratchet"
-          display="BATCH 1"
+          display={shipsOnKnob(PHASES[BUILD_PHASE].ships)}
           label="Your Detent. Turn it while you wait."
         />
       </div>
@@ -182,9 +196,13 @@ const reservationSteps: Step[] = [
           <ol class="timeline" data-ty-show={show}>
             {steps.map((s, i) => (
               <li class:list={['timeline__step', { 'timeline__step--now': i === 0 }]}>
-                <p class="timeline__when readout">{s.when}</p>
+                <p class="timeline__when readout">
+                  {typeof s.when === 'string' ? s.when : <PhaseText variants={s.when} />}
+                </p>
                 <div class="timeline__what">
-                  <p class="timeline__title">{s.title}</p>
+                  <p class="timeline__title">
+                    {typeof s.title === 'string' ? s.title : <PhaseText variants={s.title} />}
+                  </p>
                   <p class="timeline__text">
                     {s.text
                       .split(/(\{deposit\}|\{balance\})/)
@@ -358,6 +376,7 @@ const reservationSteps: Step[] = [
 
   .ty__body {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2xl);
   }
   @media (min-width: 60rem) {
@@ -493,9 +512,11 @@ const reservationSteps: Step[] = [
     font-stretch: var(--stretch-ui);
     color: var(--accent-text);
   }
-  .ty__share:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
+  @media (hover: hover) {
+    .ty__share:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
   }
   .ty__status {
     font-size: var(--step--1);
@@ -528,10 +549,20 @@ const reservationSteps: Step[] = [
     display: flex;
     gap: var(--space-2xs);
   }
+  /* A percentage width keeps the field's intrinsic size (20 characters of
+     mono) from propping the column open on a phone: it takes what is left
+     beside the button, and the link scrolls inside it. */
   .ty__link {
     flex: 1;
+    inline-size: 100%;
     min-inline-size: 0;
     font-size: var(--step--2);
+  }
+  /* iOS zooms the page into any focused field set under 16px. */
+  @media (pointer: coarse), (max-width: 47.99rem) {
+    .ty__link {
+      font-size: max(1rem, 16px);
+    }
   }
   .ty__share--light {
     justify-self: start;

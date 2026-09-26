@@ -4,8 +4,41 @@
  * @/data/product or @/config/launch.
  */
 import { ACCESSORIES, SPECS, PAYMENT, formatUsd, byEdition } from './product';
-import { LAUNCH } from '@/config/launch';
-import { ENGRAVING } from './shop';
+import { LAUNCH, PHASES, PHASE_ORDER } from '@/config/launch';
+import { ENGRAVING, shipParts } from './shop';
+
+/* -------------------------------------------------------------------------- */
+/* Phase-gated copy                                                           */
+/* -------------------------------------------------------------------------- */
+
+/** One version of a line, shown only in `phases` (a data-phase-only list). */
+export interface PhaseText {
+  phases: string;
+  text: string;
+}
+
+/**
+ * When something ordered now ships: PHASES[phase].ships (reservations go in
+ * Batch 1, launch-week and later orders in Batch 2), one variant per
+ * distinct value. Render with <PhaseText>, so the line follows the build
+ * phase and ?phase= previews alike; exactly one variant shows.
+ */
+export function byShips(format: (ships: string) => string = (s) => s): PhaseText[] {
+  const out: PhaseText[] = [];
+  for (const p of PHASE_ORDER) {
+    const text = format(PHASES[p].ships);
+    const same = out.find((v) => v.text === text);
+    if (same) same.phases += ` ${p}`;
+    else out.push({ phases: p, text });
+  }
+  return out;
+}
+
+/** "Batch 2, April 2027" -> "with Batch 2 in April 2027", to follow "ships". */
+export const shipsWith = (ships: string) => {
+  const { batch, date } = shipParts(ships);
+  return batch ? `with ${batch} in ${date}` : `in ${date}`;
+};
 
 /* -------------------------------------------------------------------------- */
 /* Edition comparison                                                         */
@@ -19,8 +52,9 @@ const featurePack = founders.includes.find((i) => /feel pack/i.test(i)) ?? 'Foun
 
 export interface CompareRow {
   label: string;
-  one: string;
-  founders: string;
+  /** Plain text, or phase variants (see byShips). */
+  one: string | PhaseText[];
+  founders: string | PhaseText[];
   /** True when both editions are identical on this row (rendered quieter). */
   same?: boolean;
 }
@@ -68,12 +102,7 @@ export const COMPARE: CompareRow[] = [
     founders: `${PAYMENT.trialDays} days, ${PAYMENT.warrantyYears} years`,
     same: true,
   },
-  {
-    label: 'Ships',
-    one: `Batch 1, ${LAUNCH.firstShipBatch}`,
-    founders: `Batch 1, ${LAUNCH.firstShipBatch}`,
-    same: true,
-  },
+  { label: 'Ships', one: byShips(), founders: byShips(), same: true },
 ];
 
 /* -------------------------------------------------------------------------- */

@@ -7,10 +7,13 @@
  * It never touches the cart: checkout clears it before coming here, and a
  * visitor who comes back to this page may have started a new one.
  */
+import { PHASES } from '@/config/launch';
 import { EDITIONS, FINISHES, PROFILES, formatUsd } from '@/data/product';
+import { shipsOnKnob } from '@/data/shop';
 import { track } from '@/lib/analytics';
 import { url } from '@/lib/url';
 import type { DetentDialElement } from '@/scripts/dial/types';
+import { currentPhase } from './build';
 import { lastOrder } from './order';
 import { esc } from './render';
 import { shareOrCopy } from './share';
@@ -32,9 +35,14 @@ if (!order) {
 
   $('[data-ty-id]')!.textContent = `Demo ${reservation ? 'reservation' : 'order'} ${order.id}`;
 
-  // The dial on the page is theirs: same finish, same first feel.
+  // The dial on the page is theirs: same finish, same first feel, and the
+  // batch it ships in (a reservation holds a place in the reserve batch).
   if (dial && finish) dial.setAttribute('finish', finish.id);
   if (dial && feel) dial.setAttribute('profile', feel.id);
+  dial?.setAttribute(
+    'display',
+    shipsOnKnob(PHASES[reservation ? 'reserve' : currentPhase()].ships),
+  );
 
   // Reservation: the balance they will be asked for, from their own lines.
   if (reservation) {
