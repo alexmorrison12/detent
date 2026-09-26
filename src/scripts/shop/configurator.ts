@@ -21,6 +21,7 @@ import {
   currentPhase,
   depositFor,
   hasBuildParams,
+  hasLaunchPrice,
   includedAccessories,
   normalize,
   parseBuild,
@@ -153,6 +154,11 @@ function init(form: HTMLFormElement) {
     set('[data-build-regular-value]', formatUsd(q.regularTotal));
     $$<HTMLElement>('[data-build-regular]').forEach(
       (el) => (el.hidden = q.regularTotal <= q.total),
+    );
+    // Only an edition with a launch price gets launch-price copy.
+    const note = hasLaunchPrice(b.edition) ? 'launch' : 'regular';
+    $$<HTMLElement>('[data-price-note]').forEach(
+      (el) => (el.hidden = el.dataset.priceNote !== note),
     );
     set('[data-build-installments]', `${PAYMENT.installmentLabel(q.total)}.`);
     set('[data-build-deposit]', formatUsd(q.deposit));
@@ -421,39 +427,31 @@ function init(form: HTMLFormElement) {
   });
 
   /* ------------------------------------------------------- summary bar */
-  // Docked to the bottom on small screens. It earns its place once the
-  // headline and the dial have scrolled away (a sticky dial never leaves, so
-  // beside one only the headline counts), and it gets out of the way while
-  // the panel's own action is on screen: never two buy buttons at once.
+  // Docked to the bottom on small screens, from the first screen on: the
+  // panel with the price sits below the whole form there, and people arrive
+  // from "Order" and "Reserve" buttons expecting a price and an action. It
+  // gets out of the way while the panel's own action is on screen (never two
+  // buy buttons at once) and once the configurator is scrolled past.
   const bar = $<HTMLElement>('[data-summary-bar]');
   const toggle = $<HTMLButtonElement>('[data-summary-toggle]');
   const sheet = $<HTMLElement>('[data-summary-sheet]');
   const section = document.getElementById('configure');
-  const head = $<HTMLElement>('[data-configure-head]');
-  const stageBox = $<HTMLElement>('[data-configure-stage]');
   const panelAction = $<HTMLElement>('[data-panel] .build-action');
-  if (bar && section && head && stageBox && panelAction && 'IntersectionObserver' in window) {
-    const onScreen = new Map<Element, boolean>([[head, true]]);
+  if (bar && section && panelAction && 'IntersectionObserver' in window) {
+    const onScreen = new Map<Element, boolean>();
     const sync = () => {
-      const stageSticky = getComputedStyle(stageBox).position === 'sticky';
-      const intro = onScreen.get(head) || (!stageSticky && onScreen.get(stageBox));
-      const show = !!onScreen.get(section) && !intro && !onScreen.get(panelAction);
+      const show = !!onScreen.get(section) && !onScreen.get(panelAction);
       bar.toggleAttribute('data-visible', show);
       if (!show && toggle?.getAttribute('aria-expanded') === 'true') setSheet(false);
     };
-    const watch = (els: Element[], options?: IntersectionObserverInit) => {
-      const io = new IntersectionObserver((entries) => {
+    const watch = (el: Element, options?: IntersectionObserverInit) =>
+      new IntersectionObserver((entries) => {
         for (const e of entries) onScreen.set(e.target, e.isIntersecting);
         sync();
-      }, options);
-      els.forEach((el) => io.observe(el));
-    };
-    watch([section, head, stageBox]);
+      }, options).observe(el);
+    watch(section);
     // The panel's action counts as on screen the moment it clears the bar.
-    watch([panelAction], { rootMargin: `0px 0px -${bar.offsetHeight || 64}px 0px` });
-    // Crossing a layout breakpoint can make the dial sticky (or not) without
-    // any intersection changing.
-    addEventListener('resize', sync, { passive: true });
+    watch(panelAction, { rootMargin: `0px 0px -${bar.offsetHeight || 64}px 0px` });
   }
   function setSheet(open: boolean) {
     if (!toggle || !sheet) return;

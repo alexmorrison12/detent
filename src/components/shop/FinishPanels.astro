@@ -119,19 +119,23 @@ const alloy = spec('Material').split(',')[0];
     max-inline-size: 32ch;
     min-block-size: 3lh;
   }
+  /* Inline text, so a label that wraps on a narrow card keeps its arrow at
+     the end of the last line. The padding makes the 44px target. */
   .fin__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4em;
+    justify-self: start;
     margin-block-start: var(--space-2xs);
+    padding-block: 0.6rem;
     min-block-size: 2.75rem;
     font-weight: 650;
     font-stretch: var(--stretch-ui);
+    line-height: 1.5;
     color: var(--ink-strong);
     text-decoration: none;
   }
   .fin__link::after {
     content: '→';
+    display: inline-block;
+    margin-inline-start: 0.4em;
     transition: translate var(--dur-2) var(--ease-out);
   }
   @media (hover: hover) {
@@ -153,14 +157,23 @@ const alloy = spec('Material').split(',')[0];
       rotate: 24deg;
     }
   }
+  /* Phones: one sample per row, the still beside its text. One column, or
+     auto-fit would pair up these wide rows between 500 and 640px and push
+     their text past the card edge. */
   @media (max-width: 40rem) {
+    .finishes__list {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .fin {
-      grid-template-columns: 7rem 1fr;
+      grid-template-columns: 6rem minmax(0, 1fr);
       grid-template-rows: auto;
       min-block-size: 0;
-      gap: var(--space-m);
-      padding: var(--space-m);
+      gap: var(--space-s);
+      padding: var(--space-m) var(--space-s);
       align-items: center;
+    }
+    .fin__name {
+      font-size: var(--step-2);
     }
     .fin__line {
       min-block-size: 0;

@@ -21,7 +21,7 @@ import {
   type ProfileId,
 } from '@/data/product';
 import { BUILD_PHASE, LAUNCH, PHASE_ORDER, type Phase } from '@/config/launch';
-import { sanitizeEngraving } from '@/data/shop';
+import { launchPriceEndsLabel, sanitizeEngraving } from '@/data/shop';
 import type { CartLine } from '@/lib/cart';
 
 export interface Build {
@@ -119,6 +119,22 @@ export function serializeBuild(b: Build): string {
   return p.toString().replace(/%2C/g, ',');
 }
 
+/**
+ * A shareable link query for just the device on a cart line: edition,
+ * finish and first feel. Never quantity, accessories or engraving, which are
+ * the buyer's own (a friend should not open a build for two with someone
+ * else's name on it). Null for an accessory.
+ */
+export function deviceQuery(l: Pick<CartLine, 'edition' | 'finish' | 'feel'>): string | null {
+  if (!l.edition || !l.finish) return null;
+  return serializeBuild({
+    ...DEFAULT_BUILD,
+    edition: l.edition,
+    finish: l.finish,
+    feel: l.feel ?? DEFAULT_BUILD.feel,
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* Pricing                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -129,6 +145,42 @@ export const LAUNCH_PRICE_PHASES: Phase[] = ['reserve', 'launch'];
 export function devicePrice(edition: EditionId, phase: Phase): number {
   const e = byEdition(edition);
   return LAUNCH_PRICE_PHASES.includes(phase) ? e.launchPriceUsd : e.priceUsd;
+}
+
+/**
+ * Whether an edition has a launch price below its regular one. Founders
+ * Edition does not: it is one price in every phase, so no copy may promise
+ * it a launch price or a lock.
+ */
+export function hasLaunchPrice(edition: EditionId): boolean {
+  const e = byEdition(edition);
+  return e.launchPriceUsd < e.priceUsd;
+}
+
+/** The regular (post-launch) unit price of a cart line, when it is below it today. */
+export function regularUnitPrice(line: CartLine): number | null {
+  if (line.kind !== 'device' || !line.edition) return null;
+  const regular = byEdition(line.edition).priceUsd;
+  return regular > line.unitPriceUsd ? regular : null;
+}
+
+/** What the launch price saves across a cart (0 outside launch pricing). */
+export function launchSaving(lines: CartLine[]): number {
+  return lines.reduce((n, l) => {
+    const regular = regularUnitPrice(l);
+    return regular === null ? n : n + (regular - l.unitPriceUsd) * l.qty;
+  }, 0);
+}
+
+/**
+ * The launch-week line for a cart holding launch-priced devices: the dated
+ * deadline (never a countdown) and the real saving. Empty otherwise.
+ */
+export function launchNote(lines: CartLine[]): string {
+  const saving = launchSaving(lines);
+  return saving > 0
+    ? `Launch price until ${launchPriceEndsLabel()}. You save ${formatUsd(saving)}.`
+    : '';
 }
 
 export function depositFor(edition: EditionId): number {

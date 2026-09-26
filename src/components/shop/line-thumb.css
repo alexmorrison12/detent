@@ -1,0 +1,46 @@
+/*
+ * Cart line thumbnails (markup: lineThumbHtml in src/scripts/shop/render.ts).
+ * Shared by the cart drawer and the checkout summary, which render lines on
+ * the client, so the rules are global. Imported by both.
+ *   --thumb-size  edge length (default 3.5rem)
+ *   --thumb-bg    tile behind the knob or icon (default --bg-raised)
+ */
+.cart-thumb {
+  display: grid;
+  place-items: center;
+  inline-size: var(--thumb-size, 3.5rem);
+  aspect-ratio: 1;
+  border-radius: var(--r-m);
+  background: var(--thumb-bg, var(--bg-raised));
+}
+/* The knob from above: its finish, and the tally line at 35°. */
+.cart-thumb--knob {
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 50%, var(--chip) 0 44%, transparent 45%),
+    var(--thumb-bg, var(--bg-raised));
+}
+.cart-thumb--knob::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 21%;
+  inset-inline-start: calc(50% - 1.5px);
+  inline-size: 3px;
+  block-size: 13%;
+  border-radius: 2px;
+  background: var(--chip-accent);
+  transform-origin: 50% 223%;
+  transform: rotate(35deg);
+}
+.cart-thumb--acc svg {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* A reservation holds a place, not a device yet: a dashed rim. */
+.cart-thumb--reservation {
+  outline: 1.5px dashed var(--line-strong);
+  outline-offset: -1.5px;
+}

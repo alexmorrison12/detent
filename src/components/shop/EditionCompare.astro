@@ -49,7 +49,11 @@ const chips = (edition: (typeof EDITIONS)[number]) =>
         </thead>
         <tbody role="rowgroup">
           {COMPARE.map((r) => (
-            <tr role="row" class:list={['compare__row', { 'compare__row--same': r.same }]}>
+            <tr
+              role="row"
+              class:list={['compare__row', { 'compare__row--same': r.same }]}
+              data-phase-only={r.phases}
+            >
               <th role="rowheader" scope="row">
                 {r.label}
               </th>

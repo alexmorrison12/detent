@@ -13,7 +13,7 @@ import { shipsOnKnob } from '@/data/shop';
 import { track } from '@/lib/analytics';
 import { url } from '@/lib/url';
 import type { DetentDialElement } from '@/scripts/dial/types';
-import { currentPhase } from './build';
+import { currentPhase, deviceQuery } from './build';
 import { lastOrder } from './order';
 import { esc } from './render';
 import { shareOrCopy } from './share';
@@ -84,10 +84,12 @@ if (!order) {
   $('[data-ty-total]')!.textContent = formatUsd(order.subtotal);
   $('[data-ty-recap]')!.hidden = false;
 
-  // Referral (concept): the build link, carrying this buyer's code. The
-  // reward is a feel profile, never money (REFERRAL in @/data/shop).
+  // Referral (concept): the device's build link (edition, finish, first
+  // feel), carrying this buyer's code. The reward is a feel profile, never
+  // money (REFERRAL in @/data/shop).
   const refer = $<HTMLElement>('[data-ty-refer]')!;
-  const query = `${order.build ? `${order.build}&` : ''}ref=${order.referral}`;
+  const device = first ? deviceQuery(first) : null;
+  const query = `${device ? `${device}&` : ''}ref=${order.referral}`;
   const refLink = new URL(`${url('/shop/')}?${query}`, location.origin).toString();
   const input = $<HTMLInputElement>('[data-ty-link]')!;
   input.value = refLink;

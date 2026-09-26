@@ -6,19 +6,12 @@
  * click. Contract kept for the rest of the site: id="cart-drawer",
  * [data-cart-open], [data-cart-close].
  *
- * Lines are rendered by src/scripts/shop/cart-drawer.ts from the cart store;
- * thumbnails come from the <template>s below so product colors stay in data.
+ * Lines are rendered by src/scripts/shop/cart-drawer.ts from the cart store,
+ * with the thumbnails checkout uses too (lineThumbHtml, line-thumb.css).
  */
-import { ACCESSORIES, FINISHES, PAYMENT } from '@/data/product';
+import { PAYMENT } from '@/data/product';
 import { url } from '@/lib/url';
-
-const accIcons: Record<string, string> = {
-  plinth:
-    '<path d="M3.5 19.5h17v-3.2L3.5 18.8z"/><circle cx="12" cy="11" r="4.6"/><path d="M12 6.4v2.2"/>',
-  case: '<rect x="3.5" y="7.5" width="17" height="11" rx="4"/><path d="M8.5 7.5V6a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 15.5 6v1.5M3.5 13h17"/>',
-  cable:
-    '<rect x="2.5" y="10" width="4" height="4" rx="1"/><path d="M6.5 12h1.5c0-3 3-3 3 0s3 3 3 0 3-3 3 0h1.5"/><path d="M19.5 12h2"/>',
-};
+import '@/components/shop/line-thumb.css';
 ---
 
 <dialog
@@ -96,7 +89,8 @@ const accIcons: Record<string, string> = {
           <dt>Subtotal</dt>
           <dd class="readout" data-cart-subtotal></dd>
         </div>
-        <div>
+        <!-- Deposits ship nothing: hidden for a cart of reservations, as in checkout. -->
+        <div data-cart-ship>
           <dt>Shipping</dt>
           <dd>Free, tracked and insured</dd>
         </div>
@@ -104,7 +98,8 @@ const accIcons: Record<string, string> = {
       <p class="cart-sum__assure" data-cart-assure>
         {PAYMENT.trialDays}-day studio trial, free returns. {PAYMENT.warrantyYears}-year warranty.
       </p>
-      <p class="cart-sum__note" data-cart-installments></p>
+      <!-- The phase's line next to the buttons: the launch-price deadline, or pay over time. -->
+      <p class="cart-sum__note" data-cart-note></p>
       <div class="cart-drawer__actions">
         <a
           class="btn btn--primary cart-drawer__cta"
@@ -147,28 +142,6 @@ const accIcons: Record<string, string> = {
       <p class="concept-note">Checkout is a demo. Detent is a concept, so no payment is taken.</p>
     </footer>
   </div>
-
-  {FINISHES.map((f) => (
-    <template data-thumb={`finish:${f.id}`}>
-      <span
-        class="cart-thumb cart-thumb--knob"
-        style={`--chip: ${f.body}; --chip-accent: ${f.accent}`}
-      />
-    </template>
-  ))}
-  {ACCESSORIES.map((a) => (
-    <template data-thumb={`acc:${a.id}`}>
-      <span class="cart-thumb cart-thumb--acc">
-        <svg
-          viewBox="0 0 24 24"
-          width="26"
-          height="26"
-          aria-hidden="true"
-          set:html={accIcons[a.id] ?? '<circle cx="12" cy="12" r="7"/>'}
-        />
-      </span>
-    </template>
-  ))}
 </dialog>
 
 <script>
@@ -373,45 +346,15 @@ const accIcons: Record<string, string> = {
     text-decoration-color: var(--line-strong);
   }
   .cart-lines :global(.line__price) {
+    display: grid;
+    justify-items: end;
     color: var(--ink-strong);
     white-space: nowrap;
   }
-
-  :global(.cart-thumb) {
-    display: grid;
-    place-items: center;
-    inline-size: 3.5rem;
-    aspect-ratio: 1;
-    border-radius: var(--r-m);
-    background: var(--bg-raised);
-  }
-  :global(.cart-thumb--knob) {
-    position: relative;
-    background:
-      radial-gradient(circle at 50% 50%, var(--chip) 0 44%, transparent 45%), var(--bg-raised);
-  }
-  :global(.cart-thumb--knob::after) {
-    content: '';
-    position: absolute;
-    inset-block-start: 21%;
-    inset-inline-start: calc(50% - 1.5px);
-    inline-size: 3px;
-    block-size: 13%;
-    border-radius: 2px;
-    background: var(--chip-accent);
-    transform-origin: 50% 223%;
-    transform: rotate(35deg);
-  }
-  :global(.cart-thumb--acc svg) {
-    fill: none;
-    stroke: var(--ink);
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  :global(.cart-thumb--reservation) {
-    outline: 1.5px dashed var(--line-strong);
-    outline-offset: -1.5px;
+  /* Launch pricing: the regular price, struck, over what is paid. */
+  .cart-lines :global(.line__was) {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
   }
 
   .cart-empty {
@@ -547,8 +490,8 @@ const accIcons: Record<string, string> = {
     .cart-lines :global(.line) {
       column-gap: var(--space-xs);
     }
-    .cart-lines :global(.cart-thumb) {
-      inline-size: 2.75rem;
+    .cart-lines {
+      --thumb-size: 2.75rem;
     }
   }
 
