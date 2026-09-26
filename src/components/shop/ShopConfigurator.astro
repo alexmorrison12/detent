@@ -1,0 +1,160 @@
+---
+/**
+ * #configure: heading, stage, options and price panel. DOM order is
+ * h1 → dial → choices → summary; the grid rearranges it per width:
+ *   wide:   stage | head+options | panel   (stage and panel sticky)
+ *   tablet: stage | head+options+panel     (stage sticky)
+ *   phone:  one column, docked summary bar
+ */
+import ConfigStage from './ConfigStage.astro';
+import ConfigOptions from './ConfigOptions.astro';
+import PricePanel from './PricePanel.astro';
+import SummaryBar from './SummaryBar.astro';
+---
+
+<section id="configure" class="configure" aria-labelledby="configure-title">
+  <div class="container configure__grid">
+    <header class="configure__head">
+      <h1 id="configure-title" class="display configure__title" data-knob-type>
+        <span>Build</span>
+        <span>yours.</span>
+      </h1>
+      <p class="configure__lede">
+        Pick the edition, the finish and the feel it wakes up in. The build lives in this page’s
+        address, so the link is the save button.
+      </p>
+    </header>
+    <div class="configure__stage">
+      <ConfigStage />
+    </div>
+    <div class="configure__options">
+      <ConfigOptions />
+    </div>
+    <div class="configure__panel">
+      <PricePanel />
+    </div>
+  </div>
+  <SummaryBar />
+</section>
+
+<script>
+  import '@/scripts/shop/configurator';
+</script>
+
+<style>
+  .configure {
+    padding-block: var(--space-l) var(--section-y);
+  }
+  .configure__grid {
+    display: grid;
+    gap: var(--space-xl);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .configure__head {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .configure__title {
+    display: grid;
+    font-size: var(--step-5);
+    transition: font-stretch var(--dur-1) linear;
+  }
+  .configure__title span {
+    white-space: nowrap;
+  }
+  .configure__lede {
+    color: var(--ink-muted);
+    max-width: 42ch;
+  }
+  .configure__options {
+    min-inline-size: 0;
+  }
+
+  @media (max-width: 47.99rem) {
+    .configure__grid {
+      gap: var(--space-l);
+    }
+    .configure__stage {
+      inline-size: min(100%, 26rem);
+      justify-self: center;
+    }
+  }
+
+  @media (min-width: 48rem) {
+    .configure__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      grid-template-areas:
+        'stage head'
+        'stage options'
+        'stage panel';
+      column-gap: clamp(var(--space-l), 4vw, var(--space-2xl));
+    }
+    .configure__head {
+      grid-area: head;
+    }
+    .configure__options {
+      grid-area: options;
+    }
+    .configure__panel {
+      grid-area: panel;
+    }
+    .configure__stage {
+      grid-area: stage;
+      position: sticky;
+      inset-block-start: calc(var(--header-h) + var(--space-m));
+      align-self: start;
+    }
+  }
+
+  @media (min-width: 75rem) {
+    .configure__grid {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(18rem, 21.5rem);
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        'stage head panel'
+        'stage options panel';
+      column-gap: clamp(var(--space-l), 3vw, var(--space-xl));
+    }
+    .configure__panel {
+      position: sticky;
+      inset-block-start: calc(var(--header-h) + var(--space-m));
+      align-self: start;
+    }
+  }
+
+  /* Line items: shared by the panel and the summary sheet, rendered by script. */
+  .configure :global(.qlines) {
+    display: grid;
+    gap: 0.55rem;
+    font-size: var(--step--2);
+  }
+  .configure :global(.ql) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: var(--space-s);
+    align-items: baseline;
+    color: var(--ink);
+  }
+  .configure :global(.ql__amount) {
+    text-align: end;
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+  .configure :global(.ql--note .ql__amount),
+  .configure :global(.ql__qty),
+  .configure :global(.ql__detail) {
+    color: var(--ink-muted);
+  }
+  .configure :global(.ql__detail) {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .configure__title {
+      transition: none;
+    }
+  }
+</style>

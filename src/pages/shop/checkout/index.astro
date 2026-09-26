@@ -1,0 +1,768 @@
+---
+/**
+ * /shop/checkout/: a calm one-page checkout demo. Contact, shipping,
+ * delivery estimate, and a payment step that is plainly a demo: no card
+ * fields, ever. Inputs carry no `name`, so even a no-JS submit sends nothing.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { ogPath } from '@/config/og';
+import { SITE } from '@/config/site';
+import { LAUNCH } from '@/config/launch';
+import { PAYMENT } from '@/data/product';
+import { SHIP_REGIONS } from '@/data/shop';
+import { url } from '@/lib/url';
+
+const us = SHIP_REGIONS[0]!;
+---
+
+<BaseLayout
+  title="Checkout"
+  description={`Check out your Detent: free tracked shipping, a ${PAYMENT.trialDays}-day studio trial and a ${PAYMENT.warrantyYears}-year warranty. A concept demo; no payment is taken.`}
+  ogImage={ogPath('shop')}
+  world="day"
+  chrome="minimal"
+  hideHeaderCta
+  noindex
+>
+  <div class="co container">
+    <header class="co__head">
+      <a class="co__back" href={url('/shop/#cart')}>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path
+            d="M15 6l-6 6 6 6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></path>
+        </svg>
+        Back to your cart
+      </a>
+      <h1 class="display co__title">Checkout</h1>
+      <p class="co__concept">
+        <span class="co__concept-dot" aria-hidden="true"></span>
+        Detent is a concept: no payment is taken, and nothing you type here leaves this page.
+      </p>
+    </header>
+
+    <noscript>
+      <p class="co__noscript">
+        Checkout needs JavaScript, because your cart lives in this browser. Nothing is sent to a
+        server.
+      </p>
+    </noscript>
+
+    <div class="co__empty" data-co-empty hidden>
+      <p class="co__empty-title">Your cart is empty.</p>
+      <p class="muted">Nothing to check out yet. Configuring a Detent takes about a minute.</p>
+      <a class="btn btn--primary" href={url('/shop/#configure')}>
+        Build yours
+      </a>
+    </div>
+
+    <div class="co__grid" data-co-grid>
+      <aside class="co__summary" aria-labelledby="co-summary-title">
+        <details class="co__details" open data-co-details>
+          <summary class="co__summary-head">
+            <h2 id="co-summary-title" class="co__h2">
+              Order summary
+            </h2>
+            <span class="co__summary-total readout" data-co-total-short></span>
+            <svg class="co__chev" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                d="M6 9l6 6 6-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></path>
+            </svg>
+          </summary>
+          <ul role="list" class="co__lines" data-co-lines></ul>
+          <dl class="co__totals">
+            <div>
+              <dt>Subtotal</dt>
+              <dd class="readout" data-co-subtotal></dd>
+            </div>
+            <div>
+              <dt>Shipping</dt>
+              <dd>Free</dd>
+            </div>
+            <div>
+              <dt>Taxes and duties</dt>
+              <dd>Included</dd>
+            </div>
+            <div class="co__grand">
+              <dt data-co-total-label>Total</dt>
+              <dd class="readout" data-co-total></dd>
+            </div>
+          </dl>
+          <p class="co__installments" data-co-installments></p>
+          <ul role="list" class="co__assure">
+            <li>{PAYMENT.trialDays}-day studio trial, free returns</li>
+            <li>{PAYMENT.warrantyYears}-year warranty, parts and labor</li>
+            <li>Ships with Batch 1, {LAUNCH.firstShipBatch}</li>
+          </ul>
+        </details>
+      </aside>
+
+      <form class="co__form" id="checkout" novalidate data-checkout>
+        <div class="co__errors" data-co-errors tabindex="-1" role="alert" hidden>
+          <p class="co__errors-title" data-co-errors-title></p>
+          <ul role="list" data-co-errors-list></ul>
+        </div>
+
+        <section class="co__express" aria-labelledby="express-title">
+          <h2 id="express-title" class="co__h2">
+            Express checkout
+          </h2>
+          <button type="button" class="co__wallet" data-co-express>
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <rect
+                x="3"
+                y="6"
+                width="18"
+                height="13"
+                rx="3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+              ></rect>
+              <path
+                d="M3 10h18M15.5 14.5h2"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+              ></path>
+            </svg>
+            Pay with your wallet
+          </button>
+          <p class="co__hint">
+            In a live store your wallet would fill in the address and pay in one step. In this demo
+            it goes straight to the confirmation, and no address is needed.
+          </p>
+        </section>
+
+        <p class="co__or">
+          <span>or enter your details</span>
+        </p>
+
+        <fieldset class="co__step">
+          <legend class="co__legend">
+            <span class="co__num readout" aria-hidden="true">
+              1
+            </span>{' '}
+            Contact
+          </legend>
+          <div class="field">
+            <label for="co-email">Email</label>
+            <input
+              class="input"
+              id="co-email"
+              type="email"
+              autocomplete="email"
+              inputmode="email"
+              spellcheck="false"
+              required
+              aria-describedby="co-email-hint"
+              data-field="email"
+            />
+            <p class="co__field-hint" id="co-email-hint">
+              For the receipt and batch updates. In this demo, nothing is sent.
+            </p>
+          </div>
+        </fieldset>
+
+        <fieldset class="co__step">
+          <legend class="co__legend">
+            <span class="co__num readout" aria-hidden="true">
+              2
+            </span>{' '}
+            Shipping address
+          </legend>
+          <div class="field">
+            <label for="co-name">Full name</label>
+            <input
+              class="input"
+              id="co-name"
+              type="text"
+              autocomplete="name"
+              required
+              data-field="name"
+            />
+          </div>
+          <div class="field">
+            <label for="co-country">Country or region</label>
+            <select
+              class="input co__select"
+              id="co-country"
+              autocomplete="country"
+              required
+              data-field="country"
+            >
+              {SHIP_REGIONS.map((r) => (
+                <option value={r.code} selected={r.code === us.code}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="field">
+            <label for="co-address">Street address</label>
+            <input
+              class="input"
+              id="co-address"
+              type="text"
+              autocomplete="address-line1"
+              required
+              data-field="address"
+            />
+          </div>
+          <div class="field">
+            <label for="co-address2">
+              Apartment, suite, floor <span class="co__optional">(optional)</span>
+            </label>
+            <input
+              class="input"
+              id="co-address2"
+              type="text"
+              autocomplete="address-line2"
+              data-field="address2"
+            />
+          </div>
+          <div class="co__row">
+            <div class="field">
+              <label for="co-city">City</label>
+              <input
+                class="input"
+                id="co-city"
+                type="text"
+                autocomplete="address-level2"
+                required
+                data-field="city"
+              />
+            </div>
+            <div class="field">
+              <label for="co-postal" data-postal-label>
+                {us.postal.label}
+              </label>
+              <input
+                class="input"
+                id="co-postal"
+                type="text"
+                autocomplete="postal-code"
+                autocapitalize="characters"
+                spellcheck="false"
+                required
+                aria-describedby="co-postal-hint"
+                data-field="postal"
+              />
+              <p class="co__field-hint" id="co-postal-hint" data-postal-hint>
+                For example, {us.postal.example}
+              </p>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="co__step">
+          <legend class="co__legend">
+            <span class="co__num readout" aria-hidden="true">
+              3
+            </span>{' '}
+            Delivery
+          </legend>
+          <div class="co__delivery" data-co-delivery aria-live="polite">
+            <p class="co__delivery-main">
+              <span class="readout">Batch 1 · {LAUNCH.firstShipBatch}</span>
+            </p>
+            <p data-co-delivery-text>
+              Tracked and insured, free. To {us.name}, {us.transit[0]}–{us.transit[1]} business days
+              after it leaves us.
+            </p>
+          </div>
+          <label class="co__check">
+            <input type="checkbox" data-field="gift" />
+            <span>This is a gift. Leave prices off the packing slip.</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="co__step">
+          <legend class="co__legend">
+            <span class="co__num readout" aria-hidden="true">
+              4
+            </span>{' '}
+            Payment
+          </legend>
+          <div class="co__demo">
+            <p class="co__demo-title">Detent is a concept: no payment is taken.</p>
+            <p class="co__demo-text">
+              In a live store this is where Apple Pay, Google Pay, Link or a card would appear,
+              handled entirely by the payment provider.
+              {SITE.name} never sees card numbers, and this page has nowhere to type one.
+            </p>
+            <button type="submit" class="co__wallet co__wallet--lg" data-co-submit>
+              <span data-co-submit-label>Complete demo order</span>
+              <span class="readout co__submit-total" data-co-submit-total></span>
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import '@/scripts/shop/checkout';
+</script>
+
+<style>
+  .co {
+    padding-block: var(--space-l) var(--section-y);
+  }
+  .co__head {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-end: var(--space-xl);
+  }
+  .co__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    justify-self: start;
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink-muted);
+    text-decoration: none;
+  }
+  .co__back:hover {
+    color: var(--ink-strong);
+  }
+  .co__title {
+    font-size: var(--step-4);
+  }
+  .co__concept {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    justify-self: start;
+    padding: 0.55rem 0.9rem;
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .co__concept-dot {
+    flex: none;
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  .co__noscript {
+    padding: var(--space-m);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-m);
+    margin-block-end: var(--space-l);
+  }
+
+  .co__empty {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-s);
+    padding-block: var(--space-2xl);
+  }
+  .co__empty-title {
+    font-size: var(--step-2);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+
+  .co__grid {
+    display: grid;
+    gap: var(--space-xl);
+  }
+  @media (min-width: 60rem) {
+    .co__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+      column-gap: clamp(var(--space-xl), 6vw, var(--space-3xl));
+    }
+    .co__summary {
+      grid-column: 2;
+      grid-row: 1;
+      position: sticky;
+      inset-block-start: calc(var(--header-h) + var(--space-m));
+      align-self: start;
+    }
+    .co__form {
+      grid-column: 1;
+      grid-row: 1;
+    }
+  }
+
+  /* Summary */
+  .co__summary {
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+  }
+  .co__details {
+    padding: var(--space-m);
+  }
+  .co__summary-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    list-style: none;
+    cursor: pointer;
+    min-block-size: 2.75rem;
+  }
+  .co__summary-head::-webkit-details-marker {
+    display: none;
+  }
+  .co__summary-head h2 {
+    flex: 1;
+  }
+  .co__summary-total {
+    color: var(--ink-strong);
+  }
+  .co__chev {
+    color: var(--ink-muted);
+    transition: rotate var(--dur-2) var(--ease-out);
+  }
+  .co__details[open] .co__chev {
+    rotate: 180deg;
+  }
+  @media (min-width: 60rem) {
+    .co__summary-head {
+      cursor: default;
+      pointer-events: none;
+    }
+    .co__summary-total,
+    .co__chev {
+      display: none;
+    }
+  }
+  .co__h2 {
+    font-size: var(--step-1);
+    font-stretch: var(--stretch-ui);
+  }
+  .co__lines {
+    display: grid;
+    margin-block: var(--space-s);
+  }
+  .co__lines :global(.col) {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-s);
+    align-items: start;
+    padding-block: var(--space-xs);
+    border-block-end: 1px solid var(--line);
+  }
+  .co__lines :global(.col__thumb) {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 3rem;
+    aspect-ratio: 1;
+    border-radius: var(--r-m);
+    background: var(--bg);
+  }
+  .co__lines :global(.col__chip) {
+    inline-size: 70%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--chip, var(--surface-2));
+    box-shadow: 0 0 0 1px var(--line);
+  }
+  .co__lines :global(.col__qty) {
+    position: absolute;
+    inset-block-start: -0.4rem;
+    inset-inline-end: -0.4rem;
+    min-inline-size: 1.3rem;
+    padding-inline: 0.3rem;
+    border-radius: var(--r-pill);
+    background: var(--ink-strong);
+    color: var(--bg);
+    font-size: 0.7rem;
+    line-height: 1.3rem;
+    text-align: center;
+  }
+  .co__lines :global(.col__name) {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.3;
+  }
+  .co__lines :global(.col__meta) {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    overflow-wrap: anywhere;
+  }
+  .co__lines :global(.col__price) {
+    color: var(--ink-strong);
+  }
+  .co__totals {
+    display: grid;
+    gap: 0.35rem;
+    font-size: var(--step--1);
+  }
+  .co__totals div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .co__totals dt {
+    color: var(--ink-muted);
+  }
+  .co__totals dd {
+    color: var(--ink);
+  }
+  .co__grand {
+    margin-block-start: var(--space-2xs);
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--line-strong);
+    align-items: baseline;
+  }
+  .co__totals .co__grand dt {
+    font-size: var(--step-0);
+    font-weight: 650;
+    color: var(--ink-strong);
+  }
+  .co__totals .co__grand dd {
+    font-size: var(--step-2);
+    color: var(--ink-strong);
+  }
+  .co__installments {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-align: end;
+  }
+  .co__installments:empty {
+    display: none;
+  }
+  .co__assure {
+    display: grid;
+    gap: 0.3rem;
+    margin-block-start: var(--space-m);
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--line);
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .co__assure li {
+    display: flex;
+    gap: 0.6em;
+    align-items: baseline;
+  }
+  .co__assure li::before {
+    content: '';
+    flex: none;
+    inline-size: 0.4rem;
+    block-size: 0.4rem;
+    border-radius: 50%;
+    background: var(--ink-faint);
+    translate: 0 -0.1em;
+  }
+
+  /* Form */
+  .co__form {
+    display: grid;
+    gap: var(--space-xl);
+    max-inline-size: 40rem;
+  }
+  .co__errors {
+    padding: var(--space-m);
+    border: 1.5px solid var(--tally-deep);
+    border-radius: var(--r-m);
+  }
+  .co__errors:focus {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .co__errors-title {
+    font-weight: 700;
+    color: var(--ink-strong);
+    margin-block-end: var(--space-2xs);
+  }
+  .co__errors ul {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .co__errors a {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .co__express {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .co__wallet {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6em;
+    inline-size: 100%;
+    min-block-size: 3.25rem;
+    padding: 0.75em 1.4em;
+    border-radius: var(--r-pill);
+    background: var(--ink-strong);
+    color: var(--bg);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .co__wallet:hover {
+    background: var(--graphite-700);
+  }
+  .co__wallet:active {
+    transform: translateY(1px);
+  }
+  .co__wallet[aria-busy='true'] {
+    cursor: progress;
+    background: var(--graphite-600);
+  }
+  .co__wallet--lg {
+    min-block-size: 3.6rem;
+    font-size: var(--step-1);
+  }
+  .co__submit-total {
+    font-size: var(--step-0);
+    opacity: 0.8;
+  }
+  .co__hint,
+  .co__field-hint {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .co__or {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .co__or::before,
+  .co__or::after {
+    content: '';
+    flex: 1;
+    border-block-start: 1px solid var(--line);
+  }
+  .co__step {
+    display: grid;
+    gap: var(--space-s);
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  .co__legend {
+    float: left;
+    inline-size: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0;
+    margin-block-end: var(--space-2xs);
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .co__num {
+    display: grid;
+    place-items: center;
+    inline-size: 1.6rem;
+    block-size: 1.6rem;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .co__step :global(.field) {
+    gap: 0.35rem;
+  }
+  .co__optional {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+  .co__row {
+    display: grid;
+    gap: var(--space-s);
+  }
+  @media (min-width: 36rem) {
+    .co__row {
+      grid-template-columns: 1.4fr 1fr;
+    }
+  }
+  .co__select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%23615c5e' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    background-size: 1rem;
+    padding-inline-end: 2.5rem;
+  }
+  .co__form :global(.field-error) {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--tally-deep);
+  }
+  .co__delivery {
+    display: grid;
+    gap: 0.2rem;
+    padding: var(--space-s) var(--space-m);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-m);
+  }
+  .co__delivery-main {
+    color: var(--ink-strong);
+  }
+  .co__delivery p:last-child {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .co__check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7em;
+    min-block-size: 2.75rem;
+    padding-block: 0.5rem;
+    cursor: pointer;
+    font-size: var(--step--1);
+  }
+  .co__check input {
+    flex: none;
+    inline-size: 1.15rem;
+    block-size: 1.15rem;
+    margin-block-start: 0.2em;
+    accent-color: var(--ink-strong);
+  }
+  .co__demo {
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-m);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+  }
+  .co__demo-title {
+    font-weight: 700;
+    color: var(--ink-strong);
+  }
+  .co__demo-text {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .co__chev,
+    .co__wallet {
+      transition: none;
+    }
+  }
+</style>

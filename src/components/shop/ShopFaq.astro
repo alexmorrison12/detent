@@ -1,0 +1,120 @@
+---
+/** Buying, shipping and reservation questions, from FAQS. */
+import { FAQS } from '@/data/product';
+import { url } from '@/lib/url';
+import { SITE } from '@/config/site';
+
+const items = FAQS.filter(
+  (f) => f.topic === 'Launch' || f.topic === 'Buying' || f.topic === 'Shipping',
+);
+---
+
+<section class="section faq" aria-labelledby="faq-title">
+  <div class="container faq__grid">
+    <header class="faq__head">
+      <h2 id="faq-title" class="display display--s">
+        Before you buy.
+      </h2>
+      <p class="muted">
+        More in <a href={url('/support/')}>Support & FAQ</a>. Or ask a human:{' '}
+        <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.
+      </p>
+    </header>
+    <div class="faq__list">
+      {items.map((f, i) => (
+        <details name="shop-faq" open={i === 0}>
+          <summary>{f.q}</summary>
+          <p>{f.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    border-block-start: 1px solid var(--line);
+  }
+  .faq__grid {
+    display: grid;
+    gap: var(--space-xl);
+  }
+  @media (min-width: 56rem) {
+    .faq__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+    }
+    .faq__head {
+      position: sticky;
+      inset-block-start: calc(var(--header-h) + var(--space-l));
+      align-self: start;
+    }
+  }
+  .faq__head {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .faq__head a {
+    color: var(--accent-text);
+  }
+  details {
+    border-block-end: 1px solid var(--line);
+  }
+  details:first-child {
+    border-block-start: 1px solid var(--line);
+  }
+  summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-m);
+    min-block-size: 3.5rem;
+    padding-block: var(--space-s);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  /* A small knob with its indicator: turns 90° when the answer opens. */
+  summary::after {
+    content: '';
+    flex: none;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-muted);
+    background: linear-gradient(var(--tally), var(--tally)) no-repeat 50% 2px / 2px 6px;
+    transition: rotate var(--dur-3) var(--ease-out);
+  }
+  details[open] summary::after {
+    rotate: 90deg;
+  }
+  details p {
+    padding-block-end: var(--space-m);
+    color: var(--ink);
+    max-inline-size: 62ch;
+  }
+  @supports selector(::details-content) {
+    details::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size var(--dur-3) var(--ease-out),
+        content-visibility var(--dur-3) allow-discrete;
+    }
+    details[open]::details-content {
+      block-size: auto;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    summary::after {
+      transition: none;
+    }
+    details::details-content {
+      transition: none;
+    }
+  }
+</style>

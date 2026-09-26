@@ -1,0 +1,143 @@
+---
+/**
+ * Small-screen build summary: a bar docked to the bottom of the viewport
+ * while the configurator is on screen and the full price panel is not.
+ * Tap the total to open a sheet with the line items; the action is always
+ * one tap away. Hidden without JS (the inline panel covers that case).
+ */
+import { BUILD_PHASE } from '@/config/launch';
+import { formatUsd } from '@/data/product';
+import { DEFAULT_BUILD, buildTitle, quote } from '@/scripts/shop/build';
+import { quoteLinesHtml } from '@/scripts/shop/render';
+import BuildAction from './BuildAction.astro';
+
+const q = quote(DEFAULT_BUILD, BUILD_PHASE);
+---
+
+<div class="summary-bar" data-summary-bar aria-label="Build summary" role="region">
+  <div class="summary-bar__sheet" id="summary-sheet" data-summary-sheet hidden>
+    <p class="summary-bar__name" data-build-title>
+      {buildTitle(DEFAULT_BUILD)}
+    </p>
+    <ul role="list" class="qlines readout" data-build-lines set:html={quoteLinesHtml(q.lines)} />
+  </div>
+  <div class="summary-bar__main">
+    <button
+      type="button"
+      class="summary-bar__toggle"
+      aria-expanded="false"
+      aria-controls="summary-sheet"
+      data-summary-toggle
+    >
+      <span class="summary-bar__label">
+        Your build
+        <svg
+          class="summary-bar__chev"
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          aria-hidden="true"
+        >
+          <path
+            d="M6 15l6-6 6 6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></path>
+        </svg>
+      </span>
+      <span class="summary-bar__total readout" data-build-total>
+        {formatUsd(q.total)}
+      </span>
+    </button>
+    <BuildAction placement="bar" showNote={false} />
+  </div>
+</div>
+
+<style>
+  .summary-bar {
+    display: none;
+  }
+  @media (max-width: 74.99rem) {
+    :global(html[data-js]) .summary-bar {
+      display: block;
+      position: fixed;
+      inset-inline: 0;
+      inset-block-end: 0;
+      z-index: var(--z-sticky);
+      background: var(--bg);
+      border-block-start: 1px solid var(--line-strong);
+      padding: var(--space-xs) var(--gutter) calc(var(--space-xs) + env(safe-area-inset-bottom));
+      translate: 0 110%;
+      visibility: hidden;
+      transition:
+        translate var(--dur-3) var(--ease-out),
+        visibility 0s linear var(--dur-3);
+    }
+    :global(html[data-js]) .summary-bar[data-visible] {
+      translate: 0 0;
+      visibility: visible;
+      transition:
+        translate var(--dur-3) var(--ease-out),
+        visibility 0s linear 0s;
+    }
+  }
+  .summary-bar__main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .summary-bar__toggle {
+    display: grid;
+    justify-items: start;
+    gap: 0.05rem;
+    min-block-size: 2.9rem;
+    min-inline-size: 0;
+    text-align: start;
+  }
+  .summary-bar__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    font-size: var(--step--2);
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .summary-bar__total {
+    font-size: var(--step-1);
+    line-height: 1.1;
+    color: var(--ink-strong);
+  }
+  .summary-bar__chev {
+    transition: rotate var(--dur-2) var(--ease-out);
+  }
+  .summary-bar__toggle[aria-expanded='true'] .summary-bar__chev {
+    rotate: 180deg;
+  }
+  .summary-bar__sheet {
+    max-block-size: 50dvh;
+    overflow-y: auto;
+    padding-block: var(--space-2xs) var(--space-s);
+    margin-block-end: var(--space-xs);
+    border-block-end: 1px solid var(--line);
+  }
+  .summary-bar__name {
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    margin-block-end: var(--space-xs);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(html[data-js]) .summary-bar,
+    :global(html[data-js]) .summary-bar[data-visible] {
+      translate: none;
+      transition: visibility 0s;
+    }
+    .summary-bar__chev {
+      transition: none;
+    }
+  }
+</style>

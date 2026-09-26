@@ -4,7 +4,7 @@
  * Every mutation dispatches `detent:cart` on window with the new state.
  */
 import { read, write } from './storage';
-import type { EditionId, FinishId } from '@/data/product';
+import type { EditionId, FinishId, ProfileId } from '@/data/product';
 
 export interface CartLine {
   /** Stable id for the line: edition+finish+engraving+accessory combo. */
@@ -14,6 +14,10 @@ export interface CartLine {
   finish?: FinishId;
   engraving?: string;
   accessoryId?: string;
+  /** Feel profile the device ships with (shop configurator; optional). */
+  feel?: ProfileId;
+  /** Query string that reopens this build in /shop/ (e.g. "edition=one&finish=raw"). */
+  build?: string;
   name: string;
   unitPriceUsd: number;
   qty: number;

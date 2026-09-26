@@ -1,0 +1,140 @@
+---
+/**
+ * The configurator's primary action, one variant per launch phase (CSS shows
+ * the one matching <html data-phase>). Buttons submit the #configurator form,
+ * so without JavaScript they still land somewhere useful; the configurator
+ * script intercepts the submit and adds the build to the cart instead.
+ *
+ * The accessible name is always the full label ("Reserve this build · $20
+ * deposit"); the docked bar only hides some words visually to fit a phone.
+ */
+import { PHASES, LAUNCH } from '@/config/launch';
+import { PAYMENT, byEdition, formatUsd } from '@/data/product';
+import { url } from '@/lib/url';
+
+interface Props {
+  placement: 'panel' | 'bar';
+  showNote?: boolean;
+}
+const { placement, showNote = true } = Astro.props;
+const reserveOpens = new Date(`${PHASES.reserve.starts}T00:00:00Z`).toLocaleDateString('en-US', {
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+---
+
+<div class:list={['build-action', `build-action--${placement}`]}>
+  <div class="build-action__group" data-phase-only="tease waitlist">
+    <a
+      class="btn btn--primary"
+      href={url('/l/waitlist/')}
+      data-track="cta_click"
+      data-track-placement={`configurator-${placement}`}
+      data-track-cta="waitlist:reserve"
+    >
+      <span class="ba__label">
+        Join the waitlist<span class="ba__long"> to reserve</span>
+      </span>
+    </a>
+    {showNote && (
+      <p class="build-action__note">
+        Reservations open {reserveOpens}. Waitlist members get the{' '}
+        {formatUsd(byEdition('one').launchPriceUsd)} launch price, and this link keeps your build.
+      </p>
+    )}
+  </div>
+  <div class="build-action__group" data-phase-only="reserve">
+    <button
+      type="submit"
+      form="configurator"
+      class="btn btn--primary"
+      formaction={url('/l/reserve/')}
+      data-intent="reserve"
+    >
+      <span class="ba__label">
+        Reserve<span class="ba__long"> this build</span>
+      </span>
+      <span class="ba__sep"> · </span>
+      <span class="ba__sub">
+        <span data-deposit>{formatUsd(LAUNCH.depositUsd)}</span> deposit
+      </span>
+    </button>
+    {showNote && (
+      <p class="build-action__note">
+        Fully refundable until your batch ships, and credited to your order. Accessories are added
+        when you complete it.
+      </p>
+    )}
+  </div>
+  <div class="build-action__group" data-phase-only="launch live">
+    <button
+      type="submit"
+      form="configurator"
+      class="btn btn--primary"
+      formaction={url('/shop/checkout/')}
+      data-intent="add"
+    >
+      <span class="ba__label">Add to cart</span>
+    </button>
+    {showNote && (
+      <p class="build-action__note">
+        Free shipping, a {PAYMENT.trialDays}-day studio trial and a {PAYMENT.warrantyYears}-year
+        warranty.
+      </p>
+    )}
+  </div>
+</div>
+
+<style>
+  .build-action__group {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .build-action .btn {
+    position: relative;
+  }
+  .build-action__note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-wrap: pretty;
+  }
+
+  /* Panel: full width, label over the deposit. */
+  .build-action--panel .btn {
+    inline-size: 100%;
+    min-block-size: 3.6rem;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding-block: 0.6rem;
+    white-space: normal;
+    text-align: center;
+  }
+  .build-action--panel .ba__label {
+    font-size: var(--step-0);
+    font-weight: 700;
+  }
+  .build-action--panel .ba__sub {
+    font-size: var(--step--1);
+    font-weight: 560;
+  }
+  .build-action--panel .ba__sep,
+  .build-action--bar .ba__long {
+    position: absolute;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  /* Bar: one compact line. */
+  .build-action--bar .btn {
+    gap: 0;
+    white-space: nowrap;
+    padding-inline: 1.1em;
+  }
+  .build-action--bar .ba__sep {
+    white-space: pre;
+  }
+</style>

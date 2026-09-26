@@ -1,0 +1,705 @@
+---
+/**
+ * The configurator form. Native radios, checkboxes and a number input, so
+ * it is keyboard and screen-reader friendly before any script runs. The
+ * configurator script reads it, mirrors it into the URL and the price panel.
+ */
+import {
+  ACCESSORIES,
+  EDITIONS,
+  FINISHES,
+  PROFILES,
+  SPECS,
+  formatUsd,
+  byFinish,
+  byProfile,
+} from '@/data/product';
+import { ENGRAVING } from '@/data/shop';
+import { DEFAULT_BUILD, LAUNCH_PRICE_PHASES, MAX_QTY, type Build } from '@/scripts/shop/build';
+import { feelShort } from '@/scripts/shop/feel-ring';
+import { url } from '@/lib/url';
+
+interface Props {
+  build?: Build;
+}
+const { build = DEFAULT_BUILD } = Astro.props;
+const onDeviceSlots = SPECS.flatMap((g) => g.rows)
+  .find((r) => r.label === 'Profiles on device')
+  ?.value.split(',')[0];
+const launchPhases = LAUNCH_PRICE_PHASES.join(' ');
+const regularPhases = ['tease', 'waitlist', 'live'].join(' ');
+---
+
+<form
+  id="configurator"
+  class="options"
+  method="get"
+  action={url('/l/reserve/')}
+  novalidate
+  data-configurator
+>
+  <fieldset class="opt" aria-describedby="edition-help">
+    <legend class="opt__legend">Edition</legend>
+    <div class="editions">
+      {EDITIONS.map((e) => (
+        <label class="edition">
+          <input type="radio" name="edition" value={e.id} checked={build.edition === e.id} />
+          <span class="edition__name">{e.name}</span>
+          <span class="edition__price readout">
+            {e.launchPriceUsd < e.priceUsd ? (
+              <>
+                <span data-phase-only={launchPhases}>
+                  <span class="visually-hidden">Regular price</span>
+                  <s>{formatUsd(e.priceUsd)}</s>
+                  <span class="visually-hidden">, launch price</span>
+                  <span>{formatUsd(e.launchPriceUsd)}</span>
+                </span>
+                <span data-phase-only={regularPhases}>{formatUsd(e.priceUsd)}</span>
+              </>
+            ) : (
+              formatUsd(e.priceUsd)
+            )}
+          </span>
+          <span class="edition__summary">{e.summary}</span>
+        </label>
+      ))}
+    </div>
+    <p id="edition-help" class="opt__help">
+      Same motor, encoder, display and software in both. Founders is about the red, the number and
+      the walnut.
+      <a href="#compare">Compare them</a>
+    </p>
+  </fieldset>
+
+  <fieldset class="opt" aria-describedby="finish-line">
+    <legend class="opt__legend">
+      Finish{' '}
+      <span class="opt__value" data-value="finish">
+        {byFinish(build.finish).name}
+      </span>
+    </legend>
+    <div class="swatches">
+      {FINISHES.map((f) => (
+        <label class="swatch" style={`--chip: ${f.body}; --chip-accent: ${f.accent}`}>
+          <input type="radio" name="finish" value={f.id} checked={build.finish === f.id} />
+          <span class="swatch__chip" aria-hidden="true" />
+          <span class="swatch__name">{f.name}</span>
+          {f.foundersOnly && <span class="swatch__tag">Founders only</span>}
+        </label>
+      ))}
+    </div>
+    <p id="finish-line" class="opt__help" data-finish-line>
+      {byFinish(build.finish).line}
+    </p>
+  </fieldset>
+
+  <fieldset class="opt">
+    <legend class="opt__legend">
+      Engraving <span class="opt__value">Free</span>
+    </legend>
+    <div class="engrave">
+      <label class="engrave__label" for="engrave">
+        Text around the base
+      </label>
+      <div class="engrave__field">
+        <input
+          id="engrave"
+          name="engrave"
+          class="input engrave__input"
+          type="text"
+          maxlength={ENGRAVING.maxLength}
+          value={build.engrave}
+          autocomplete="off"
+          autocapitalize="characters"
+          spellcheck="false"
+          aria-describedby="engrave-help engrave-count"
+          data-engrave
+        />
+        <span id="engrave-count" class="readout engrave__count" data-engrave-count>
+          {build.engrave.length}/{ENGRAVING.maxLength}
+        </span>
+      </div>
+      <p id="engrave-help" class="opt__help">
+        Capitals, numbers and basic punctuation, laser-cut into the base. Leave it blank for a clean
+        base.
+      </p>
+      <p class="engrave__status" role="status" data-engrave-status></p>
+      <div class="engrave__presets">
+        <span class="engrave__presets-label" id="engrave-ideas">
+          Ideas
+        </span>
+        <ul role="list" aria-labelledby="engrave-ideas">
+          {ENGRAVING.presets.map((p) => (
+            <li>
+              <button type="button" class="chip" data-engrave-preset={p}>
+                {p}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="opt" aria-describedby="feel-help feel-line">
+    <legend class="opt__legend">
+      First feel{' '}
+      <span class="opt__value" data-value="feel">
+        {byProfile(build.feel).name}
+      </span>
+    </legend>
+    <p id="feel-help" class="opt__help opt__help--lead">
+      The feel on the knob the first time you plug it in. Purely for fun: every Detent ships with
+      all six, plus {onDeviceSlots} slots for your own.
+    </p>
+    <div class="feels">
+      {PROFILES.map((p) => (
+        <label class="feel" data-feel={p.id}>
+          <input type="radio" name="feel" value={p.id} checked={build.feel === p.id} />
+          <span class="feel__name">
+            <span class="feel__dot" aria-hidden="true" />
+            {p.name}
+          </span>
+          <span class="feel__summary readout">{feelShort(p)}</span>
+        </label>
+      ))}
+    </div>
+    <p id="feel-line" class="opt__help" data-feel-line>
+      {byProfile(build.feel).feel}
+    </p>
+  </fieldset>
+
+  <fieldset class="opt">
+    <legend class="opt__legend">Accessories</legend>
+    <ul role="list" class="accs">
+      {ACCESSORIES.map((a) => (
+        <li>
+          <label class="acc" data-acc={a.id}>
+            <input type="checkbox" name="acc" value={a.id} checked={build.acc.includes(a.id)} />
+            <span class="acc__name">{a.name}</span>
+            <span class="acc__price readout">
+              <span data-acc-price>+{formatUsd(a.priceUsd)}</span>
+              <span data-acc-included hidden>
+                Included
+              </span>
+            </span>
+            <span class="acc__line">{a.line}</span>
+          </label>
+        </li>
+      ))}
+    </ul>
+  </fieldset>
+
+  <fieldset class="opt opt--qty">
+    <legend class="opt__legend">Quantity</legend>
+    <div class="stepper">
+      <button
+        type="button"
+        class="stepper__btn"
+        data-qty-step="-1"
+        aria-label="One fewer"
+        aria-controls="qty"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path d="M6 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>
+      </button>
+      <input
+        id="qty"
+        class="stepper__input readout"
+        type="number"
+        name="qty"
+        min="1"
+        max={MAX_QTY}
+        step="1"
+        value={build.qty}
+        inputmode="numeric"
+        aria-label="Quantity"
+        data-qty
+      />
+      <button
+        type="button"
+        class="stepper__btn"
+        data-qty-step="1"
+        aria-label="One more"
+        aria-controls="qty"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path
+            d="M6 12h12M12 6v12"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          ></path>
+        </svg>
+      </button>
+    </div>
+    <p class="opt__help">
+      Every unit in this build gets the same finish, feel and engraving. Want two different ones?
+      Add this, change it, add again.
+    </p>
+  </fieldset>
+</form>
+
+<style>
+  .options {
+    display: grid;
+    gap: var(--space-xl);
+    min-inline-size: 0;
+  }
+  .opt {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+    display: grid;
+    gap: var(--space-s);
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--line);
+  }
+  .opt__legend {
+    float: left; /* lets the legend sit inside the grid instead of on the border */
+    inline-size: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+    padding: 0;
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .opt__value {
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--ink-muted);
+  }
+  .opt__help {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-width: 52ch;
+  }
+  .opt__help--lead {
+    margin-block-start: calc(-1 * var(--space-2xs));
+  }
+  .opt__help a {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+
+  /* Shared selected/focus language: one ink border, tally dot. */
+  .edition,
+  .feel,
+  .acc {
+    position: relative;
+    display: grid;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-m);
+    background: var(--bg);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .edition:hover,
+  .feel:hover,
+  .acc:hover {
+    border-color: var(--ink-muted);
+  }
+  .edition:has(:checked),
+  .feel:has(:checked),
+  .acc:has(:checked:not(:disabled)) {
+    border-color: var(--ink-strong);
+    background: var(--bg-raised);
+  }
+  .edition:has(:focus-visible),
+  .feel:has(:focus-visible),
+  .acc:has(:focus-visible),
+  .swatch:has(:focus-visible) .swatch__chip {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .edition input,
+  .feel input,
+  .acc input,
+  .swatch input {
+    position: absolute;
+    opacity: 0;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+
+  /* Edition */
+  .editions {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .edition {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'dot name price'
+      '. summary summary';
+    align-items: baseline;
+    column-gap: var(--space-xs);
+    row-gap: 0.2rem;
+    padding: var(--space-s) var(--space-m) var(--space-s) var(--space-s);
+  }
+  .edition::before {
+    content: '';
+    grid-area: dot;
+    align-self: center;
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-faint);
+    background: var(--bg);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
+  }
+  .edition:has(:checked)::before {
+    border-color: var(--ink-strong);
+    box-shadow:
+      inset 0 0 0 3.5px var(--bg),
+      inset 0 0 0 10px var(--tally);
+  }
+  .edition__name {
+    grid-area: name;
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .edition__price {
+    grid-area: price;
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+  .edition__price s {
+    color: var(--ink-muted);
+    margin-inline-end: 0.35em;
+  }
+  .edition__summary {
+    grid-area: summary;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  /* Finish swatches */
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-xs);
+  }
+  .swatch {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 0.45rem;
+    padding-block: var(--space-2xs);
+    text-align: center;
+    cursor: pointer;
+    border-radius: var(--r-m);
+  }
+  .swatch__chip {
+    position: relative;
+    inline-size: clamp(2.75rem, 9cqi, 3.5rem);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at 35% 30%,
+      color-mix(in oklch, var(--chip) 70%, white),
+      var(--chip) 58%,
+      color-mix(in oklch, var(--chip) 72%, black)
+    );
+    box-shadow: 0 0 0 1px var(--line-strong);
+    transition:
+      box-shadow var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  /* The knob's indicator line, so a swatch reads as a Detent, not a paint chip. */
+  .swatch__chip::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 12%;
+    inset-inline-start: calc(50% - 1.5px);
+    inline-size: 3px;
+    block-size: 22%;
+    border-radius: 2px;
+    background: var(--chip-accent);
+    transform-origin: 50% 172%;
+    transform: rotate(35deg);
+  }
+  .swatch:hover .swatch__chip {
+    box-shadow: 0 0 0 1px var(--ink-muted);
+  }
+  .swatch:has(:checked) .swatch__chip {
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--ink-strong);
+  }
+  .swatch:active .swatch__chip {
+    transform: translateY(1px);
+  }
+  .swatch__name {
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--ink);
+  }
+  .swatch:has(:checked) .swatch__name {
+    font-weight: 700;
+    color: var(--ink-strong);
+  }
+  .swatch__tag {
+    font-size: var(--step--2);
+    color: var(--accent-text);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* Engraving */
+  .engrave {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .engrave__label {
+    font-size: var(--step--1);
+    font-weight: 600;
+  }
+  .engrave__field {
+    position: relative;
+  }
+  .engrave__input {
+    inline-size: 100%;
+    padding-inline-end: 4.5rem;
+    font-stretch: var(--stretch-display);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .engrave__count {
+    position: absolute;
+    inset-inline-end: 1rem;
+    inset-block-start: 50%;
+    translate: 0 -50%;
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+    pointer-events: none;
+  }
+  .engrave__count[data-full] {
+    color: var(--accent-text);
+  }
+  .engrave__status {
+    font-size: var(--step--1);
+    color: var(--accent-text);
+    min-block-size: 0;
+  }
+  .engrave__status:empty {
+    display: none;
+  }
+  .engrave__presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-xs);
+    margin-block-start: var(--space-3xs);
+  }
+  .engrave__presets-label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .engrave__presets ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .chip {
+    min-block-size: 2.75rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--2);
+    font-weight: 650;
+    font-stretch: var(--stretch-display);
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .chip:hover {
+    border-color: var(--ink);
+    background: var(--bg-raised);
+  }
+  .chip:active {
+    transform: translateY(1px);
+  }
+
+  /* Feel */
+  .feels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2xs);
+  }
+  .feel {
+    gap: 0.15rem;
+    padding: var(--space-xs);
+    align-content: start;
+  }
+  .feel__name {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .feel__dot {
+    flex: none;
+    inline-size: 0.62em;
+    block-size: 0.62em;
+    border-radius: 50%;
+    background: var(--feel-color, var(--ink-faint));
+    box-shadow: 0 0 0 1px var(--line-strong);
+  }
+  .feel[data-feel='ratchet'] {
+    --feel-color: var(--feel-ratchet);
+  }
+  .feel[data-feel='fluid'] {
+    --feel-color: var(--feel-fluid);
+  }
+  .feel[data-feel='spring'] {
+    --feel-color: var(--feel-spring);
+  }
+  .feel[data-feel='clock'] {
+    --feel-color: var(--feel-clock);
+  }
+  .feel[data-feel='wall'] {
+    --feel-color: var(--feel-wall);
+  }
+  .feel[data-feel='magnet'] {
+    --feel-color: var(--feel-magnet);
+  }
+  .feel__summary {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+
+  /* Accessories */
+  .accs {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .acc {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'box name price'
+      '. line line';
+    align-items: baseline;
+    column-gap: var(--space-xs);
+    row-gap: 0.15rem;
+    padding: var(--space-s);
+  }
+  .acc::before {
+    content: '';
+    grid-area: box;
+    align-self: center;
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    border-radius: var(--r-xs);
+    border: 1.5px solid var(--ink-faint);
+    background: var(--bg) no-repeat center / 0.8rem;
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out);
+  }
+  .acc:has(:checked)::before {
+    border-color: var(--ink-strong);
+    background-color: var(--ink-strong);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+  .acc:has(:disabled) {
+    cursor: default;
+    background: var(--bg-raised);
+    border-color: var(--line);
+  }
+  .acc:has(:disabled)::before {
+    border-color: var(--ink-faint);
+    background-color: var(--ink-faint);
+  }
+  .acc__name {
+    grid-area: name;
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .acc__price {
+    grid-area: price;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .acc__line {
+    grid-area: line;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  /* Quantity */
+  .stepper {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+  }
+  .stepper__btn {
+    display: grid;
+    place-items: center;
+    inline-size: 2.9rem;
+    block-size: 2.9rem;
+    border-radius: 50%;
+    color: var(--ink-strong);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .stepper__btn:hover {
+    background: var(--surface);
+  }
+  .stepper__btn:active {
+    transform: translateY(1px);
+  }
+  .stepper__btn[aria-disabled='true'] {
+    color: var(--ink-faint);
+    cursor: default;
+  }
+  .stepper__btn[aria-disabled='true']:hover {
+    background: none;
+  }
+  .stepper__input {
+    inline-size: 3ch;
+    border: 0;
+    background: none;
+    text-align: center;
+    font-size: var(--step-0);
+    color: var(--ink-strong);
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  .stepper__input::-webkit-inner-spin-button,
+  .stepper__input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  @media (max-width: 30rem) {
+    .feels {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .swatches {
+      gap: var(--space-3xs);
+    }
+  }
+</style>

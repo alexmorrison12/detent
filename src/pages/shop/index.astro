@@ -1,0 +1,114 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ShopConfigurator from '@/components/shop/ShopConfigurator.astro';
+import EditionCompare from '@/components/shop/EditionCompare.astro';
+import CostBreakdown from '@/components/shop/CostBreakdown.astro';
+import FinishPanels from '@/components/shop/FinishPanels.astro';
+import ShopFaq from '@/components/shop/ShopFaq.astro';
+import { ogPath } from '@/config/og';
+import { SITE } from '@/config/site';
+import { BUILD_PHASE, MODE, PHASES } from '@/config/launch';
+import { EDITIONS, PAYMENT, byFinish, byEdition, formatUsd } from '@/data/product';
+import { SHIP_REGIONS } from '@/data/shop';
+import { spec } from '@/data/shop-content';
+import { absoluteUrl } from '@/lib/url';
+import { devicePrice } from '@/scripts/shop/build';
+
+const site = Astro.site;
+const shopUrl = absoluteUrl('/shop/', site);
+const image = absoluteUrl(ogPath('shop'), site);
+const countries = SHIP_REGIONS.map((r) => r.code);
+const grams = Number.parseInt(spec('Weight'), 10);
+
+const returnPolicy = {
+  '@type': 'MerchantReturnPolicy',
+  applicableCountry: countries,
+  returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+  merchantReturnDays: PAYMENT.trialDays,
+  returnMethod: 'https://schema.org/ReturnByMail',
+  returnFees: 'https://schema.org/FreeReturn',
+};
+const shippingDetails = {
+  '@type': 'OfferShippingDetails',
+  shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'USD' },
+  shippingDestination: countries.map((c) => ({ '@type': 'DefinedRegion', addressCountry: c })),
+  deliveryTime: {
+    '@type': 'ShippingDeliveryTime',
+    handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 2, unitCode: 'DAY' },
+    transitTime: {
+      '@type': 'QuantitativeValue',
+      minValue: Math.min(...SHIP_REGIONS.map((r) => r.transit[0])),
+      maxValue: Math.max(...SHIP_REGIONS.map((r) => r.transit[1])),
+      unitCode: 'DAY',
+    },
+  },
+};
+const availability =
+  BUILD_PHASE === 'live' ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder';
+
+/*
+ * Offers are emitted only when MODE === 'live' (see src/config/launch.ts):
+ * in demo mode the site must not claim a real sale to crawlers or agents.
+ * The Product, its specs and the return policy are always present.
+ */
+const products = EDITIONS.map((e) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  '@id': `${shopUrl}#${e.id}`,
+  name: e.name,
+  sku: e.sku,
+  description: e.summary,
+  brand: { '@type': 'Brand', name: SITE.name },
+  manufacturer: { '@type': 'Organization', name: SITE.legalName },
+  image,
+  url: `${shopUrl}?edition=${e.id}`,
+  material: spec('Material'),
+  color: e.finishes.map((f) => byFinish(f).name).join(', '),
+  weight: { '@type': 'QuantitativeValue', value: grams, unitCode: 'GRM' },
+  hasMerchantReturnPolicy: returnPolicy,
+  ...(MODE === 'live'
+    ? {
+        offers: {
+          '@type': 'Offer',
+          url: `${shopUrl}?edition=${e.id}`,
+          price: devicePrice(e.id, BUILD_PHASE).toFixed(2),
+          priceCurrency: 'USD',
+          availability,
+          ...(BUILD_PHASE !== 'live' ? { availabilityStarts: PHASES.launch.starts } : {}),
+          itemCondition: 'https://schema.org/NewCondition',
+          seller: { '@type': 'Organization', name: SITE.legalName },
+          shippingDetails,
+          hasMerchantReturnPolicy: returnPolicy,
+        },
+      }
+    : {}),
+}));
+const breadcrumbs = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: SITE.product, item: absoluteUrl('/', site) },
+    { '@type': 'ListItem', position: 2, name: 'Shop', item: shopUrl },
+  ],
+};
+
+const one = byEdition('one');
+const founders = byEdition('founders');
+const description = `Configure ${one.name} in Raw, Graphite or Glacier from ${formatUsd(one.priceUsd)}, or the numbered ${founders.name} in Tally. Free engraving, free shipping, a ${PAYMENT.trialDays}-day studio trial and a ${PAYMENT.warrantyYears}-year warranty.`;
+---
+
+<BaseLayout
+  title={`Build your ${one.name}`}
+  description={description}
+  ogImage={ogPath('shop')}
+  ogImageAlt={`${one.name} configurator: finishes, engraving and first feel`}
+  world="day"
+  hideHeaderCta
+  jsonLd={[...products, breadcrumbs]}
+>
+  <ShopConfigurator />
+  <EditionCompare />
+  <CostBreakdown />
+  <FinishPanels />
+  <ShopFaq />
+</BaseLayout>
