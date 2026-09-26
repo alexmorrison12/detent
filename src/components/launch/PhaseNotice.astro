@@ -55,10 +55,11 @@ const entries = Object.entries(notices) as [Phase, string][];
   }
   .phase-notice__link {
     color: var(--ink);
+    text-wrap: balance;
     text-decoration-color: color-mix(in oklch, currentColor 35%, transparent);
   }
   .phase-notice__link::after {
-    content: ' →';
+    content: '\00a0→';
     color: var(--accent-text);
   }
 </style>

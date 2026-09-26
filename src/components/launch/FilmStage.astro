@@ -433,6 +433,31 @@ const first = SHOTS[0]!;
       font-size: var(--step-0);
     }
   }
+  /* Small phones: the scrubber gets its own full-width row, and the paused
+     hint drops under "Live render" instead of running into it. */
+  @media (max-width: 30rem) {
+    .film__controls {
+      grid-template-columns: auto 1fr;
+      grid-template-areas:
+        'play time'
+        'track track';
+      row-gap: var(--space-2xs);
+    }
+    .film__play {
+      grid-area: play;
+    }
+    .film__time {
+      grid-area: time;
+      justify-self: end;
+    }
+    .film__track {
+      grid-area: track;
+    }
+    .film__hint {
+      inset-block-start: calc(var(--space-s) + 1.75em);
+      inset-inline: var(--space-m) auto;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .film[data-playing] .film__dot {
       animation: none;

@@ -58,22 +58,35 @@ export function goToForm(target: HTMLElement) {
 
 /**
  * <div data-sticky-cta data-watch="#hero-cta" data-hide-over="#join">: visible
- * (mobile only, via CSS) once the watched CTA has scrolled away and while the
- * form it points to isn't on screen.
+ * (mobile only, via CSS) once the watched CTA has scrolled up out of view and
+ * while the form it points to isn't on screen.
  */
 function initStickyCta() {
   const bar = document.querySelector<HTMLElement>('[data-sticky-cta]');
   if (!bar) return;
-  const watch = document.querySelector(bar.dataset.watch ?? '');
+  // A selector list may name one CTA per launch phase; watch the one that renders.
+  const watch = [...document.querySelectorAll(bar.dataset.watch || '__none__')].find(
+    (el) => el.getClientRects().length > 0,
+  );
   const over = [...document.querySelectorAll(bar.dataset.hideOver ?? '__none__')];
   const state = new Map<Element, boolean>();
+  // "Gone" means scrolled past (above the viewport), not "not reached yet": a
+  // CTA that starts below the fold must not summon the bar over the hero.
+  let watchPassed = !watch;
   const update = () => {
-    const watchGone = watch ? state.get(watch) === false : true;
     const overVisible = over.some((el) => state.get(el));
-    bar.toggleAttribute('data-visible', watchGone && !overVisible && !bar.hasAttribute('data-off'));
+    bar.toggleAttribute(
+      'data-visible',
+      watchPassed && !overVisible && !bar.hasAttribute('data-off'),
+    );
   };
   const io = new IntersectionObserver((entries) => {
-    for (const en of entries) state.set(en.target, en.isIntersecting);
+    for (const en of entries) {
+      state.set(en.target, en.isIntersecting);
+      if (en.target === watch)
+        watchPassed =
+          !en.isIntersecting && en.boundingClientRect.bottom <= (en.rootBounds?.top ?? 0);
+    }
     update();
   });
   if (watch) io.observe(watch);

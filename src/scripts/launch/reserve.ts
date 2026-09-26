@@ -7,18 +7,41 @@
  * hard stop at 90°. Three clicks reach the stop; the stop "thuds" (sound if
  * enabled, vibrate([12,40,12]) on Android) and arms the button with a tally
  * fill. The button never waits for any of it.
+ *
+ * Deposits are taken only in the reserve phase. In any other phase the form
+ * is hidden by CSS (data-phase-only) and this script leaves it unwired, so a
+ * stale campaign link can't take a deposit at an expired price.
  */
 import { byEdition, byFinish, formatUsd, type EditionId, type FinishId } from '@/data/product';
 import { LAUNCH } from '@/config/launch';
 import { track } from '@/lib/analytics';
-import { cancelReservation, getReservation, reserve, type Reservation } from '@/lib/waitlist';
+import {
+  cancelReservation,
+  getEntry,
+  getReservation,
+  referralUrl,
+  reserve,
+  type Reservation,
+} from '@/lib/waitlist';
 import { initLanding, goToForm, setStickyEnabled, whenDial } from './common';
 import { buzz, prefersReducedMotion, thud } from './feedback';
 import { checkEmail, focusRegion, liveClear, setError, withBusy } from './forms';
 import { downloadIcs } from './ics';
 
 const hero = document.querySelector<HTMLElement>('[data-rv]');
-if (hero) void init(hero);
+/** Read live: the phase is set before first paint and can be previewed with ?phase=. */
+const reservationsOpen = () => document.documentElement.dataset.phase === 'reserve';
+if (hero) {
+  if (reservationsOpen()) void init(hero);
+  else void idle();
+}
+
+/** Outside the reserve phase the dial is just the product: turn it, nothing to arm. */
+async function idle() {
+  initLanding();
+  const dial = await whenDial('reserve-dial');
+  dial?.setAttribute('label', 'Detent One. Turn it to feel the clicks');
+}
 
 const deposit = (e: EditionId) =>
   e === 'founders' ? LAUNCH.foundersDepositUsd : LAUNCH.depositUsd;
@@ -156,6 +179,7 @@ async function init(hero: HTMLElement) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!reservationsOpen()) return;
     if (submit.dataset.busy !== undefined || !checkEmail(email)) return;
     const { edition, finish } = state();
     const res = await withBusy(submit, 'Reserving…', () =>
@@ -191,8 +215,37 @@ async function init(hero: HTMLElement) {
     );
   });
 
+  /* ---- Tell a friend: this page, with your referral code if you're on the list -- */
+  const status = done.querySelector<HTMLElement>('[data-done-status]')!;
+  const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
+  done.querySelector('[data-share-reservation]')?.addEventListener('click', async () => {
+    const r = getReservation();
+    const entry = getEntry();
+    const link = entry
+      ? referralUrl(entry, '/l/reserve/')
+      : `${location.origin}${location.pathname}`;
+    const build = r ? `${byEdition(r.edition).name} in ${byFinish(r.finish).name}` : 'Detent One';
+    const text = `I reserved a ${build}. ${formatUsd(LAUNCH.depositUsd)} holds one, fully refundable:`;
+    status.textContent = '';
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'Reserve Detent One', text, url: link });
+        track('referral_share', { method: 'share_link', placement: 'reserve-done' });
+        return;
+      } catch (e) {
+        if (isAbort(e)) return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${link}`);
+      status.textContent = entry ? 'Link copied, with your referral code on it.' : 'Link copied.';
+    } catch {
+      status.textContent = `Copy this link: ${link}`;
+    }
+    track('referral_share', { method: 'copy_link', placement: 'reserve-done' });
+  });
+
   done.querySelector('[data-cancel]')?.addEventListener('click', async () => {
-    const status = done.querySelector<HTMLElement>('[data-cancel-status]')!;
     const r = getReservation();
     const res = await cancelReservation();
     if (!res.ok) {

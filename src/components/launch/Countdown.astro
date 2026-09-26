@@ -1,19 +1,26 @@
 ---
 /**
- * Launch-price countdown to LAUNCH.launchPriceEnds. Honest by construction:
- * a real date from config, shown in full before JS; the browser adds the
- * remaining time in days/hours/minutes (no seconds ticker) and, once the
- * date passes, says launch pricing has ended.
+ * Launch week as a short date table: orders open, launch price ends, first
+ * batch ships. Honest by construction: every date is from config and shown
+ * in full before JS. The browser then marks the next real event and says how
+ * far off it is ("in 66 days", "in 2 days, 4 hours"): before launch day that is the
+ * day orders open, never the end of a sale that hasn't started; during
+ * launch week it is the end of the launch price; after it, nothing counts.
+ *
+ * The phase preview (?phase=) wins over the calendar for which state shows,
+ * so a launch-phase preview never counts down to launch day.
  */
 import { LAUNCH } from '@/config/launch';
 import { EDITIONS, formatUsd } from '@/data/product';
-import { utcDateTime, dotDate } from '@/scripts/launch/format';
+import { dotDate, utcDateTime } from '@/scripts/launch/format';
 
 interface Props {
   class?: string;
 }
 const { class: className } = Astro.props;
 const one = EDITIONS.find((e) => e.id === 'one')!;
+const launchPrice = formatUsd(one.launchPriceUsd);
+const batchShort = LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1');
 ---
 
 <div
@@ -21,33 +28,34 @@ const one = EDITIONS.find((e) => e.id === 'one')!;
   data-countdown
   data-start={LAUNCH.launchDate}
   data-end={LAUNCH.launchPriceEnds}
+  data-price={launchPrice}
   data-regular={formatUsd(one.priceUsd)}
 >
   <p class="countdown__label" data-cd-label>
-    {formatUsd(one.launchPriceUsd)} launch pricing: {dotDate(LAUNCH.launchDate)} to{' '}
-    {dotDate(LAUNCH.launchPriceEnds)}. Ends
+    {launchPrice} launch pricing runs {dotDate(LAUNCH.launchDate)} to{' '}
+    {dotDate(LAUNCH.launchPriceEnds)}. It ends
     <time datetime={LAUNCH.launchPriceEnds}>{utcDateTime(LAUNCH.launchPriceEnds)}</time>.
   </p>
-  <p class="countdown__digits" data-cd-digits role="timer" aria-live="off" hidden>
-    <span class="countdown__unit">
-      <span class="readout" data-cd="d">
-        00
-      </span>
-      <span class="countdown__u">days</span>
-    </span>
-    <span class="countdown__unit">
-      <span class="readout" data-cd="h">
-        00
-      </span>
-      <span class="countdown__u">hours</span>
-    </span>
-    <span class="countdown__unit">
-      <span class="readout" data-cd="m">
-        00
-      </span>
-      <span class="countdown__u">min</span>
-    </span>
-  </p>
+  <ol class="countdown__rows" role="list" aria-label="Launch week">
+    <li data-cd-row="start">
+      <time class="readout countdown__date" datetime={LAUNCH.launchDate}>
+        {dotDate(LAUNCH.launchDate)}
+      </time>
+      <span class="countdown__what">Orders open</span>
+      <span class="readout countdown__left" data-cd-left></span>
+    </li>
+    <li data-cd-row="end">
+      <time class="readout countdown__date" datetime={LAUNCH.launchPriceEnds}>
+        {dotDate(LAUNCH.launchPriceEnds)}
+      </time>
+      <span class="countdown__what">Launch price ends</span>
+      <span class="readout countdown__left" data-cd-left></span>
+    </li>
+    <li>
+      <span class="readout countdown__date">{batchShort}</span>
+      <span class="countdown__what">Batch 1 ships</span>
+    </li>
+  </ol>
 </div>
 
 <script>
@@ -59,78 +67,102 @@ const one = EDITIONS.find((e) => e.id === 'one')!;
       minute: '2-digit',
       timeZoneName: 'short',
     });
+  const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+  /** Coarse on purpose: days while days away, then hours and minutes. No seconds ticker. */
+  const until = (ms: number) => {
+    const m = Math.max(0, Math.floor(ms / 60_000));
+    const d = Math.floor(m / 1440);
+    const h = Math.floor((m % 1440) / 60);
+    if (d >= 3) return `in ${plural(d, 'day')}`;
+    if (d >= 1) return `in ${plural(d, 'day')}, ${plural(h, 'hour')}`;
+    if (h >= 1) return `in ${plural(h, 'hour')}, ${m % 60} min`;
+    return `in ${m % 60} min`;
+  };
 
   document.querySelectorAll<HTMLElement>('[data-countdown]').forEach((el) => {
     const start = new Date(el.dataset.start!).getTime();
     const end = new Date(el.dataset.end!).getTime();
     const label = el.querySelector<HTMLElement>('[data-cd-label]')!;
-    const digits = el.querySelector<HTMLElement>('[data-cd-digits]')!;
-    const out = (k: string) => el.querySelector<HTMLElement>(`[data-cd="${k}"]`)!;
+    const rows = {
+      start: el.querySelector<HTMLElement>('[data-cd-row="start"]')!,
+      end: el.querySelector<HTMLElement>('[data-cd-row="end"]')!,
+    };
     const endLocal = short(el.dataset.end!);
     const startLocal = short(el.dataset.start!);
+    const phase = document.documentElement.dataset.phase;
     let timer = 0;
+
+    const mark = (which: 'start' | 'end' | null, ms = 0) => {
+      (['start', 'end'] as const).forEach((k) => {
+        const row = rows[k];
+        const left = row.querySelector<HTMLElement>('[data-cd-left]')!;
+        const on = k === which;
+        row.classList.toggle('is-next', on);
+        left.textContent = on && ms > 0 ? until(ms) : '';
+      });
+    };
+
     const tick = () => {
       const now = Date.now();
-      if (now >= end) {
+      const ended = now >= end || phase === 'live';
+      const running = !ended && (now >= start || phase === 'launch');
+      if (ended) {
         label.textContent = `Launch pricing ended ${endLocal}. Detent One is ${el.dataset.regular} from here on.`;
-        digits.hidden = true;
         el.dataset.state = 'ended';
+        mark(null);
         clearInterval(timer);
         return;
       }
-      el.dataset.state = now >= start ? 'running' : 'upcoming';
-      label.textContent =
-        now >= start
-          ? `Launch pricing ends ${endLocal}.`
-          : `Launch pricing runs ${startLocal} to ${endLocal}. It ends in`;
-      const s = Math.floor((end - now) / 1000);
-      out('d').textContent = String(Math.floor(s / 86400)).padStart(2, '0');
-      out('h').textContent = String(Math.floor((s % 86400) / 3600)).padStart(2, '0');
-      out('m').textContent = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-      digits.setAttribute(
-        'aria-label',
-        `${Math.floor(s / 86400)} days, ${Math.floor((s % 86400) / 3600)} hours, ${Math.floor((s % 3600) / 60)} minutes`,
-      );
-      digits.hidden = false;
+      if (running) {
+        el.dataset.state = 'running';
+        label.textContent = `Orders are open. The ${el.dataset.price} launch price ends ${endLocal}.`;
+        // A preview of launch week before launch day: no relative time, it would be wrong.
+        mark('end', now >= start ? end - now : 0);
+        return;
+      }
+      el.dataset.state = 'upcoming';
+      label.textContent = `Orders open ${startLocal}. The ${el.dataset.price} launch price runs until ${endLocal}.`;
+      mark('start', start - now);
     };
     tick();
-    timer = window.setInterval(tick, 10_000);
+    timer = window.setInterval(tick, 30_000);
   });
 </script>
 
 <style>
   .countdown {
     display: grid;
-    gap: var(--space-xs);
+    gap: var(--space-s);
   }
   .countdown__label {
     font-size: var(--step--1);
     color: var(--ink-muted);
-    max-inline-size: 34ch;
+    max-inline-size: 36ch;
   }
   .countdown__label time {
     color: var(--ink);
   }
-  .countdown__digits {
-    display: flex;
-    gap: var(--space-s);
-  }
-  .countdown__unit {
+  .countdown__rows {
     display: grid;
-    gap: 0.2rem;
-    min-inline-size: 4.2rem;
-    padding: var(--space-xs) var(--space-s);
-    border-radius: var(--r-m);
-    border: 1px solid var(--line-strong);
-  }
-  .countdown__unit .readout {
-    font-size: var(--step-3);
-    line-height: 1;
-    color: var(--ink-strong);
-    letter-spacing: -0.02em;
-  }
-  .countdown__u {
-    font-size: var(--step--2);
+    font-size: var(--step--1);
     color: var(--ink-muted);
+  }
+  .countdown__rows li {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--space-s);
+    padding-block: 0.45rem;
+    border-top: 1px solid var(--line);
+  }
+  .countdown__date {
+    color: var(--ink-strong);
+  }
+  .countdown__left {
+    color: var(--accent-text);
+    white-space: nowrap;
+  }
+  .countdown__rows li.is-next .countdown__what {
+    color: var(--ink-strong);
   }
 </style>

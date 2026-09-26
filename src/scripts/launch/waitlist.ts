@@ -1,7 +1,7 @@
 /**
  * /l/waitlist/: the dial is a rotary selector for "What would you turn?".
  * Chips (real radio inputs) and the dial stay in sync; the knob's feel,
- * halo and display follow the choice. Join -> Founder Pass (lazy module).
+ * halo and display follow the choice. Join -> Feel Pass (lazy module).
  */
 import { byProfile, type ProfileId } from '@/data/product';
 import {
@@ -35,7 +35,7 @@ async function init(form: HTMLFormElement) {
   const passSection = document.getElementById('pass');
   liveClear(email);
 
-  /* ---- Founder Pass, loaded near the viewport or on join --------------- */
+  /* ---- Feel Pass, loaded near the viewport or on join --------------- */
   let pass: Promise<PassController> | null = null;
   const loadPass = () => (pass ??= import('./pass').then((m) => m.mountPass(passSection!)));
   if (passSection) {
@@ -53,6 +53,18 @@ async function init(form: HTMLFormElement) {
 
   let current: Segment | null = null;
   let dial: Awaited<ReturnType<typeof whenDial>> = null;
+  /**
+   * The segment a chip is turning the dial to. While set, the zones the dial
+   * passes on the way are ignored: selecting one would set dial.profile, and
+   * a profile change re-seats the knob on the nearest detent, parking it on
+   * the first zone it crossed. Cleared on arrival, on settle, or as soon as
+   * the person takes the dial themselves.
+   */
+  let driving: Segment | null = null;
+  const segAt = (angle: number): Segment | null => {
+    const idx = Math.round((angle - REST_ANGLE) / 30);
+    return idx <= 0 ? null : (SEGMENTS[idx - 1]?.id ?? null);
+  };
 
   const inkFor = (p: ProfileId) => (p === 'ratchet' ? 'var(--tally-hot)' : `var(--feel-${p})`);
 
@@ -82,7 +94,12 @@ async function init(form: HTMLFormElement) {
         dial.setAttribute('aria-valuetext', 'Nothing picked');
       }
     }
-    if (from === 'chip' && dial && seg) dial.setAngle(SEGMENT_ANGLE[seg]);
+    if (from === 'chip' && dial && seg) {
+      // Setting dial.profile above re-seats the knob on its current detent,
+      // so start the move after it, and let the move finish (see `driving`).
+      driving = seg;
+      dial.setAngle(SEGMENT_ANGLE[seg]);
+    }
   }
 
   chips.forEach((c) =>
@@ -93,19 +110,33 @@ async function init(form: HTMLFormElement) {
   dial = await whenDial('waitlist-dial');
   if (dial) {
     // Six positions, 30° apart: rest + five kinds of work. Hard stops at both ends.
+    // No accents or snaps: the profiles' own (Wall's heavy click at 0°, Magnet's
+    // snap at 35°) would hold the knob between positions or off its mark.
     dial.physics = {
       detents: 12,
       strength: 0.9,
       damping: 0.22,
       spring: 0,
       stops: [REST_ANGLE, SEGMENT_ANGLE.streaming],
+      accents: [],
+      snaps: [],
     };
     dial.setAngle(REST_ANGLE, { instant: true });
     dial.addEventListener('detent:change', (e) => {
-      const idx = Math.round((e.detail.angle - REST_ANGLE) / 30);
-      const seg = idx <= 0 ? null : (SEGMENTS[idx - 1]?.id ?? null);
-      select(seg, 'dial');
+      if (driving) {
+        if (Math.abs(e.detail.angle - SEGMENT_ANGLE[driving]) < 1) driving = null;
+        return;
+      }
+      select(segAt(e.detail.angle), 'dial');
     });
+    dial.addEventListener('detent:settle', (e) => {
+      driving = null;
+      select(segAt(e.detail.angle), 'dial');
+    });
+    const takeOver = () => (driving = null);
+    dial.addEventListener('pointerdown', takeOver, { capture: true });
+    dial.addEventListener('keydown', takeOver, { capture: true });
+    dial.addEventListener('wheel', takeOver, { capture: true, passive: true });
     const pre = chips.find((c) => c.checked)?.value;
     select(isSegment(pre) ? pre : null, 'init');
     if (isSegment(pre)) dial.setAngle(SEGMENT_ANGLE[pre], { instant: true });
@@ -115,7 +146,11 @@ async function init(form: HTMLFormElement) {
   const showJoined = (entry: WaitlistEntry, announce: boolean) => {
     form.hidden = true;
     joined.hidden = false;
-    setStickyEnabled(false);
+    const refNote = document.querySelector<HTMLElement>('[data-ref-note]');
+    if (refNote) refNote.hidden = true;
+    // The bar's job was the join; from reservations on it carries the phase CTA instead.
+    const phase = document.documentElement.dataset.phase;
+    if (phase === 'tease' || phase === 'waitlist') setStickyEnabled(false);
     const out = joined.querySelector('[data-joined-email]');
     if (out) out.textContent = entry.email;
     void loadPass().then((p) => {
@@ -126,7 +161,7 @@ async function init(form: HTMLFormElement) {
 
   const existing = getEntry();
   if (existing) showJoined(existing, false);
-  else if (ref) form.querySelector<HTMLElement>('[data-ref-note]')!.hidden = false;
+  else if (ref) document.querySelector<HTMLElement>('[data-ref-note]')!.hidden = false;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

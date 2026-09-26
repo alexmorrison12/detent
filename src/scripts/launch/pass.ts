@@ -1,5 +1,5 @@
 /**
- * Founder Pass UI (lazy-loaded by the waitlist page). Draws the pass on the
+ * Feel Pass UI (lazy-loaded by the waitlist page). Draws the pass on the
  * page, keeps both export sizes pre-rendered as Files so navigator.share()
  * runs synchronously inside the click (Safari drops the user activation if
  * we await toBlob first), and wires the referral link.
@@ -98,8 +98,8 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
     canvas.setAttribute(
       'aria-label',
       d.sample
-        ? `Sample Founder Pass: a ${d.profile.name} feel signature ring, Graphite finish.`
-        : `Your Founder Pass: @${d.handle || 'founder'}, ${d.finish.name} finish, ${d.profile.name} feel, pass ID ${d.passId}.`,
+        ? `Sample Feel Pass: a ${d.profile.name} feel signature ring, Graphite finish.`
+        : `Your Feel Pass: @${d.handle || 'you'}, ${d.finish.name} finish, ${d.profile.name} feel, pass ID ${d.passId}.`,
     );
   };
 
@@ -112,7 +112,7 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
       for (const l of ['landscape', 'story'] as const) {
         const blob = await renderPng(l, d);
         if (blob)
-          files[l] = new File([blob], `detent-founder-pass${l === 'story' ? '-story' : ''}.png`, {
+          files[l] = new File([blob], `detent-feel-pass${l === 'story' ? '-story' : ''}.png`, {
             type: 'image/png',
           });
       }
@@ -175,7 +175,7 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
       const href = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = href;
-      a.download = `detent-founder-pass${l === 'story' ? '-story' : ''}.png`;
+      a.download = `detent-feel-pass${l === 'story' ? '-story' : ''}.png`;
       document.body.append(a);
       a.click();
       a.remove();
@@ -195,7 +195,7 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
     const file = files[layout] ?? files.landscape;
     if (file && navigator.canShare?.({ files: [file] })) {
       navigator
-        .share({ files: [file], title: 'My Detent Founder Pass', text: `${text} ${url}` })
+        .share({ files: [file], title: 'My Detent Feel Pass', text: `${text} ${url}` })
         .then(() => {
           track('referral_share', { method: 'share_file' });
           say('Shared. Referrals count when your friend confirms their email.');
@@ -205,7 +205,7 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
     }
     if (typeof navigator.share === 'function') {
       navigator
-        .share({ title: 'My Detent Founder Pass', text, url })
+        .share({ title: 'My Detent Feel Pass', text, url })
         .then(() => track('referral_share', { method: 'share_url' }))
         .catch((e) => !isAbort(e) && download(layout));
       return;

@@ -4,9 +4,12 @@
  * scale (like a VU meter, so the early milestones get room), and the four
  * rewards as rows. There is no needle: in demo mode no counts exist, and we
  * never invent one.
+ *
+ * The same ladder the launch plan publishes. The three-friend reward is a
+ * window that opens with reservations, so it is only offered before then.
  */
-import { LAUNCH } from '@/config/launch';
-import { serialRange } from '@/scripts/launch/format';
+import { PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+import { dotDate, toTime } from '@/scripts/launch/format';
 import { IS_DEMO } from '@/lib/waitlist';
 
 interface Props {
@@ -16,7 +19,12 @@ const { headingId } = Astro.props;
 
 const MAX = 25;
 const pos = (n: number) => Math.sqrt(n / MAX) * 100;
-const rewards = [
+const PRIORITY_HOURS = 72;
+const windowOpens = dotDate(PHASES.reserve.starts);
+const windowCloses = dotDate(
+  new Date(toTime(PHASES.reserve.starts) + PRIORITY_HOURS * 3_600_000).toISOString(),
+);
+const rewards: { n: number; name: string; detail: string; phases?: Phase[] }[] = [
   {
     n: 1,
     name: 'Referral Ratchet',
@@ -25,44 +33,58 @@ const rewards = [
   },
   {
     n: 3,
-    name: 'First-wave priority',
-    detail: 'A private window to reserve before the first wave opens to everyone.',
+    name: 'Founders priority window',
+    detail: `Reserve a numbered Founders Edition ${PRIORITY_HOURS} hours before everyone else: ${windowOpens} to ${windowCloses}.`,
+    phases: ['tease', 'waitlist'],
   },
   {
     n: 10,
-    name: 'Your Founders serial, early',
-    detail: `Pick your number from ${serialRange(LAUNCH.foundersRun)} before the public can.`,
+    name: 'Your handle at first boot',
+    detail: 'The display greets you by your handle the first time your Detent powers on.',
   },
   {
     n: 25,
-    name: 'Engraved knob face',
-    detail: 'Your mark, laser-engraved into the knob’s top ring.',
+    name: 'Engraved knob ring',
+    detail: 'Your mark, laser-engraved into the knurled ring.',
   },
 ];
-const ticks = Array.from({ length: MAX + 1 }, (_, n) => n);
+const only = (phases?: Phase[]) => phases?.join(' ');
+const except = (phases?: Phase[]) =>
+  phases ? PHASE_ORDER.filter((p) => !phases.includes(p)).join(' ') : undefined;
+const ticks = Array.from({ length: MAX + 1 }, (_, n) => ({
+  n,
+  mile: rewards.find((r) => r.n === n),
+}));
 ---
 
 <div class="ladder">
   <div class="ladder__scale" aria-hidden="true">
-    {ticks.map((n) => (
-      <span
-        class:list={[
-          'ladder__tick',
-          { 'is-mile': rewards.some((r) => r.n === n), 'is-five': n % 5 === 0 },
-        ]}
-        style={`--x:${pos(n)}%`}
-      />
+    {ticks.map(({ n, mile }) => (
+      <>
+        <span
+          class:list={['ladder__tick', { 'is-mile': !!mile, 'is-five': n % 5 === 0 }]}
+          style={`--x:${pos(n)}%`}
+          data-phase-only={only(mile?.phases)}
+        />
+        {mile?.phases && (
+          <span
+            class:list={['ladder__tick', { 'is-five': n % 5 === 0 }]}
+            style={`--x:${pos(n)}%`}
+            data-phase-only={except(mile.phases)}
+          />
+        )}
+      </>
     ))}
-    {[0, ...rewards.map((r) => r.n)].map((n) => (
-      <span class="ladder__num readout" style={`--x:${pos(n)}%`}>
-        {n}
+    {[{ n: 0, phases: undefined }, ...rewards].map((r) => (
+      <span class="ladder__num readout" style={`--x:${pos(r.n)}%`} data-phase-only={only(r.phases)}>
+        {r.n}
       </span>
     ))}
   </div>
 
   <ol class="ladder__list" role="list" aria-labelledby={headingId}>
     {rewards.map((r) => (
-      <li class="ladder__row">
+      <li class="ladder__row" data-phase-only={only(r.phases)}>
         <span class="ladder__count readout">
           {r.n} {r.n === 1 ? 'friend' : 'friends'}
         </span>

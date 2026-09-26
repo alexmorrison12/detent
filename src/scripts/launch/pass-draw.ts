@@ -1,5 +1,5 @@
 /**
- * Founder Pass renderer. One draw function, two layouts:
+ * Feel Pass renderer. One draw function, two layouts:
  *   landscape 1200×630 (X, LinkedIn, iMessage previews)
  *   story     1080×1920 (Stories, Reels covers)
  * Drawn in logical units; callers scale the context for DPR or export size.
@@ -280,7 +280,7 @@ function rows(
 }
 
 function passKind(ctx: Ctx, d: PassData, x: number, y: number, s: number) {
-  const text = d.sample ? 'Sample pass' : 'Founder pass';
+  const text = d.sample ? 'Sample pass' : 'Feel pass';
   font(ctx, 450, 15 * s, MONO);
   ctx.textAlign = 'right';
   const w = ctx.measureText(text.toUpperCase()).width;
@@ -296,7 +296,7 @@ export function drawPass(ctx: Ctx, layout: PassLayout, d: PassData): void {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
-  const handle = `@${d.handle || 'founder'}`;
+  const handle = `@${d.handle || 'you'}`;
 
   if (layout === 'landscape') {
     const stub = 630;
