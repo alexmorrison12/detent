@@ -19,7 +19,8 @@ import { faqLd, productLd } from '@/components/launch/ld';
 import { PHASES, LAUNCH } from '@/config/launch';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
-import { EDITIONS, FINISHES, FAQS, PAYMENT, SPECS, formatUsd } from '@/data/product';
+import { EDITIONS, FINISHES, FAQS, PAYMENT, SPECS, byEdition, formatUsd } from '@/data/product';
+import { url } from '@/lib/url';
 import { IS_DEMO } from '@/lib/waitlist';
 import { dotDate, longDate, serialRange } from '@/scripts/launch/format';
 
@@ -37,6 +38,33 @@ const faqs = FAQS.filter((f) => f.topic === 'Launch' || f.q.startsWith('What if 
 
 const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 const reserveLabel = (id: string) => `Reserve for ${usd(deposit(id))}`;
+const reserveDot = dotDate(PHASES.reserve.starts);
+const endDot = dotDate(LAUNCH.launchPriceEnds);
+const shippingReadout =
+  PAYMENT.freeShippingOverUsd === 0 ? 'Free' : `Over ${usd(PAYMENT.freeShippingOverUsd)}`;
+const shippingLine =
+  PAYMENT.freeShippingOverUsd === 0
+    ? 'Everywhere we ship, tracked and insured.'
+    : `Free on orders over ${usd(PAYMENT.freeShippingOverUsd)}, tracked and insured.`;
+
+/**
+ * This page takes deposits only while reservations are open. Before that it
+ * says when they open; after launch it points at the order. Edition links
+ * follow the same phases.
+ */
+const editionLinks = (id: 'one' | 'founders') => [
+  { phases: 'tease', label: PHASES.tease.primary.label, href: url(PHASES.tease.primary.href) },
+  {
+    phases: 'waitlist',
+    label: PHASES.waitlist.primary.label,
+    href: url(PHASES.waitlist.primary.href),
+  },
+  {
+    phases: 'launch live',
+    label: id === 'one' ? `Order ${byEdition(id).name}` : `Order the ${byEdition(id).name}`,
+    href: url(`/shop/?edition=${id}`),
+  },
+];
 
 // Ritual arc geometry: 0° to 90° (three 30° detents, then the stop).
 const polar = (deg: number, r: number) => {
@@ -78,11 +106,36 @@ const stopB = polar(96, 138);
     <div class="container rv__grid">
       <div class="rv__head">
         <!-- prettier-ignore -->
-        <h1 id="rv-title" class="rv__title">Reserve for <span class="readout rv__amount" data-amount>{usd(LAUNCH.depositUsd)}</span>.<span class="rv__title-2">Fully refundable.</span></h1>
-        <p class="rv__lede">
-          It holds your place in line and locks the {usd(one.launchPriceUsd)} launch price. The
-          deposit comes off the price. Change your mind before it ships and every dollar comes back.
-        </p>
+        <h1 id="rv-title" class="rv__title"><span data-phase-only="reserve">Reserve for <span class="readout rv__amount" data-amount>{usd(LAUNCH.depositUsd)}</span>.<span class="rv__title-2">Fully refundable.</span></span><span data-phase-only="tease waitlist">Reservations open <span class="readout rv__amount">{reserveDot}</span>.<span class="rv__title-2">{usd(LAUNCH.depositUsd)}, fully refundable.</span></span><span data-phase-only="launch">Orders are open.<span class="rv__title-2">No deposit needed.</span></span><span data-phase-only="live">Reservations are closed.<span class="rv__title-2">{SITE.product} is in the store.</span></span></h1>
+        <div class="rv__intro">
+          <p class="rv__lede">
+            <strong class="rv__what">
+              {SITE.product} is a machined aluminum dial whose clicks change with every app.
+            </strong>{' '}
+            <span data-phase-only="reserve">
+              The deposit locks the {usd(one.launchPriceUsd)} launch price and comes off it. Change
+              your mind before it ships and every dollar comes back.
+            </span>
+            <span data-phase-only="tease waitlist">
+              From {longDate(PHASES.reserve.starts)}, {usd(LAUNCH.depositUsd)} holds your place in
+              line and locks the {usd(one.launchPriceUsd)} launch price. Until then, nothing to pay.
+            </span>
+            <span data-phase-only="launch">
+              Order it outright at the {usd(one.launchPriceUsd)} launch price until {endDot}. After
+              that it’s {usd(one.priceUsd)}.
+            </span>
+            <span data-phase-only="live">
+              {usd(one.priceUsd)}, with a {PAYMENT.warrantyYears}-year warranty on parts and labor.
+            </span>
+          </p>
+          <div id="rv-cta" class="rv__cta" data-phase-only="tease waitlist launch live">
+            <PhaseCTA
+              placement="reserve-hero"
+              size="lg"
+              phases={['tease', 'waitlist', 'launch', 'live']}
+            />
+          </div>
+        </div>
       </div>
 
       <form
@@ -93,7 +146,7 @@ const stopB = polar(96, 138);
         aria-labelledby="rv-title"
         data-reserve
       >
-        <div class="rv__fields">
+        <div class="rv__fields" data-phase-only="reserve">
           <fieldset class="rv__set">
             <legend>Edition</legend>
             <div class="editions">
@@ -102,7 +155,13 @@ const stopB = polar(96, 138);
                   <input type="radio" name="edition" value={e.id} checked={e.id === 'one'} />
                   <span class="edition__name">{e.name}</span>
                   <span class="edition__price readout">
-                    {e.launchPriceUsd < e.priceUsd && <s>{usd(e.priceUsd)}</s>}{' '}
+                    {e.launchPriceUsd < e.priceUsd && (
+                      <>
+                        <span class="visually-hidden">Regular price</span>
+                        <s>{usd(e.priceUsd)}</s>
+                        <span class="visually-hidden">, launch price</span>{' '}
+                      </>
+                    )}
                     {usd(e.launchPriceUsd)}
                   </span>
                   <span class="edition__meta">
@@ -148,7 +207,12 @@ const stopB = polar(96, 138);
 
         <div class="rv__stage">
           <div class="ritual" data-ritual>
-            <svg class="ritual__arc" viewBox="-170 -170 340 340" aria-hidden="true">
+            <svg
+              class="ritual__arc"
+              viewBox="-170 -170 340 340"
+              aria-hidden="true"
+              data-phase-only="reserve"
+            >
               <path
                 class="ritual__track"
                 d={`M ${arc0.x} ${arc0.y} A 124 124 0 0 1 ${arc90.x} ${arc90.y}`}
@@ -198,9 +262,9 @@ const stopB = polar(96, 138);
           </div>
         </div>
 
-        <div class="rv__submit">
+        <div class="rv__submit" data-phase-only="reserve">
           <button
-            class="btn btn--lg rv__btn"
+            class="btn btn--primary btn--lg rv__btn"
             type="submit"
             id="reserve-submit"
             data-track="cta_click"
@@ -268,11 +332,14 @@ const stopB = polar(96, 138);
           <button class="btn btn--primary" type="button" data-ics-launch>
             Add launch day to your calendar
           </button>
+          <button class="btn" type="button" data-share-reservation>
+            Send a friend the link
+          </button>
           <button class="btn btn--quiet" type="button" data-cancel>
             Cancel and refund
           </button>
         </div>
-        <p class="rv__done-status" role="status" data-cancel-status></p>
+        <p class="rv__done-status" role="status" data-done-status></p>
         <p class="concept-note">
           {IS_DEMO
             ? 'Concept demo: no card was charged and nothing was sent. This reservation exists only in this browser.'
@@ -282,7 +349,12 @@ const stopB = polar(96, 138);
     </div>
   </section>
 
-  <section class="how" data-world="day" aria-labelledby="how-title">
+  <section
+    class="how"
+    data-world="day"
+    aria-labelledby="how-title"
+    data-phase-only="tease waitlist reserve"
+  >
     <div class="container">
       <h2 id="how-title" class="rv-h2">
         How the {usd(LAUNCH.depositUsd)} works
@@ -294,8 +366,8 @@ const stopB = polar(96, 138);
           </span>
           <h3>Reserve</h3>
           <p>
-            Pay {usd(LAUNCH.depositUsd)} today ({usd(LAUNCH.foundersDepositUsd)} for Founders). It
-            holds your place in line and locks the {usd(one.launchPriceUsd)} launch price.
+            Pay {usd(LAUNCH.depositUsd)} ({usd(LAUNCH.foundersDepositUsd)} for Founders). It holds
+            your place in line and locks the {usd(one.launchPriceUsd)} launch price.
           </p>
         </li>
         <li class="how__step">
@@ -332,18 +404,19 @@ const stopB = polar(96, 138);
           <div class="ed__stills" aria-hidden="true">
             {one.finishes.map((f) => (
               <div class="ed__still">
-                <DialStill finish={f} view="top" />
+                <DialStill finish={f} view="hero" sizes="(min-width: 60rem) 15rem, 30vw" />
               </div>
             ))}
           </div>
           <h3 id="ed-one" class="ed__name">
             {one.name}
           </h3>
-          <p class="ed__price">
+          <p class="ed__price" data-phase-only="tease waitlist reserve launch">
             <span class="readout ed__now">{usd(one.launchPriceUsd)}</span>
-            <span class="ed__was">
-              <s>{usd(one.priceUsd)}</s> after launch week
-            </span>
+            <span class="ed__was">{usd(one.priceUsd)} after launch week</span>
+          </p>
+          <p class="ed__price" data-phase-only="live">
+            <span class="readout ed__now">{usd(one.priceUsd)}</span>
           </p>
           <p class="ed__summary">{one.summary}</p>
           <ul class="ed__list" role="list">
@@ -351,15 +424,31 @@ const stopB = polar(96, 138);
               <li>{i}</li>
             ))}
           </ul>
-          <a class="btn btn--solid" href="#reserve-form" data-pick-edition="one">
-            Reserve for {usd(LAUNCH.depositUsd)}
+          <a
+            class="link-arrow ed__link"
+            href="#reserve-form"
+            data-pick-edition="one"
+            data-phase-only="reserve"
+          >
+            Pick this edition
           </a>
+          {editionLinks('one').map((c) => (
+            <a
+              class="link-arrow ed__link"
+              href={c.href}
+              data-phase-only={c.phases}
+              data-track="cta_click"
+              data-track-placement="reserve-edition-one"
+            >
+              {c.label}
+            </a>
+          ))}
         </article>
 
         <article class="ed ed--founders" aria-labelledby="ed-founders">
           <div class="ed__stills" aria-hidden="true">
             <div class="ed__still ed__still--solo">
-              <DialStill finish="tally" view="top" />
+              <DialStill finish="tally" view="hero" sizes="(min-width: 60rem) 17rem, 40vw" />
             </div>
           </div>
           <h3 id="ed-founders" class="ed__name">
@@ -371,16 +460,32 @@ const stopB = polar(96, 138);
           </p>
           <p class="ed__summary">
             A numbered run of {LAUNCH.foundersRun.toLocaleString('en-US')} in Tally red. When they
-            are reserved, Tally is gone. We don’t show a countdown because we won’t fake one.
+            are reserved, Tally is gone. We don’t show a stock counter because we won’t fake one.
           </p>
           <ul class="ed__list" role="list">
             {founders.includes.map((i) => (
               <li>{i}</li>
             ))}
           </ul>
-          <a class="btn btn--solid" href="#reserve-form" data-pick-edition="founders">
-            Reserve for {usd(LAUNCH.foundersDepositUsd)}
+          <a
+            class="link-arrow ed__link"
+            href="#reserve-form"
+            data-pick-edition="founders"
+            data-phase-only="reserve"
+          >
+            Pick this edition
           </a>
+          {editionLinks('founders').map((c) => (
+            <a
+              class="link-arrow ed__link"
+              href={c.href}
+              data-phase-only={c.phases}
+              data-track="cta_click"
+              data-track-placement="reserve-edition-founders"
+            >
+              {c.label}
+            </a>
+          ))}
         </article>
       </div>
     </div>
@@ -410,7 +515,7 @@ const stopB = polar(96, 138);
         If it isn’t for you
       </h2>
       <dl class="risk__list">
-        <div class="risk__row">
+        <div class="risk__row" data-phase-only="tease waitlist reserve">
           <dt>Before it ships</dt>
           <dd>
             <span class="readout">{usd(LAUNCH.depositUsd)} back</span> Cancel any time before your
@@ -439,8 +544,8 @@ const stopB = polar(96, 138);
         <div class="risk__row">
           <dt>Shipping</dt>
           <dd>
-            <span class="readout">{usd(PAYMENT.freeShippingOverUsd)}</span> Free everywhere we ship,
-            tracked and insured.
+            <span class="readout">{shippingReadout}</span>
+            {shippingLine}
           </dd>
         </div>
       </dl>
@@ -450,20 +555,41 @@ const stopB = polar(96, 138);
   <section class="rv-closer" aria-labelledby="rv-closer-title">
     <div class="container rv-closer__inner">
       <h2 id="rv-closer-title" class="rv-closer__title">
-        {usd(LAUNCH.depositUsd)} now. The rest when it ships. All of it back if you change your
-        mind.
+        <span data-phase-only="reserve">
+          {usd(LAUNCH.depositUsd)} now. The rest when it ships. All of it back if you change your
+          mind.
+        </span>
+        <span data-phase-only="tease waitlist">
+          {usd(LAUNCH.depositUsd)} on {reserveDot}. The rest when it ships. All of it back if you
+          change your mind.
+        </span>
+        <span data-phase-only="launch">
+          {usd(one.launchPriceUsd)} until {endDot}. Free shipping, and {PAYMENT.trialDays} days to
+          decide.
+        </span>
+        <span data-phase-only="live">
+          {usd(one.priceUsd)}. Free shipping, and {PAYMENT.trialDays} days to decide.
+        </span>
       </h2>
       <PhaseCTA placement="reserve-closer" size="lg" />
     </div>
   </section>
 
   <StickyCta
-    watch="#reserve-submit"
-    hideOver=".rv__done, .rv-closer, .site-footer"
+    watch="#reserve-submit, #rv-cta"
+    hideOver=".rv__fields, .rv__submit, .rv__done, .rv-closer, .site-footer"
     label={reserveLabel('one')}
     target="#reserve-email"
     note="Fully refundable"
-  />
+    only="reserve"
+  >
+    <PhaseCTA
+      placement="sticky"
+      size="sm"
+      showNote={false}
+      phases={['tease', 'waitlist', 'launch', 'live']}
+    />
+  </StickyCta>
 </BaseLayout>
 
 <script>
@@ -492,6 +618,16 @@ const stopB = polar(96, 138);
   .rv__form {
     display: contents;
   }
+  /* Outside the reserve phase there is no form: headline and CTA beside the dial. */
+  :global(html:not([data-phase='reserve'])) .rv__grid {
+    grid-template-areas: 'head stage';
+    align-items: center;
+  }
+  :global(html:not([data-phase='reserve'])) .rv__head {
+    flex-direction: column;
+    align-items: start;
+    margin-block-end: 0;
+  }
   .rv__head {
     grid-area: head;
     display: flex;
@@ -518,12 +654,21 @@ const stopB = polar(96, 138);
     display: block;
     color: var(--ink-muted);
   }
+  .rv__intro {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+    max-inline-size: 38ch;
+    padding-block-end: 0.4em;
+  }
   .rv__lede {
     font-size: var(--step-1);
     line-height: 1.45;
     color: var(--ink-muted);
-    max-inline-size: 30ch;
-    padding-block-end: 0.4em;
+  }
+  .rv__what {
+    font-weight: 560;
+    color: var(--ink-strong);
   }
   .rv__fields {
     grid-area: fields;
@@ -735,7 +880,7 @@ const stopB = polar(96, 138);
     }
   }
 
-  /* ---- Submit: the button fills with tally as the ritual progresses ---- */
+  /* ---- Submit: tally from the start; the ritual brightens it, detent by detent ---- */
   .rv__submit {
     grid-area: submit;
     display: grid;
@@ -744,25 +889,31 @@ const stopB = polar(96, 138);
     align-content: start;
   }
   .rv__btn {
-    --btn-bg: var(--ink-strong);
-    --btn-ink: var(--graphite-950);
-    --btn-line: var(--ink-strong);
     position: relative;
     isolation: isolate;
     overflow: hidden;
     min-inline-size: 15rem;
+    white-space: normal;
+    text-wrap: balance;
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-3) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
   }
   .rv__btn-fill {
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: var(--tally);
+    background: var(--tally-hot);
     transform-origin: left;
     transform: scaleX(var(--arm));
     transition: transform var(--dur-3) var(--ease-out);
   }
+  /* Armed: a ring seats around the button, like the stop the dial just hit. */
   .rv[data-armed] .rv__btn {
-    --btn-line: var(--tally);
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 0 5px var(--tally-hot);
   }
   .rv[data-armed] .rv__btn-label::after {
     content: ' ✓';
@@ -937,10 +1088,11 @@ const stopB = polar(96, 138);
     margin-block-start: var(--space-xl);
   }
   .ed {
+    --ed-pad: var(--space-l);
     display: grid;
     align-content: start;
     gap: var(--space-s);
-    padding: var(--space-l);
+    padding: var(--ed-pad);
     border-radius: var(--r-l);
     background: var(--bg-raised);
   }
@@ -954,17 +1106,32 @@ const stopB = polar(96, 138);
     --line-strong: oklch(1 0 0 / 0.24);
     --bg: var(--graphite-950);
   }
+  /* The product, large: a lineup of finishes (or the one Tally) on a raised panel. */
   .ed__stills {
     display: flex;
-    gap: var(--space-s);
-    margin-block-end: var(--space-s);
+    justify-content: center;
+    align-items: center;
+    block-size: clamp(10rem, 7rem + 12vw, 17rem);
+    margin: calc(-1 * var(--ed-pad)) calc(-1 * var(--ed-pad)) var(--space-xs);
+    padding: var(--space-s) var(--ed-pad);
+    border-radius: var(--r-l) var(--r-l) 0 0;
+    background: var(--surface);
+  }
+  .ed--founders .ed__stills {
+    background: var(--graphite-850);
   }
   .ed__still {
-    inline-size: clamp(4.5rem, 9vw, 7rem);
-    aspect-ratio: 1;
+    flex: 1 1 0;
+    min-inline-size: 0;
+    max-inline-size: 15rem;
+    block-size: 100%;
+  }
+  .ed__still + .ed__still {
+    margin-inline-start: -5%;
   }
   .ed__still--solo {
-    inline-size: clamp(6rem, 12vw, 9rem);
+    flex: 0 1 auto;
+    aspect-ratio: 1;
   }
   .ed__name {
     font-size: var(--step-2);
@@ -1012,8 +1179,12 @@ const stopB = polar(96, 138);
     border-radius: 50%;
     background: var(--accent);
   }
-  .ed .btn {
+  .ed__link {
     justify-self: start;
+    min-block-size: 2.75rem;
+  }
+  .ed--founders .ed__link {
+    color: var(--tally-hot);
   }
 
   .dates .rv-h2 {
@@ -1103,8 +1274,15 @@ const stopB = polar(96, 138);
       display: grid;
       margin-block-end: 0;
     }
-    .rv__lede {
+    .rv__intro {
       max-inline-size: 40ch;
+    }
+    :global(html:not([data-phase='reserve'])) .rv__grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'head' 'stage';
+    }
+    :global(html:not([data-phase='reserve'])) .ritual {
+      inline-size: min(100%, 24rem);
     }
     .ritual__arc text {
       display: none;
@@ -1142,6 +1320,35 @@ const stopB = polar(96, 138);
       grid-template-columns: 1fr;
     }
   }
+  /* Phones: the dial comes up under the headline (the product, and the finish
+     preview, in view), and the button gets the full width. */
+  @media (max-width: 40rem) {
+    .rv__grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'head' 'stage' 'fields' 'submit' 'done';
+      row-gap: var(--space-m);
+    }
+    .rv[data-done] .rv__grid {
+      grid-template-areas: 'head' 'stage' 'done';
+    }
+    .rv__stage {
+      justify-self: center;
+      inline-size: min(84vw, 21rem);
+    }
+    /* The arc only uses the top-right of its square: trim the empty band below the dial. */
+    .ritual {
+      margin-block: -2% -12%;
+    }
+    .ritual__arc text {
+      display: revert;
+    }
+    .rv__submit {
+      justify-items: stretch;
+    }
+    .rv__btn {
+      inline-size: 100%;
+    }
+  }
   @media (max-width: 22rem) {
     .editions {
       grid-template-columns: 1fr;
@@ -1153,7 +1360,7 @@ const stopB = polar(96, 138);
       gap: var(--space-2xs);
     }
     .ed {
-      padding: var(--space-m);
+      --ed-pad: var(--space-m);
     }
     .rv__done {
       padding: var(--space-m);

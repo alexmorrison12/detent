@@ -3,10 +3,11 @@
  * Waitlist: "What would you turn?" The dial is a rotary selector: turning it
  * (or tapping a chip) picks the kind of work, and the knob changes feel and
  * display to match. That tap is step 1 of the form; step 2 is the email.
- * On join, the Founder Pass below becomes yours.
+ * On join, the Feel Pass below becomes yours.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import DialStage from '@/components/dial/DialStage.astro';
+import DialStill from '@/components/dial/DialStill.astro';
 import PhaseCTA from '@/components/PhaseCTA.astro';
 import PhaseNotice from '@/components/launch/PhaseNotice.astro';
 import EmailField from '@/components/launch/EmailField.astro';
@@ -28,6 +29,10 @@ const launchPrice = formatUsd(one.launchPriceUsd);
 const fullPrice = formatUsd(one.priceUsd);
 const reserveDot = dotDate(PHASES.reserve.starts);
 const reserveLong = longDate(PHASES.reserve.starts);
+const endDot = dotDate(LAUNCH.launchPriceEnds);
+const deposit = formatUsd(LAUNCH.depositUsd);
+// One string, so a formatter can never wrap a line inside the parentheses (it did: "Batch 1 ( February").
+const batches = `Batch 1 (${LAUNCH.firstShipBatch}) and Batch 2 (${LAUNCH.secondShipBatch})`;
 
 // Selector geometry (degrees, 0 = 12 o'clock) for the arc around the dial.
 const polar = (deg: number, r: number) => {
@@ -55,7 +60,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 
 <BaseLayout
   title="Join the waitlist"
-  description={`Tell us what you’d turn and get on the ${SITE.product} list: the ${launchPrice} launch price (${fullPrice} after launch week), first pick when reservations open ${reserveLong}, and a Founder Pass that’s yours alone.`}
+  description={`Tell us what you’d turn and get on the ${SITE.product} list: the ${launchPrice} launch price (${fullPrice} after launch week), first pick when reservations open ${reserveLong}, and a Feel Pass that’s yours alone.`}
   ogImage={ogPath('waitlist')}
   ogImageAlt="Get in line. Move up. The Detent One waitlist."
   chrome="minimal"
@@ -66,7 +71,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     placement="waitlist-notice"
     notices={{
       tease: `The waitlist opens ${dotDate(PHASES.waitlist.starts)}. You’re early; joining now works the same.`,
-      reserve: `Reservations are open. The list still gets launch-day email and a Founder Pass.`,
+      reserve: `Reservations are open. The list still gets launch-day email and a Feel Pass.`,
       launch: `${SITE.product} is on sale today at ${launchPrice}.`,
       live: `${SITE.product} is in the store. Free shipping, ${PAYMENT.trialDays}-day studio trial.`,
     }}
@@ -75,13 +80,53 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
   <section class="wl" aria-labelledby="wl-title">
     <div class="container wl__grid">
       <div class="wl__copy">
+        <p class="wl__ref" data-ref-note data-phase-only="tease waitlist reserve" hidden>
+          <span class="wl__ref-dot" aria-hidden="true"></span>A friend sent you their pass. It
+          counts for them once you confirm your email.
+        </p>
         <h1 id="wl-title" class="wl__title">
           What would you turn?
         </h1>
+        <div class="wl__what">
+          <div class="wl__thumb" aria-hidden="true">
+            <DialStill finish="graphite" view="hero" alt="" sizes="5rem" />
+          </div>
+          <p>
+            {SITE.product} is a machined aluminum dial whose clicks change with every app.{' '}
+            <span data-phase-only="tease waitlist">{launchPrice} for the list.</span>
+          </p>
+        </div>
         <p class="wl__line" data-seg-line>
           <strong data-seg-profile>Every app</strong>
           <span data-seg-text>gets its own feel. Pick yours, or turn the dial.</span>
         </p>
+
+        <div class="wl__now" data-phase-only="reserve launch live">
+          <p class="wl__now-text">
+            <span data-phase-only="reserve">
+              Reservations are open: {deposit}, fully refundable, locks the {launchPrice} launch
+              price.
+            </span>
+            <span data-phase-only="launch">
+              Orders are open: {launchPrice} until {endDot}, then {fullPrice}.
+            </span>
+            <span data-phase-only="live">
+              The list is closed. {SITE.product} is {fullPrice} in the store, with free shipping and
+              a {PAYMENT.trialDays}-day studio trial.
+            </span>
+          </p>
+          <div id="wl-now-cta">
+            <PhaseCTA
+              placement="waitlist-hero"
+              size="lg"
+              showNote={false}
+              phases={['reserve', 'launch', 'live']}
+            />
+          </div>
+          <p class="wl__or" data-phase-only="reserve">
+            Not ready? Join the list for launch-day email and a Feel Pass.
+          </p>
+        </div>
 
         <form
           id="join"
@@ -90,6 +135,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
           method="dialog"
           aria-label="Join the waitlist"
           data-join
+          data-phase-only="tease waitlist reserve"
         >
           <fieldset class="seg">
             <legend class="step">
@@ -119,7 +165,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
             <div class="join__row">
               <EmailField
                 id="join-email"
-                label="Email for the waitlist"
+                label="Your email for the waitlist"
                 hideLabel
                 describedBy="join-step2 join-offer"
               />
@@ -136,23 +182,31 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
           </div>
 
           <p class="join__offer" id="join-offer">
-            The list gets the <strong>{launchPrice}</strong> launch price and reserves first, from{' '}
-            {reserveLong}. After launch week it’s {fullPrice}.
+            <span data-phase-only="tease waitlist">
+              The list gets the <strong>{launchPrice}</strong> launch price and reserves first, from{' '}
+              {reserveLong}. After launch week it’s {fullPrice}.
+            </span>
+            <span data-phase-only="reserve">
+              The list gets one email on launch day and a Feel Pass. The{' '}
+              <strong>{launchPrice}</strong> price comes with a reservation.
+            </span>
           </p>
           <ConceptNote />
-          <p class="join__ref" data-ref-note hidden>
-            You came in on a friend’s pass. Their referral counts once you confirm your email.
-          </p>
           <noscript>
             <p class="concept-note">This form needs JavaScript in the concept demo.</p>
           </noscript>
         </form>
 
-        <div class="joined" data-joined hidden>
+        <div class="joined" data-joined data-phase-only="tease waitlist reserve" hidden>
           <p class="joined__title">You’re on the list.</p>
           <p class="joined__text">
-            Saved as <span class="readout" data-joined-email></span>. The {launchPrice} launch price
-            is yours when reservations open {reserveDot}.
+            Saved as <span class="readout" data-joined-email></span>.{' '}
+            <span data-phase-only="tease waitlist">
+              The {launchPrice} launch price is yours when reservations open {reserveDot}.
+            </span>
+            <span data-phase-only="reserve">
+              Reservations are open now: {deposit} locks the {launchPrice} launch price.
+            </span>
           </p>
           <a class="btn btn--primary" href="#pass">
             Make your pass
@@ -218,7 +272,6 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
               camera="top"
               display="PICK ONE"
               label="What would you turn? Turn to choose"
-              priority
             />
           </div>
         </div>
@@ -226,7 +279,12 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     </div>
   </section>
 
-  <section class="gets" data-world="day" aria-labelledby="gets-title">
+  <section
+    class="gets"
+    data-world="day"
+    aria-labelledby="gets-title"
+    data-phase-only="tease waitlist reserve"
+  >
     <div class="container gets__grid">
       <h2 id="gets-title" class="gets__title">
         What the list gets you
@@ -244,17 +302,30 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
       </p>
       <div class="gets__copy">
         <p>
-          <strong>The launch price, locked.</strong> Detent One is {fullPrice}. Everyone on the list
-          pays {launchPrice} when they reserve, and it holds until your batch ships.
+          <strong>The launch price, locked.</strong> Detent One is {fullPrice}.{' '}
+          <span data-phase-only="tease waitlist">
+            Everyone on the list pays {launchPrice} when they reserve, and it holds until your batch
+            ships.
+          </span>
+          <span data-phase-only="reserve">
+            A reservation locks {launchPrice}, and it holds until your batch ships.
+          </span>
         </p>
-        <p>
-          <strong>First in line.</strong> Reservations open to the list on {reserveLong}:{' '}
-          {formatUsd(LAUNCH.depositUsd)}, fully refundable, filled in order into Batch 1 (
-          {LAUNCH.firstShipBatch}) and Batch 2 ({LAUNCH.secondShipBatch}).
+        <p data-phase-only="tease waitlist">
+          <strong>First in line.</strong> Reservations open to the list on {reserveLong}: {deposit},
+          fully refundable, filled in order into {batches}.
         </p>
-        <p>
-          <strong>Three emails, not thirty.</strong> Reservations open, launch day, your batch
-          ships. That’s the list.
+        <p data-phase-only="reserve">
+          <strong>Reservations are open.</strong> {deposit}, fully refundable, filled in order into{' '}
+          {batches}.
+        </p>
+        <p data-phase-only="tease waitlist">
+          <strong>Four emails, not forty.</strong> Confirm once, then: the date, reservations open,
+          launch day, your batch ships. That’s the list.
+        </p>
+        <p data-phase-only="reserve">
+          <strong>One email, not ten.</strong> Confirm once, then one on launch day. That’s the
+          list.
         </p>
       </div>
       <div class="gets__timeline">
@@ -266,24 +337,42 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     </div>
   </section>
 
-  <FounderPass />
+  <div data-phase-only="tease waitlist reserve">
+    <FounderPass />
+  </div>
 
   <section class="closer" aria-labelledby="closer-title">
     <div class="container closer__inner">
       <h2 id="closer-title" class="closer__title">
-        The list is free. Leaving it takes one click.
+        <span data-phase-only="tease waitlist reserve">
+          The list is free. Leaving it takes one click.
+        </span>
+        <span data-phase-only="launch">
+          {launchPrice} until {endDot}. Then {fullPrice}.
+        </span>
+        <span data-phase-only="live">
+          {fullPrice}. Free shipping, and {PAYMENT.trialDays} days to decide.
+        </span>
       </h2>
       <PhaseCTA placement="waitlist-closer" size="lg" />
     </div>
   </section>
 
   <StickyCta
-    watch="#join-submit"
-    hideOver="#join, .closer, .site-footer"
+    watch="#wl-now-cta, #join-submit"
+    hideOver="#join, .wl__now, .closer, .site-footer"
     label={PHASES.waitlist.primary.label}
     target="#join-email"
     note={`${launchPrice} on the list`}
-  />
+    only="tease waitlist"
+  >
+    <PhaseCTA
+      placement="sticky"
+      size="sm"
+      showNote={false}
+      phases={['reserve', 'launch', 'live']}
+    />
+  </StickyCta>
 </BaseLayout>
 
 <script>
@@ -318,6 +407,73 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     letter-spacing: var(--tracking-display);
     line-height: var(--leading-tight);
     max-inline-size: 9ch;
+  }
+  /* Arrived on a friend's link: say so before anything else. */
+  .wl__ref {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+    justify-self: start;
+    padding: 0.45rem 0.9rem;
+    border-radius: var(--r-m);
+    background: color-mix(in oklch, var(--tally) 16%, transparent);
+    color: var(--ink-strong);
+    font-size: var(--step--1);
+    font-weight: 560;
+  }
+  .wl__ref[hidden] {
+    display: none;
+  }
+  .wl__ref-dot {
+    flex: none;
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  /* What it is, in one line. On phones a thumbnail stands in for the dial below. */
+  .wl__what {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    max-inline-size: 40ch;
+    color: var(--ink);
+  }
+  .wl__what p {
+    text-wrap: pretty;
+  }
+  .wl__thumb {
+    display: none;
+    flex: none;
+    inline-size: 4.5rem;
+    aspect-ratio: 1;
+  }
+  .wl__now {
+    display: grid;
+    gap: var(--space-s);
+    justify-items: start;
+    padding-block: var(--space-m) var(--space-2xs);
+    border-top: 1px solid var(--line);
+  }
+  .wl__now-text {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink-strong);
+    max-inline-size: 36ch;
+  }
+  .wl__or {
+    margin-block-start: var(--space-s);
+    color: var(--ink-muted);
+  }
+  /* While reservations are open, joining the list is the second choice. */
+  :global(html[data-phase='reserve']) .join__row .btn,
+  :global(html[data-phase='reserve']) .join__row .btn:hover {
+    --btn-bg: transparent;
+    --btn-ink: var(--ink-strong);
+    --btn-line: var(--line-strong);
+  }
+  :global(html[data-phase='reserve']) .join__row .btn:hover {
+    --btn-line: var(--ink);
   }
   .wl__line {
     font-size: var(--step-1);
@@ -428,10 +584,6 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
   }
   .join__offer strong {
     color: var(--ink-strong);
-  }
-  .join__ref {
-    font-size: var(--step--1);
-    color: var(--accent-text);
   }
   .joined {
     display: grid;
@@ -623,6 +775,9 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
   }
 
   @media (max-width: 60rem) {
+    .wl__thumb {
+      display: block;
+    }
     .wl__grid {
       grid-template-columns: 1fr;
       grid-template-areas:

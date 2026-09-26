@@ -46,7 +46,7 @@ export interface WaitlistEntry {
   segment?: Segment;
   finish?: FinishId;
   handle?: string;
-  /** Feel profile shown on the Founder Pass signature ring. */
+  /** Feel profile shown on the Feel Pass signature ring. */
   profile?: ProfileId;
   joinedAt: number;
   /** Friends who joined with this code (live mode only; 0 in demo). */
@@ -58,6 +58,8 @@ export interface Reservation {
   email: string;
   edition: EditionId;
   finish: FinishId;
+  /** Referral code captured from ?ref= on arrival, credited like a waitlist join. */
+  referredBy?: string;
   createdAt: number;
 }
 
@@ -184,18 +186,25 @@ export async function reserve(input: {
   const email = input.email.trim().toLowerCase();
   if (!isValidEmail(email))
     return { ok: false, error: 'That email doesn’t look right. Check for a typo?' };
+  const referredBy = captureRef();
   try {
     const r: Reservation = ENDPOINT
-      ? await post<Reservation>('reserve', { ...input, email })
+      ? await post<Reservation>('reserve', { ...input, email, referredBy })
       : {
           id: `DT1-R-${randomCode(6)}`,
           email,
           edition: input.edition,
           finish: input.finish,
+          referredBy,
           createdAt: Date.now(),
         };
     write('reservation', r);
-    track('reserve_submit', { source: input.source, edition: input.edition, finish: input.finish });
+    track('reserve_submit', {
+      source: input.source,
+      edition: input.edition,
+      finish: input.finish,
+      referred: !!referredBy,
+    });
     return { ok: true, data: r, demo: IS_DEMO };
   } catch {
     return {

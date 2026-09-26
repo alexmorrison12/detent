@@ -43,6 +43,12 @@ const faqs = FAQS.filter(
 );
 const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 const standardFinishes = FINISHES.filter((f) => !f.foundersOnly);
+/** "Open source (Apache-2.0), signed updates over USB or BLE" -> its parts, for prose. */
+const inParens = (v: string) => v.match(/\(([^)]+)\)/)?.[1] ?? v;
+const firmware = spec('Firmware');
+const license = inParens(firmware);
+const updates = (firmware.split(', ')[1] ?? 'signed updates').replace(/\bBLE\b/, 'Bluetooth');
+const sdkLanguages = inParens(spec('SDK'));
 
 /** Edition CTAs follow the launch phase like PhaseCTA, but per edition. */
 const editionCtas = (id: 'one' | 'founders') => [
@@ -62,7 +68,7 @@ const editionCtas = (id: 'one' | 'founders') => [
 
 <BaseLayout
   title={`${SITE.product} is here`}
-  description={`${SITE.product} is on sale: a machined aluminum dial whose feel changes with every app. ${usd(one.launchPriceUsd)} until ${dotDate(LAUNCH.launchPriceEnds)}, then ${usd(one.priceUsd)}. Watch the 45-second film, rendered live in your browser.`}
+  description={`Launch day for ${SITE.product}, a concept dial whose feel changes with every app. ${usd(one.launchPriceUsd)} until ${dotDate(LAUNCH.launchPriceEnds)}, then ${usd(one.priceUsd)}. Watch the 45-second film, rendered live in your browser.`}
   ogImage={ogPath('launch')}
   ogImageAlt="Detent One is here. Launch week pricing."
   chrome="minimal"
@@ -100,35 +106,33 @@ const editionCtas = (id: 'one' | 'founders') => [
           </span>
         </p>
         <h1 id="lh-title" class="lh__title">
-          {SITE.product} is&nbsp;here.
+          <span data-phase-only="launch live">{SITE.product} is&nbsp;here.</span>
+          <span data-phase-only="tease waitlist reserve">
+            {SITE.product} launches <span class="readout lh__date">{launchDot}</span>.
+          </span>
         </h1>
         <p class="lh__lede">
           A machined aluminum dial whose feel changes with the app you’re in.{' '}
-          {usd(one.launchPriceUsd)} for launch week, then {usd(one.priceUsd)}. Free shipping and a{' '}
-          {PAYMENT.trialDays}-day studio trial.
+          <span data-phase-only="tease waitlist reserve launch">
+            {usd(one.launchPriceUsd)} for launch week, then {usd(one.priceUsd)}.
+          </span>
+          <span data-phase-only="live">{usd(one.priceUsd)}.</span>
+          Free shipping and a {PAYMENT.trialDays}-day studio trial.
         </p>
         <div id="lh-cta">
           <PhaseCTA placement="launch-hero" size="lg" showSecondary />
         </div>
       </div>
       <aside class="lh__clock" aria-label="Launch pricing">
-        <p class="lh__price">
+        <p class="lh__price" data-phase-only="tease waitlist reserve launch">
           <span class="readout lh__now">{usd(one.launchPriceUsd)}</span>
+          <span class="visually-hidden">launch price, regular price</span>
           <s class="readout lh__was">{usd(one.priceUsd)}</s>
         </p>
+        <p class="lh__price" data-phase-only="live">
+          <span class="readout lh__now">{usd(one.priceUsd)}</span>
+        </p>
         <Countdown />
-        <ol class="lh__window" role="list" aria-label="Launch week">
-          <li>
-            <span class="readout">{launchDot}</span> Orders open
-          </li>
-          <li>
-            <span class="readout">{endDot}</span> Launch price ends
-          </li>
-          <li>
-            <span class="readout">{LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1')}</span> Batch
-            1 ships
-          </li>
-        </ol>
       </aside>
     </div>
   </section>
@@ -138,25 +142,28 @@ const editionCtas = (id: 'one' | 'founders') => [
   <section class="eds" data-world="day" aria-labelledby="eds-title">
     <div class="container">
       <h2 id="eds-title" class="l-h2">
-        Pick one. Both are the real thing.
+        Pick one. Same motor inside.
       </h2>
       <div class="eds__grid">
         <article class="ed" aria-labelledby="ed-one-title">
           <div class="ed__stills" aria-hidden="true">
             {standardFinishes.map((f) => (
               <div class="ed__still">
-                <DialStill finish={f.id} view="top" />
+                <DialStill finish={f.id} view="hero" sizes="(min-width: 60rem) 15rem, 30vw" />
               </div>
             ))}
           </div>
           <h3 id="ed-one-title" class="ed__name">
             {one.name}
           </h3>
-          <p class="ed__price">
+          <p class="ed__price" data-phase-only="tease waitlist reserve launch">
             <span class="readout ed__now">{usd(one.launchPriceUsd)}</span>
             <span class="ed__was">
-              <s>{usd(one.priceUsd)}</s> until {endDot}
+              until {endDot}, then {usd(one.priceUsd)}
             </span>
+          </p>
+          <p class="ed__price" data-phase-only="live">
+            <span class="readout ed__now">{usd(one.priceUsd)}</span>
           </p>
           <p class="ed__finishes">{standardFinishes.map((f) => f.name).join(' · ')}</p>
           <p class="ed__summary">{one.summary}</p>
@@ -165,7 +172,12 @@ const editionCtas = (id: 'one' | 'founders') => [
               <li>{i}</li>
             ))}
           </ul>
-          <p class="ed__pay">{PAYMENT.installmentLabel(one.launchPriceUsd)}</p>
+          <p class="ed__pay" data-phase-only="tease waitlist reserve launch">
+            {PAYMENT.installmentLabel(one.launchPriceUsd)}
+          </p>
+          <p class="ed__pay" data-phase-only="live">
+            {PAYMENT.installmentLabel(one.priceUsd)}
+          </p>
           {editionCtas('one').map((c) => (
             <a
               class="btn btn--solid ed__cta"
@@ -182,7 +194,7 @@ const editionCtas = (id: 'one' | 'founders') => [
         <article class="ed ed--founders" aria-labelledby="ed-f-title">
           <div class="ed__stills" aria-hidden="true">
             <div class="ed__still ed__still--solo">
-              <DialStill finish="tally" view="top" />
+              <DialStill finish="tally" view="hero" sizes="(min-width: 60rem) 17rem, 40vw" />
             </div>
           </div>
           <h3 id="ed-f-title" class="ed__name">
@@ -195,7 +207,7 @@ const editionCtas = (id: 'one' | 'founders') => [
           <p class="ed__finishes">{byFinish('tally').name} only</p>
           <p class="ed__summary">
             {founders.summary} A run of {LAUNCH.foundersRun.toLocaleString('en-US')}. When they’re
-            gone, Tally is gone. No countdown: we won’t fake one.
+            gone, Tally is gone. No stock counter: we won’t fake one.
           </p>
           <ul class="ed__list" role="list">
             {founders.includes.map((i) => (
@@ -223,11 +235,11 @@ const editionCtas = (id: 'one' | 'founders') => [
     <div class="container">
       <div class="notes__head">
         <h2 id="notes-title" class="l-h2">
-          Six weeks on real desks
+          Notes from the test bench
         </h2>
         <p class="notes__label">
-          Illustrative notes from early-tester personas. Detent is a concept, and these people are
-          fictional.
+          Illustrative notes from fictional early-tester personas. Detent is a concept, so there are
+          no customers yet.
         </p>
       </div>
       <ul class="notes__list" role="list">
@@ -256,18 +268,19 @@ const editionCtas = (id: 'one' | 'founders') => [
   <section class="thread" aria-labelledby="thread-title">
     <div class="container thread__grid">
       <p class="thread__tag">
-        <span class="lh__dot" aria-hidden="true"></span>We’re launching today
+        <span class="lh__dot" aria-hidden="true"></span>
+        <span data-phase-only="launch">We’re launching today</span>
+        <span data-phase-only="tease waitlist reserve">Launching {launchDot}</span>
+        <span data-phase-only="live">Launched {launchDot}</span>
       </p>
       <div class="thread__body">
         <h2 id="thread-title" class="thread__title">
           Came here from a launch thread? Hello.
         </h2>
         <p>
-          The team is in the comments all day and answers everything, the hard questions first. The
-          short answers: firmware is
-          {spec('Firmware').replace(/^Open source/, 'open source')}. The SDK is{' '}
-          {spec('SDK').replace(/^Open SDK/, 'open')}. Account:
-          {spec('Account').replace(/^None/, 'none')}.
+          The short answers: the firmware is open source under {license}, with {updates}. The SDK is
+          open, in {sdkLanguages}, and a profile is one plain JSON file. You never need an account,
+          and nothing leaves your machine unless you opt in.
         </p>
         <p>
           Prefer to read before you ask? The <a href={url('/specs/')}>spec sheet</a> has every
@@ -290,8 +303,13 @@ const editionCtas = (id: 'one' | 'founders') => [
   <section class="l-closer" aria-labelledby="l-closer-title">
     <div class="container l-closer__inner">
       <h2 id="l-closer-title" class="l-closer__title">
-        {usd(one.launchPriceUsd)} until {endDot}. Then {usd(one.priceUsd)}, and the store stays
-        open.
+        <span data-phase-only="tease waitlist reserve launch">
+          {usd(one.launchPriceUsd)} until {endDot}. Then {usd(one.priceUsd)}, and the store stays
+          open.
+        </span>
+        <span data-phase-only="live">
+          {usd(one.priceUsd)}, free shipping, and {PAYMENT.trialDays} days on your desk to decide.
+        </span>
       </h2>
       <PhaseCTA placement="launch-closer" size="lg" />
     </div>
@@ -346,6 +364,12 @@ const editionCtas = (id: 'one' | 'founders') => [
     line-height: 0.95;
     max-inline-size: 11ch;
   }
+  .lh__date {
+    font-size: 0.92em;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--accent-text);
+  }
   .lh__lede {
     font-size: var(--step-1);
     line-height: 1.45;
@@ -375,22 +399,6 @@ const editionCtas = (id: 'one' | 'founders') => [
     text-decoration-color: var(--accent);
     text-decoration-thickness: 2px;
   }
-  .lh__window {
-    display: grid;
-    gap: 0.3rem;
-    font-size: var(--step--1);
-    color: var(--ink-muted);
-  }
-  .lh__window li {
-    display: grid;
-    grid-template-columns: 6.5rem 1fr;
-    gap: var(--space-s);
-    padding-block: 0.3rem;
-    border-top: 1px solid var(--line);
-  }
-  .lh__window .readout {
-    color: var(--ink-strong);
-  }
 
   .l-h2 {
     font-size: var(--step-4);
@@ -416,10 +424,11 @@ const editionCtas = (id: 'one' | 'founders') => [
     margin-block-start: var(--space-xl);
   }
   .ed {
+    --ed-pad: var(--space-l);
     display: grid;
     align-content: start;
     gap: var(--space-s);
-    padding: var(--space-l);
+    padding: var(--ed-pad);
     border-radius: var(--r-l);
     background: var(--bg-raised);
   }
@@ -432,17 +441,32 @@ const editionCtas = (id: 'one' | 'founders') => [
     --line: oklch(1 0 0 / 0.1);
     --accent-text: var(--tally-hot);
   }
+  /* The product, large: the three finishes in a row (or the one Tally) on a raised panel. */
   .ed__stills {
     display: flex;
-    gap: var(--space-s);
-    margin-block-end: var(--space-s);
+    justify-content: center;
+    align-items: center;
+    block-size: clamp(10rem, 7rem + 12vw, 17rem);
+    margin: calc(-1 * var(--ed-pad)) calc(-1 * var(--ed-pad)) var(--space-xs);
+    padding: var(--space-s) var(--ed-pad);
+    border-radius: var(--r-l) var(--r-l) 0 0;
+    background: var(--surface);
+  }
+  .ed--founders .ed__stills {
+    background: var(--graphite-850);
   }
   .ed__still {
-    inline-size: clamp(4.5rem, 9vw, 7rem);
-    aspect-ratio: 1;
+    flex: 1 1 0;
+    min-inline-size: 0;
+    max-inline-size: 15rem;
+    block-size: 100%;
+  }
+  .ed__still + .ed__still {
+    margin-inline-start: -5%;
   }
   .ed__still--solo {
-    inline-size: clamp(6rem, 12vw, 9rem);
+    flex: 0 1 auto;
+    aspect-ratio: 1;
   }
   .ed__name {
     font-size: var(--step-2);
@@ -639,7 +663,7 @@ const editionCtas = (id: 'one' | 'founders') => [
       font-size: clamp(2.5rem, 12vw, 3.6rem);
     }
     .ed {
-      padding: var(--space-m);
+      --ed-pad: var(--space-m);
     }
   }
 </style>

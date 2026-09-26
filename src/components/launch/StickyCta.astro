@@ -4,7 +4,12 @@
  * once the hero CTA has scrolled away. Driven by common.ts (initStickyCta);
  * hidden without JS so it never covers content it can't manage.
  *
- * Either pass label+target (in-page form) or use the default slot (e.g. PhaseCTA).
+ * Pass label+target (in-page form), the default slot (e.g. PhaseCTA), or both:
+ * `only` limits the label+target button (and its note) to some launch phases,
+ * so a slotted PhaseCTA can cover the others.
+ *
+ * While the bar is up on a phone, the header's copy of the same CTA steps
+ * aside: two identical buttons would take a quarter of a small screen.
  */
 interface Props {
   /** Selector of the hero CTA; the bar appears once it leaves the viewport. */
@@ -15,8 +20,10 @@ interface Props {
   /** In-page target to scroll to and focus. */
   target?: string;
   note?: string;
+  /** Phases (space-separated) the label+target button and note belong to. */
+  only?: string;
 }
-const { watch, hideOver, label, target, note } = Astro.props;
+const { watch, hideOver, label, target, note, only } = Astro.props;
 ---
 
 <div
@@ -26,20 +33,24 @@ const { watch, hideOver, label, target, note } = Astro.props;
   data-hide-over={hideOver}
   data-target={target}
 >
-  {note && <p class="sticky-cta__note">{note}</p>}
-  {label && target ? (
+  {note && (
+    <p class="sticky-cta__note" data-phase-only={only}>
+      {note}
+    </p>
+  )}
+  {label && target && (
     <a
       class="btn btn--primary sticky-cta__btn"
       href={target}
+      data-phase-only={only}
       data-sticky-go
       data-track="cta_click"
       data-track-placement="sticky"
     >
       {label}
     </a>
-  ) : (
-    <slot />
   )}
+  <slot />
 </div>
 
 <style>
@@ -77,6 +88,11 @@ const { watch, hideOver, label, target, note } = Astro.props;
   }
   .sticky-cta :global(.phase-cta__buttons) {
     justify-content: flex-end;
+  }
+  @media (max-width: 48rem) {
+    :global(html:has(.sticky-cta[data-visible]) .site-header__cta) {
+      visibility: hidden;
+    }
   }
   @keyframes sticky-in {
     from {
