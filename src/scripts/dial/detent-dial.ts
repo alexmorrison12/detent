@@ -5,7 +5,7 @@
  * the three.js renderer + haptic/audio engine and keeps this as the fallback.
  */
 import { FINISHES, PROFILES, type FinishId, type ProfileId } from '@/data/product';
-import type { DetentDialElement, RendererKind } from './types';
+import type { DetentDialElement, FeelPhysics, RendererKind } from './types';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -53,8 +53,16 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     return this.#renderer;
   }
 
-  #physics() {
-    return (PROFILES.find((p) => p.id === this.profile) ?? PROFILES[0]).physics;
+  physics: Partial<FeelPhysics> | null = null;
+  feelColor: string | null = null;
+
+  getCanvas(): HTMLCanvasElement | null {
+    return null;
+  }
+
+  #physics(): FeelPhysics {
+    const base = (PROFILES.find((p) => p.id === this.profile) ?? PROFILES[0]).physics;
+    return this.physics ? { ...base, ...this.physics } : base;
   }
 
   connectedCallback() {

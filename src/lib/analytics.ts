@@ -16,9 +16,30 @@ declare global {
   }
 }
 
+const AI_REFERRERS = /(chatgpt\.com|chat\.openai\.com|perplexity\.ai|gemini\.google\.com|copilot\.microsoft\.com|claude\.ai)/i;
+
+/** 'ai' when the visit came from an AI assistant, else the referrer host. */
+function channel(): string | undefined {
+  try {
+    if (!document.referrer) return 'direct';
+    const host = new URL(document.referrer).hostname;
+    if (AI_REFERRERS.test(host)) return 'ai';
+    return host === location.hostname ? undefined : host;
+  } catch {
+    return undefined;
+  }
+}
+
 export function track(event: string, props: EventProps = {}): void {
   if (typeof window === 'undefined') return;
+  // Never record while the page is being speculatively prerendered.
+  const doc = document as Document & { prerendering?: boolean };
+  if (doc.prerendering) {
+    document.addEventListener('prerenderingchange', () => track(event, props), { once: true });
+    return;
+  }
   const payload = {
+    channel: channel(),
     event,
     ...props,
     phase: document.documentElement.dataset.phase,

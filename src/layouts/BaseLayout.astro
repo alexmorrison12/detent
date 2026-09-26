@@ -84,6 +84,9 @@ const speculationRules = {
         and: [
           { href_matches: `${base}/*` },
           { not: { href_matches: `${base}/render/*` } },
+          { not: { href_matches: `${base}/l/reserve/*` } },
+          { not: { href_matches: `${base}/shop/checkout/*` } },
+          { not: { href_matches: `*\\?*ref=*` } },
           { not: { selector_matches: '[data-no-prerender], [rel~=nofollow]' } },
         ],
       },

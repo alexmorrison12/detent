@@ -18,9 +18,15 @@
  *   value: number        0..1 normalised position within stops (or angle/360 mod 1 when endless)
  *   renderer: 'webgpu' | 'webgl2' | 'svg' | 'none'  (read-only, after ready)
  *
+ *   physics: Partial<FeelPhysics> | null   custom physics override (profile builder, feel
+ *                        links, games). null = use the named profile's physics. The profile
+ *                        attribute still sets name/color unless feelColor is given.
+ *   feelColor: string | null   override the display/halo color (hex)
+ *
  * Methods:
  *   setAngle(deg, { instant?: boolean })
  *   nudge(detents: number)           turn by N detents of the current profile (for demos)
+ *   getCanvas(): HTMLCanvasElement | null   the live 3D canvas (for MediaRecorder clips), null on SVG
  *
  * Events (bubble, composed):
  *   detent:ready   { renderer }
@@ -29,7 +35,9 @@
  *   detent:press   { level: 1 | 2 | 3 }                          click/tap on the knob face
  *   detent:grab / detent:release  {}                             pointer engage / disengage
  */
-import type { FinishId, ProfileId } from '@/data/product';
+import type { FeelProfile, FinishId, ProfileId } from '@/data/product';
+
+export type FeelPhysics = FeelProfile['physics'];
 
 export type CameraPreset = 'hero' | 'top' | 'side' | 'front' | 'exploded' | 'config';
 export type RendererKind = 'webgpu' | 'webgl2' | 'svg' | 'none';
@@ -60,8 +68,11 @@ export interface DetentDialElement extends HTMLElement {
   readonly renderer: RendererKind;
   finish: FinishId;
   profile: ProfileId;
+  physics: Partial<FeelPhysics> | null;
+  feelColor: string | null;
   setAngle(deg: number, opts?: { instant?: boolean }): void;
   nudge(detents: number): void;
+  getCanvas(): HTMLCanvasElement | null;
 }
 
 declare global {

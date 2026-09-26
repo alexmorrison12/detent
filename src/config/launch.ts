@@ -83,6 +83,15 @@ export const PHASES: Record<Phase, PhaseConfig> = {
 
 const envPhase = import.meta.env.PUBLIC_LAUNCH_PHASE as string | undefined;
 
+/**
+ * 'demo' (default): Detent is a concept. Forms stay in the browser, checkout
+ * is a demo, and structured data omits Offer objects so nothing claims a real
+ * sale. 'live': real endpoints are configured (PUBLIC_WAITLIST_ENDPOINT etc.)
+ * and offers/feeds are emitted.
+ */
+export type SiteMode = 'demo' | 'live';
+export const MODE: SiteMode = import.meta.env.PUBLIC_SITE_MODE === 'live' ? 'live' : 'demo';
+
 /** The phase the static HTML is built for. */
 export const BUILD_PHASE: Phase = PHASE_ORDER.includes(envPhase as Phase)
   ? (envPhase as Phase)
