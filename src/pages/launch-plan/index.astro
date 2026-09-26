@@ -212,9 +212,11 @@ const jsonLd = [
           <span class="phases__tuned">
             Showing
             {PHASE_ORDER.map((id) => (
-              <strong data-phase-only={id}>{PHASES[id].name}</strong>
+              <span data-phase-only={id}>
+                <strong>{PHASES[id].name}</strong>.
+              </span>
             ))}
-            . Switch phases with the bar above or the dial.
+            Switch phases with the bar above or the dial.
           </span>
         </p>
       </header>

@@ -12,23 +12,30 @@ import DialStage from '@/components/dial/DialStage.astro';
 import PhaseCTA from '@/components/PhaseCTA.astro';
 import { BUILD_PHASE, PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
 import { PHASE_PLANS, fmtDot, fmtPacific, phaseDays, phaseEnds } from '@/data/launch-plan';
+import type { FeelProfile } from '@/data/product';
 import { url } from '@/lib/url';
 
 /** Detent geometry: one phase every 60°, hard stops at the first and last. */
 const STEP = 60;
 const MIN = -((PHASE_ORDER.length - 1) * STEP) / 2;
 const angleOf = (i: number) => MIN + i * STEP;
-const buildIndex = PHASE_ORDER.indexOf(BUILD_PHASE);
 /** The knob's round display fits about eight characters: "LAUNCH", not "Launch day". */
 const knobText = (p: Phase) => PHASES[p].name.split(' ')[0]!.toUpperCase();
-const profileJson = JSON.stringify({
+/**
+ * The whole feel: printed under the dial and handed to it as-is (data-physics).
+ * Every click weighs the same on purpose. An accent (the Clock profile's heavy
+ * noon click) holds the knob so hard that one key press or one tap on a phase
+ * name can't carry it over the next ridge, so `accents` is emptied, not inherited.
+ */
+const physics = {
   detents: 360 / STEP,
   stops: [MIN, -MIN],
   strength: 1,
-  accents: [angleOf(buildIndex)],
-})
-  .replace(/":/g, '": ')
-  .replace(/,"/g, ', "');
+  damping: 0.2,
+  spring: 0,
+  accents: [],
+} satisfies FeelProfile['physics'];
+const profileJson = JSON.stringify(physics).replace(/":/g, '": ').replace(/,"/g, ', "');
 
 /** Label positions around the bezel, as % of the instrument box. */
 const R = 43.5;
@@ -79,7 +86,7 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
         </g>
       </svg>
 
-      <div class="switch__dial">
+      <div class="switch__dial" data-physics={JSON.stringify(physics)}>
         <DialStage
           id="phase-dial"
           interactive
@@ -173,8 +180,8 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
         <span>The whole feel profile behind this dial:</span>
         <code>{profileJson}</code>
         <span>
-          The deeper click is {PHASES[BUILD_PHASE].name}, the phase this build ships in (
-          <code>PUBLIC_LAUNCH_PHASE</code>).
+          Every click weighs the same. This build ships in {PHASES[BUILD_PHASE].name}, set by
+          <code>PUBLIC_LAUNCH_PHASE</code>.
         </span>
       </p>
     </div>
@@ -182,61 +189,78 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
 </section>
 
 <script>
-  import { BUILD_PHASE, PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+  import { PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+  import type { FeelPhysics } from '@/scripts/dial/types';
   import { applyPhase, currentPhase, initPhaseLinks } from './preview';
 
-  const STEP = 60;
-  const MIN = -((PHASE_ORDER.length - 1) * STEP) / 2;
   const dial = document.getElementById('phase-dial') as HTMLElementTagNameMap['detent-dial'] | null;
   const readout = document.querySelector<HTMLElement>('[data-switch-readout]');
-
-  const angleOf = (p: Phase) => MIN + PHASE_ORDER.indexOf(p) * STEP;
-  const knobText = (p: Phase) => PHASES[p].name.split(' ')[0]!.toUpperCase();
-  const nearest = (deg: number): Phase => {
-    const i = Math.round((deg - MIN) / STEP);
-    return PHASE_ORDER[Math.min(PHASE_ORDER.length - 1, Math.max(0, i))]!;
-  };
-
-  /** The name squeezes between detents and opens back up on the click. */
-  function squeeze(deg: number) {
-    const pos = (deg - MIN) / STEP;
-    readout?.style.setProperty('--squeeze', Math.abs(pos - Math.round(pos)).toFixed(3));
-  }
+  const physics = JSON.parse(
+    dial?.closest<HTMLElement>('[data-physics]')?.dataset.physics ?? 'null',
+  ) as FeelPhysics | null;
 
   initPhaseLinks();
 
-  if (dial) {
-    customElements.whenDefined('detent-dial').then(() => {
-      dial.physics = {
-        detents: 360 / STEP,
-        stops: [MIN, -MIN],
-        strength: 1,
-        damping: 0.2,
-        spring: 0,
-        accents: [angleOf(BUILD_PHASE)],
-      };
-      dial.setAttribute('display', knobText(currentPhase()));
-      dial.setAngle(angleOf(currentPhase()), { instant: true });
+  if (dial && physics?.stops && physics.detents) {
+    // Geometry comes from the physics the dial runs: one phase per detent.
+    const step = 360 / physics.detents;
+    const min = physics.stops[0];
+    const angleOf = (p: Phase) => min + PHASE_ORDER.indexOf(p) * step;
+    /** The dial counts detents from 12 o'clock; the first phase sits on the lower stop. */
+    const phaseAt = (index: number): Phase =>
+      PHASE_ORDER[Math.min(PHASE_ORDER.length - 1, Math.max(0, index - Math.round(min / step)))]!;
+    const knobText = (p: Phase) => PHASES[p].name.split(' ')[0]!.toUpperCase();
 
+    /** The name squeezes between detents and opens back up on the click. */
+    const squeeze = (deg: number) => {
+      const pos = (deg - min) / step;
+      readout?.style.setProperty('--squeeze', Math.abs(pos - Math.round(pos)).toFixed(3));
+    };
+
+    /**
+     * True while the knob travels to a phase picked elsewhere (a phase name, the
+     * tuner, the reset link). The detents it passes on the way are not choices.
+     */
+    let following = false;
+    const follow = (p: Phase, instant = false) => {
+      dial.setAttribute('display', knobText(p));
+      const to = angleOf(p);
+      // A knob held by a hand ignores setAngle; the hand keeps choosing.
+      following = !instant && !dial.hasAttribute('data-grabbed') && Math.abs(dial.angle - to) > 0.5;
+      dial.setAngle(to, { instant });
+    };
+
+    customElements.whenDefined('detent-dial').then(() => {
+      dial.physics = physics;
+      dial.valueText = (s) => {
+        const p = phaseAt(s.index);
+        return `${PHASES[p].name}, phase ${PHASE_ORDER.indexOf(p) + 1} of ${PHASE_ORDER.length}`;
+      };
+      follow(currentPhase(), true);
+
+      // Each click moves the site. The engine only switches detent once the knob is
+      // over the ridge, so a turn that falls back short of it never flips the phase.
       dial.addEventListener('detent:change', (e) => {
         squeeze(e.detail.angle);
-        applyPhase(nearest(e.detail.angle), 'dial');
+        if (following) return;
+        applyPhase(phaseAt(e.detail.index ?? Math.round(e.detail.angle / step)), 'dial');
       });
-      // Settle on the detent when the hand lets go (the 3D engine may already have).
-      dial.addEventListener('detent:release', () => {
-        const target = angleOf(currentPhase());
-        if (Math.abs(dial.angle - target) > 0.5) dial.setAngle(target);
+      // A hand on the knob takes over from a move started elsewhere.
+      dial.addEventListener('detent:grab', () => {
+        following = false;
+      });
+      // At rest the knob sits exactly on a detent, and the page agrees with it.
+      dial.addEventListener('detent:settle', (e) => {
+        following = false;
         readout?.style.setProperty('--squeeze', '0');
+        applyPhase(phaseAt(Math.round(e.detail.angle / step)), 'dial');
       });
-      // A tab, a bezel label or the reset link moved the phase: follow it.
       window.addEventListener('plan:phase', (e) => {
-        dial.setAttribute('display', knobText(e.detail.phase));
-        if (e.detail.via !== 'dial') dial.setAngle(angleOf(e.detail.phase));
+        if (e.detail.via === 'dial') dial.setAttribute('display', knobText(e.detail.phase));
+        else follow(e.detail.phase);
       });
       window.addEventListener('pageshow', (e) => {
-        if (!e.persisted) return;
-        dial.setAttribute('display', knobText(currentPhase()));
-        dial.setAngle(angleOf(currentPhase()), { instant: true });
+        if (e.persisted) follow(currentPhase(), true);
       });
     });
   }
@@ -284,6 +308,8 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
     inline-size: 100%;
     block-size: 100%;
     overflow: visible;
+    /* Engraving, not a control. On phones its box overlaps the phase names under the dial. */
+    pointer-events: none;
   }
   .bezel__minor {
     stroke: var(--ink-faint);

@@ -625,12 +625,6 @@ export const MOMENTS: Moment[] = [
     detail: 'The only countdown on the site, and it is real',
     kind: 'price',
   },
-  {
-    date: '2026-12-15',
-    label: 'Skip Passes expire',
-    detail: 'Two per reserver, single use, stated from day one',
-    kind: 'community',
-  },
 ];
 
 /** After the main scale: month precision only, never an invented day. */
@@ -983,7 +977,7 @@ export const WEEKS: PlanWeek[] = [
     start: '2026-12-14',
     phase: 'live',
     site: `The product page says it plainly: new orders ship in Batch 2, ${LAUNCH.secondShipBatch}. Not a holiday gift.`,
-    community: '12.15: Skip Passes expire. Feel Friday continues every week.',
+    community: 'Feel Friday continues every week.',
     creators: 'Affiliate codes stay live for creators who want them, disclosed.',
     paidUsd: 0,
     paid: 'Evergreen only.',
@@ -1197,7 +1191,7 @@ export const RISKS: Risk[] = [
     risk: 'Demand below plan',
     signal: 'Fewer than 8,000 confirmed waitlisters on 11.03',
     response:
-      'Drop Skip Passes and the priority window rather than invent a queue. Move paid budget to the best audience. Reservations still open on the published date.',
+      'Drop the Founders priority window rather than invent a queue. Move paid budget to the best audience. Reservations still open on the published date.',
     owner: 'Growth lead',
   },
   {
@@ -1313,7 +1307,7 @@ export const EVENTS: {
   {
     name: 'phase_preview',
     when: 'Someone previews a phase on /launch-plan/',
-    props: 'phase, via (dial|link)',
+    props: 'phase, via (dial|link|reset)',
     status: 'in code',
   },
   {

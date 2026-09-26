@@ -169,6 +169,10 @@ const order = POSITIONING.order.map((id, i) => ({
   }
 
   @media (max-width: 56rem) {
+    /* One track, not 12 spanned ones: eleven empty column gaps alone are wider than a phone. */
+    .pos__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .pos__title,
     .pos__say,
     .pos__refuse,

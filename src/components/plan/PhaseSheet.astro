@@ -63,8 +63,7 @@ const headingId = `phase-${id}-title`;
       )}
     </p>
     <p class="sheet__meta readout">
-      {days ? `${days} ${days === 1 ? 'day' : 'days'} · ` : ''}flips {fmtPacific(plan.flipAt)} (
-      {fmtUtc(plan.flipAt)})
+      {`${days ? `${days} ${days === 1 ? 'day' : 'days'} · ` : ''}flips ${fmtPacific(plan.flipAt)} (${fmtUtc(plan.flipAt)})`}
     </p>
     <p class="sheet__air" aria-hidden="true">
       <span class="sheet__lamp"></span>

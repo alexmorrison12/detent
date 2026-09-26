@@ -507,10 +507,10 @@ const todayCol = col(buildDay);
       grid-row: auto;
     }
     .scale__ruler {
-      grid-template-columns: [dates] 3.4rem [ticks] 1.1rem [band] 0.55rem [phases] minmax(
-          0,
-          8.5rem
-        ) [moments] minmax(0, 1fr);
+      /* Phase labels take exactly their widest line; the dated moments get the rest. */
+      grid-template-columns:
+        [dates] 3.4rem [ticks] 1.1rem [band] 0.55rem [phases] minmax(0, max-content)
+        [moments] minmax(0, 1fr);
       grid-template-rows: repeat(var(--days), minmax(0.42rem, auto));
       column-gap: 0;
     }
@@ -613,6 +613,17 @@ const todayCol = col(buildDay);
     }
     .moment__text {
       padding-inline: 0.5rem 0;
+    }
+    /* On the narrowest phones the time drops under its date and long words hyphenate,
+       instead of running off the screen. */
+    .moment__date {
+      white-space: normal;
+    }
+    .moment__label {
+      hyphens: auto;
+      /* Where no hyphenation dictionary exists, break rather than overflow
+         (`anywhere`, unlike break-word, also shrinks the grid track). */
+      overflow-wrap: anywhere;
     }
     .scale__now {
       grid-row: var(--d);

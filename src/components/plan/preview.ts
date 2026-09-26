@@ -48,6 +48,24 @@ function announce(text: string) {
   status.textContent = text;
 }
 
+/**
+ * Say it and count it once the phase stops changing. The page follows every
+ * click as it happens, but a turn across three detents is one choice, not three
+ * announcements and three phase_preview events.
+ */
+const REPORT_AFTER_MS = 400;
+let reported: Phase = currentPhase();
+let reportTimer = 0;
+function report(p: Phase, via: PreviewVia) {
+  clearTimeout(reportTimer);
+  reportTimer = window.setTimeout(() => {
+    if (p === reported && via !== 'reset') return;
+    reported = p;
+    announce(`Previewing ${PHASES[p].name}. Every page now shows “${PHASES[p].primary.label}”.`);
+    track('phase_preview', { phase: p, via });
+  }, REPORT_AFTER_MS);
+}
+
 export function applyPhase(p: Phase, via: PreviewVia): void {
   if (p === currentPhase() && via !== 'reset') return;
   root.dataset.phase = p;
@@ -62,9 +80,8 @@ export function applyPhase(p: Phase, via: PreviewVia): void {
   else u.searchParams.set('phase', p);
   history.replaceState(history.state, '', u);
   paintLinks(p);
-  announce(`Previewing ${PHASES[p].name}. Every page now shows “${PHASES[p].primary.label}”.`);
   window.dispatchEvent(new CustomEvent('plan:phase', { detail: { phase: p, via } }));
-  track('phase_preview', { phase: p, via });
+  report(p, via);
 }
 
 let bound = false;
@@ -89,7 +106,9 @@ export function initPhaseLinks(): void {
   });
   // Back/forward cache: the tab's phase may have changed on another page.
   window.addEventListener('pageshow', (e) => {
-    if (e.persisted) paintLinks(currentPhase());
+    if (!e.persisted) return;
+    reported = currentPhase();
+    paintLinks(reported);
   });
 }
 
