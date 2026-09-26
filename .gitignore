@@ -27,3 +27,6 @@ pnpm-debug.log*
 test-results/
 playwright-report/
 .lighthouseci/
+
+# agent worktrees
+.claude/worktrees/
