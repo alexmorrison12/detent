@@ -74,12 +74,18 @@ const definition = 'A machined aluminum dial with a motor where the clicks used 
   .instrument {
     --feel: var(--feel-ratchet);
     --instrument-bg: var(--graphite-950);
+    /* Stack layout dial sizes (Stage.astro): full, and docked under the header. */
+    --dial-full: min(72vw, 34svh, 26rem);
+    --dock-dial: clamp(7rem, 15svh, 8rem);
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     padding-inline: var(--gutter);
     background-color: var(--instrument-bg);
     transition: background-color var(--dur-4) var(--ease-out);
+    /* Nothing pinned to the dial (callouts, numerals) may widen the page.
+       clip, not hidden: the stage stays sticky. */
+    overflow-x: clip;
   }
   .instrument:has(input[name='home-profile'][value='fluid']:checked) {
     --feel: var(--feel-fluid);
@@ -173,15 +179,26 @@ const definition = 'A machined aluminum dial with a motor where the clicks used 
 
   /* Stack layout: the docking stage changes size with the scroll, so the
      browser must not re-anchor the scroll position against it. In-page
-     jumps land below the docked, compact stage. */
+     jumps land below the docked, compact stage (where it docks). */
   @media (max-width: 63.99rem) and (orientation: portrait),
     (max-width: 63.99rem) and (min-height: 30.01rem),
     (max-width: 39.99rem) {
     .instrument {
       overflow-anchor: none;
     }
-    .instrument > :global(section) {
-      scroll-margin-top: calc(var(--header-h) + clamp(7rem, 15svh, 8rem) + 4.5rem);
+    @media (min-height: 34rem) {
+      .instrument > :global(section) {
+        scroll-margin-top: calc(var(--header-h) + var(--dock-dial) + 4.5rem);
+      }
+      /* The docked dial grows back to full size for the teardown once the
+         feel chapter has gone under it (instrument.ts), over the gap between
+         the chapters: the gap is at least that growth, so it covers nothing. */
+      .instrument > :global(.mech) {
+        padding-block-start: max(
+          var(--section-y),
+          calc(var(--dial-full) - var(--dock-dial) - var(--section-y) + var(--space-m))
+        );
+      }
     }
   }
 
@@ -223,6 +240,14 @@ const definition = 'A machined aluminum dial with a motor where the clicks used 
     }
     .hero-foot > :global(.hero-cta) {
       order: 0;
+    }
+  }
+  /* Tall portrait screens (iPad Pro, a rotated monitor): anchoring the
+     headline to the fold would leave the top half of the column empty
+     beside a dial centred in its own. Sit the text block level with it. */
+  @media (min-width: 64rem) and (orientation: portrait) {
+    .hero-head {
+      min-block-size: min(calc(100svh - var(--header-h) - 24.5rem), calc(50svh - 10rem));
     }
   }
 

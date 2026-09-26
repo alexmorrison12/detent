@@ -155,6 +155,9 @@ const quarter = [-180, -90, 0, 90, 180];
 
 <style>
   .feel {
+    /* The picker sizes to this column, not the viewport: beside the pinned
+       stage (landscape phones, tablets, laptops) the column is narrow. */
+    container: feel / inline-size;
     padding-block: var(--section-y);
     display: grid;
     gap: var(--space-m);
@@ -362,7 +365,8 @@ const quarter = [-180, -90, 0, 90, 180];
     max-inline-size: 60ch;
   }
 
-  @media (min-width: 40rem) {
+  /* One row of six once each tile has room for its name (~4.9rem). */
+  @container feel (min-width: 32rem) {
     .picker {
       grid-template-columns: repeat(6, minmax(0, 1fr));
     }

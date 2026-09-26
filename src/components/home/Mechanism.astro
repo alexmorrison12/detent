@@ -8,9 +8,19 @@
  */
 import { url } from '@/lib/url';
 import { SPECS } from '@/data/product';
+import { EXPLODED_PARTS } from '@/data/engineering';
 import { FACTS, PARTS } from './data';
 
 const specCount = SPECS.reduce((n, g) => n + g.rows.length, 0);
+
+/** The specs page takes all of it apart; this list is the layers that carry a number. */
+const WORDS = 'zero one two three four five six seven eight nine ten eleven twelve'.split(' ');
+const word = (n: number) => WORDS[n] ?? String(n);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const shown =
+  PARTS.length === EXPLODED_PARTS.length
+    ? `${cap(word(PARTS.length))} layers`
+    : `${cap(word(PARTS.length))} of its ${word(EXPLODED_PARTS.length)} layers`;
 
 /** Silhouette widths of the six layers, top to bottom: a tiny locator of the stack. */
 const STACK = [15, 22, 18, 16, 20, 28];
@@ -30,8 +40,8 @@ const split = (figure: string) => {
       What’s inside {FACTS.height}.
     </h2>
     <p class="mech__lede">
-      Keep scrolling and it comes apart. Six parts, stacked the way they are assembled, each with
-      the number that matters.
+      Keep scrolling and it comes apart. {shown}, stacked the way they are assembled, each with the
+      number that matters.
     </p>
   </div>
 

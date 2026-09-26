@@ -22,6 +22,7 @@ const clock = byProfile('clock');
         <DialStage
           id="closing-dial"
           interactive
+          steppers
           finish="raw"
           profile={clock.id}
           camera="hero"
@@ -97,15 +98,24 @@ const clock = byProfile('clock');
     gap: var(--space-xl);
     align-items: center;
   }
+  /* The square dial and, under it, the −/+ steppers (a single-pointer way
+     to turn it, WCAG 2.5.7): room for both is held before the dial mounts. */
   .closing__dial {
+    --dial: min(78vw, 24rem);
     position: relative;
-    inline-size: min(78vw, 24rem);
-    aspect-ratio: 1;
+    inline-size: var(--dial);
+    min-block-size: calc(var(--dial) + var(--space-s) + 2.75rem);
     justify-self: center;
   }
   .closing__still {
     position: absolute;
-    inset: 0;
+    inset: 0 0 auto;
+    aspect-ratio: 1;
+  }
+  /* Without JS the still stays and there are no steppers. */
+  :global(html:not([data-js])) .closing__dial {
+    min-block-size: 0;
+    aspect-ratio: 1;
   }
   .closing__copy {
     display: grid;

@@ -5,7 +5,8 @@
  *     the pointer is lit, and marks the knob crosses light and fade behind it,
  *   - the feel picker switches the dial's profile and the chapter's color,
  *   - scroll through the mechanism explodes the dial (static when reduced) and
- *     a callout names the part in focus on the model (side layout),
+ *     a callout names the part in focus: pinned to the model (side layout) or
+ *     captioned under the dial, which grows back from docked (stack layout),
  *   - the app tabs switch the dial's feel the way the real product does.
  *
  * Talks to the dial only through the public contract in ../dial/types.ts.
@@ -34,6 +35,9 @@ function init(root: HTMLElement, dial: DetentDialElement) {
   const side = matchMedia(
     '(min-width: 64rem), (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem)',
   );
+  // The stack layout docks the stage only on screens tall enough to spare it.
+  const dockable = matchMedia('(min-height: 34rem)');
+  const docks = () => !side.matches && dockable.matches;
 
   const stage = $('[data-stage]')!;
   const headline = $('[data-headline]')!;
@@ -67,6 +71,7 @@ function init(root: HTMLElement, dial: DetentDialElement) {
   const panels = $$('[role="tabpanel"]');
   const sceneEls = $$('[data-scene-id]').map((el) => ({ el, id: el.dataset.sceneId as SceneId }));
   const mechEl = sceneEls.find((s) => s.id === 'mech')?.el;
+  const feelEl = sceneEls.find((s) => s.id === 'feel')?.el;
   const heroHead = sceneEls.find((s) => s.id === 'hero')?.el;
 
   const state = {
@@ -279,6 +284,10 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     if (e.key.startsWith('Arrow') || e.key.startsWith('Page')) markTouched();
   });
   dial.addEventListener('wheel', markTouched, { passive: true });
+  // The −/+ steppers (DialStage turns the dial; this only notes the first use).
+  stage
+    .querySelectorAll('[data-dial-step]')
+    .forEach((b) => b.addEventListener('click', markTouched));
 
   /* --------------------------------------------------------------- feel */
   radios.forEach((r) =>
@@ -368,22 +377,36 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     placeCallout();
   }
 
-  // Pin the callout to the active part's right edge on the model. The dial
-  // draws in its own frame; read its anchors on the next one, and again once
-  // the camera and explode transitions settle.
+  // Side layout: pin the callout to the active part's right edge on the
+  // model. The dial draws in its own frame; read its anchors on the next one,
+  // and again once the camera and explode transitions settle. Stack layout:
+  // CSS captions it under the dial, so it only needs switching on.
   let calloutFrame = 0;
   let settling = false;
   function placeCallout() {
     if (!callout || calloutFrame) return;
     calloutFrame = requestAnimationFrame(() => {
       calloutFrame = 0;
+      const apart = state.scene === 'mech' && state.explode > 0.2 && !!state.part;
+      if (!side.matches) {
+        callout.style.removeProperty('left');
+        callout.style.removeProperty('top');
+        callout.style.removeProperty('max-inline-size');
+        callout.toggleAttribute('data-on', apart);
+        return;
+      }
       const anchorId = parts.find((p) => p.dataset.part === state.part)?.dataset.anchor;
       const a = anchorId ? dial.partAnchors?.().find((x) => x.id === anchorId) : undefined;
-      const on = state.scene === 'mech' && side.matches && !!a?.visible && state.explode > 0.2;
+      const on = apart && !!a?.visible;
       callout.toggleAttribute('data-on', on);
       if (!on || !a) return;
       callout.style.left = `${a.x.toFixed(1)}px`;
       callout.style.top = `${a.y.toFixed(1)}px`;
+      // Never past the column's edge: a long figure wraps under the name.
+      const host = callout.offsetParent?.getBoundingClientRect();
+      const edge =
+        stage.getBoundingClientRect().right - parseFloat(getComputedStyle(stage).paddingRight);
+      if (host) callout.style.maxInlineSize = `${Math.max(0, edge - host.left - a.x).toFixed(0)}px`;
     });
   }
 
@@ -400,7 +423,7 @@ function init(root: HTMLElement, dial: DetentDialElement) {
   let dockT = -1;
   function paintDock() {
     let t = 0;
-    if (!side.matches && heroHead) {
+    if (docks() && heroHead) {
       const top = parseFloat(getComputedStyle(stage).insetBlockStart) || 0;
       const past = top - heroHead.getBoundingClientRect().bottom;
       t = Math.min(1, Math.max(0, past / (innerHeight * 0.4)));
@@ -414,14 +437,39 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     stage.toggleAttribute('data-docked', t >= 1);
   }
 
+  // While the stage is stuck over the page, keep focused and scrolled-to
+  // elements clear of it, not only of the header (WCAG 2.4.11). 0 hands the
+  // page back to the global scroll-padding. Measured after the scene is
+  // applied, and again when the mechanism growth finishes.
+  let coverPx = 0;
+  function measureCover() {
+    let px = 0;
+    if (docks()) {
+      const top = parseFloat(getComputedStyle(stage).insetBlockStart) || 0;
+      const r = stage.getBoundingClientRect();
+      if (r.top <= top + 1 && r.bottom > top) px = Math.round(r.bottom);
+    }
+    paintCover(px);
+  }
+  stage.addEventListener('transitionend', (e) => {
+    if (e.target === stage && e.propertyName === '--stage-mech' && listening) measureCover();
+  });
+  function paintCover(px: number) {
+    if (px === coverPx) return;
+    coverPx = px;
+    const html = document.documentElement;
+    if (px) html.style.scrollPaddingTop = `calc(${px}px + var(--space-s))`;
+    else html.style.removeProperty('scroll-padding-top');
+  }
+
   let scrollFrame = 0;
   function measure() {
     scrollFrame = 0;
     paintDock();
     const vh = innerHeight;
-    // The line where a scene becomes "current": mid-screen on the side layout,
-    // lower on mobile because the docked stage owns the top of the screen.
-    const line = vh * (side.matches ? 0.5 : 0.7);
+    // The line where a scene becomes "current": mid-screen, or lower while
+    // the docked stage owns the top of the screen.
+    const line = vh * (docks() ? 0.7 : 0.5);
     let current: SceneId = state.scene;
     for (const s of sceneEls) {
       const r = s.el.getBoundingClientRect();
@@ -429,6 +477,17 @@ function init(root: HTMLElement, dial: DetentDialElement) {
         current = s.id;
         break;
       }
+    }
+    // Docked, the dial grows back to full size to be taken apart. It grows
+    // over the gap between the chapters (Instrument.astro sizes it), so the
+    // teardown waits until the feel chapter's content is under the stage.
+    if (current === 'mech' && docks() && feelEl) {
+      const px = (el: Element, prop: 'marginBlockEnd' | 'paddingBlockEnd') =>
+        parseFloat(getComputedStyle(el)[prop]) || 0;
+      // The stage's bottom as docked: its growth is cancelled by its margin.
+      const docked = stage.getBoundingClientRect().bottom + px(stage, 'marginBlockEnd');
+      const feelEnd = feelEl.getBoundingClientRect().bottom - px(feelEl, 'paddingBlockEnd');
+      if (feelEnd > docked + 1) current = 'feel';
     }
     applyScene(current);
 
@@ -452,6 +511,7 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     } else if (callout?.hasAttribute('data-on')) {
       callout.removeAttribute('data-on');
     }
+    measureCover();
   }
   const onScroll = () => {
     if (!scrollFrame) scrollFrame = requestAnimationFrame(measure);
@@ -471,6 +531,7 @@ function init(root: HTMLElement, dial: DetentDialElement) {
         listening = false;
         removeEventListener('scroll', onScroll);
         removeEventListener('resize', onScroll);
+        paintCover(0);
       }
     },
     { rootMargin: '200px 0px' },

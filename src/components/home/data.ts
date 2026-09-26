@@ -13,9 +13,10 @@ import {
   byProfile,
   formatUsd,
   type AudienceId,
+  type Faq,
   type ProfileId,
 } from '@/data/product';
-import { LAUNCH } from '@/config/launch';
+import { LAUNCH, type Phase } from '@/config/launch';
 import type { DemoApp } from '@/components/demos/AppDemo.astro';
 import type { DialPartId } from '@/scripts/dial/types';
 import { PROFILE_FORMAT } from '@/scripts/feel/json';
@@ -44,7 +45,11 @@ export const FACTS = {
   knobDia: specPart('Body', 'Dimensions', /Ø\s?\d+\s?mm(?= knob)/),
   height: specPart('Body', 'Dimensions', /\d+\s?mm(?= tall)/),
   material: specPart('Body', 'Material', /^[\w-]+ aluminum/),
+  /** The full line: "32 mN·m on USB-C, 24 mN·m on battery". */
   torque: spec('Haptics', 'Peak torque'),
+  /** Just the headline number, for readouts and callouts that sit on one line. */
+  torquePeak: specPart('Haptics', 'Peak torque', /^[\d.]+\s?mN·m/),
+  torqueBattery: specPart('Haptics', 'Peak torque', /([\d.]+\s?mN·m) on battery/),
   resolution: specPart('Haptics', 'Position sensing', /[\d.]+°/),
   bits: `${bits}-bit`,
   focRate: specPart('Haptics', 'Motor', /\d+\s?kHz/),
@@ -76,6 +81,9 @@ export interface Part {
   body: string;
 }
 
+/** Keep a number with its unit ("24 mN·m") on one line. */
+const nb = (s: string) => s.replace(/ /g, ' ');
+
 export const PARTS: Part[] = [
   {
     id: 'display',
@@ -100,9 +108,9 @@ export const PARTS: Part[] = [
     anchor: 'stator',
     name: 'Motor',
     display: 'MOTOR',
-    figure: FACTS.torque,
-    unit: 'peak torque',
-    body: `A brushless gimbal motor under field-oriented control at ${FACTS.focRate}. There is no mechanical click anywhere inside. Every detent you feel is this motor pushing back.`,
+    figure: FACTS.torquePeak,
+    unit: 'peak torque on USB-C',
+    body: `A brushless gimbal motor under field-oriented control at ${nb(FACTS.focRate)}. There is no mechanical click anywhere inside. Every detent you feel is this motor pushing back, with up to ${nb(FACTS.torqueBattery)} on battery.`,
   },
   {
     id: 'encoder',
@@ -279,19 +287,30 @@ function listFormat(items: string[]): string {
   return new Intl.ListFormat('en-US', { style: 'long', type: 'conjunction' }).format(items);
 }
 
-/** The five questions that most often stand between a visitor and a deposit. */
-const FAQ_PICKS = [
-  'How does the $20 reservation work?',
-  'When does it ship?',
-  'What if I do not love it?',
-  'What if my app is not supported?',
-  'Do I need an account?',
+/**
+ * The questions that most often stand between a visitor and a deposit or an
+ * order. `phases` limits one to the phases it is true in (no reservation
+ * question once reservations close, no installments before the live store).
+ */
+const FAQ_PICKS: { q: string; phases?: Phase[] }[] = [
+  {
+    q: `How does the $${LAUNCH.depositUsd} reservation work?`,
+    phases: ['tease', 'waitlist', 'reserve'],
+  },
+  { q: 'When does it ship?' },
+  { q: 'Can I pay over time?', phases: ['live'] },
+  { q: 'What if I do not love it?' },
+  { q: 'What if my app is not supported?' },
+  { q: 'Do I need an account?' },
 ];
-export const HOME_FAQS = FAQ_PICKS.map((q) => {
+export const HOME_FAQS: (Faq & { phases?: Phase[] })[] = FAQ_PICKS.map(({ q, phases }) => {
   const f = FAQS.find((x) => x.q === q);
   if (!f) throw new Error(`[home] missing FAQ: ${q}`);
-  return f;
+  return { ...f, phases };
 });
+/** Whether a home FAQ shows in a phase. */
+export const faqInPhase = (f: { phases?: Phase[] }, phase: Phase) =>
+  !f.phases || f.phases.includes(phase);
 
 export const PROFILE_IDS = PROFILES.map((p) => p.id);
 export { formatUsd };
