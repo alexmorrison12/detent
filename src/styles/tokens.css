@@ -36,8 +36,9 @@
     --feel-magnet: oklch(0.72 0.17 38);
 
     /* ---- Type --------------------------------------------------------- */
-    --font-sans: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, sans-serif;
-    --font-mono: 'Martian Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+    /* The *Fallback families are metric-matched local fonts (see fonts.css). */
+    --font-sans: 'Archivo Variable', 'Archivo Display Fallback', 'Archivo Fallback', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Martian Mono Variable', 'Martian Mono Fallback', ui-monospace, Menlo, monospace;
 
     /* Archivo width axis (62–125%). Display is expanded, like an engraved scale. */
     --stretch-display: 125%;
@@ -73,7 +74,8 @@
     --space-2xl: 4.5rem;
     --space-3xl: 6.5rem;
     --section-y: clamp(4.5rem, 3rem + 7vw, 10rem);
-    --gutter: clamp(1rem, 0.5rem + 2.5vw, 3rem);
+    /* Never less than the notch / rounded-corner inset (viewport-fit=cover). */
+    --gutter: max(clamp(1rem, 0.5rem + 2.5vw, 3rem), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
     --container: 88rem;
     --container-narrow: 60rem;
     --measure: 66ch;
@@ -125,6 +127,7 @@
     --ink-faint: oklch(0.62 0.006 355); /* large or decorative text only */
     --line: oklch(1 0 0 / 0.1);
     --line-strong: oklch(1 0 0 / 0.24);
+    --line-input: oklch(0.55 0.007 355); /* field boundary: >= 3:1 on bg, bg-raised, surface */
     --accent: var(--tally);
     --accent-text: var(--tally-hot);
     --accent-ink: var(--tally-ink);
@@ -144,6 +147,7 @@
     --ink-faint: oklch(0.58 0.006 355);
     --line: oklch(0 0 0 / 0.1);
     --line-strong: oklch(0 0 0 / 0.22);
+    --line-input: oklch(0.6 0.006 355); /* field boundary: >= 3:1 on bg, bg-raised, surface */
     --accent: var(--tally);
     --accent-text: var(--tally-deep);
     --accent-ink: var(--tally-ink);

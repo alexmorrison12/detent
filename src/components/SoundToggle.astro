@@ -1,8 +1,16 @@
 ---
-/** Global sound on/off. State lives in src/lib/sound.ts (persisted, default off). */
+/**
+ * Global sound on/off. State lives in src/lib/sound.ts (persisted, default off).
+ * Any number of toggles can be on a page (the header and the mobile menu both
+ * render one); they all stay in sync.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
 ---
 
-<button class="sound-toggle" type="button" aria-pressed="false" data-sound-toggle>
+<button class:list={['sound-toggle', className]} type="button" aria-pressed="false" data-sound-toggle>
   <span class="visually-hidden">Sound</span>
   <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
     <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path>
@@ -33,15 +41,17 @@
   .sound-toggle {
     display: grid;
     place-items: center;
-    inline-size: 2.5rem;
-    block-size: 2.5rem;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
     border-radius: 50%;
     color: var(--ink-muted);
     transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
   }
-  .sound-toggle:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .sound-toggle:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
   }
   .sound-toggle[aria-pressed='true'] {
     color: var(--accent-text);

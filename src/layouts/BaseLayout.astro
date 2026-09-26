@@ -10,9 +10,8 @@
  *           CTA + slim footer, for campaign landing pages), 'none' (render
  *           pages, full-bleed toys).
  */
-import '@fontsource-variable/archivo/standard.css';
-import '@fontsource-variable/martian-mono/wght.css';
-import archivoLatin from '@fontsource-variable/archivo/files/archivo-latin-standard-normal.woff2?url';
+import '@/styles/fonts.css';
+import archivoCore from '@/styles/fonts/archivo-core.woff2?url';
 import '@/styles/global.css';
 
 import { SITE } from '@/config/site';
@@ -125,7 +124,7 @@ const speculationRules = {
       })();
     </script>
 
-    <link rel="preload" href={archivoLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={archivoCore} as="font" type="font/woff2" crossorigin />
     <link rel="icon" href={url('/favicon.svg')} type="image/svg+xml" />
     <link rel="apple-touch-icon" href={url('/apple-touch-icon.png')} />
     <link rel="manifest" href={url('/manifest.webmanifest')} />

@@ -11,6 +11,19 @@
 export const PHASE_ORDER = ['tease', 'waitlist', 'reserve', 'launch', 'live'] as const;
 export type Phase = (typeof PHASE_ORDER)[number];
 
+export const LAUNCH = {
+  /** Launch day (orders open). */
+  launchDate: '2026-12-01T17:00:00Z',
+  /** Launch pricing window closes. */
+  launchPriceEnds: '2026-12-04T17:00:00Z',
+  firstShipBatch: 'February 2027',
+  secondShipBatch: 'April 2027',
+  /** Numbered Founders Edition run. */
+  foundersRun: 2000,
+  depositUsd: 20,
+  foundersDepositUsd: 50,
+} as const;
+
 export interface PhaseCta {
   label: string;
   /** Path relative to the site root (no base). */
@@ -29,55 +42,105 @@ export interface PhaseConfig {
   primary: PhaseCta;
   /** Quieter secondary action shown beside the primary one. */
   secondary: PhaseCta;
+  /**
+   * What the header and menu CTA become once this visitor has already taken
+   * the phase's action (joined the list, reserved): the next useful place.
+   */
+  returning?: Omit<PhaseCta, 'note'>;
   /** Status line for the announcement bar. */
   banner: string;
+  /** The same status in a few words, for phone-width announcement bars. */
+  bannerShort: string;
+  /**
+   * When an order or reservation placed in this phase ships. Batch 1 is
+   * filled by deposits; launch-week and later orders go to Batch 2
+   * (docs/LAUNCH_PLAN.md). Update here if a batch fills or slips.
+   */
+  ships: string;
 }
+
+const STARTS: Record<Phase, string> = {
+  tease: '2026-10-06',
+  waitlist: '2026-10-20',
+  reserve: '2026-11-10',
+  launch: '2026-12-01',
+  live: '2026-12-04',
+};
+
+/** '2026-10-20' -> '10.20', the site's date shorthand. */
+const dot = (iso: string) => `${iso.slice(5, 7)}.${iso.slice(8, 10)}`;
+/** When the launch price ends, in the launch team's time zone: "Friday, Dec 4, 09:00 PT". */
+const priceEndsPT = `${new Date(LAUNCH.launchPriceEnds).toLocaleString('en-US', {
+  timeZone: 'America/Los_Angeles',
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})} PT`;
+const BATCH_1 = `Batch 1, ${LAUNCH.firstShipBatch}`;
+const BATCH_2 = `Batch 2, ${LAUNCH.secondShipBatch}`;
 
 export const PHASES: Record<Phase, PhaseConfig> = {
   tease: {
     id: 'tease',
     name: 'Tease',
-    starts: '2026-10-06',
+    starts: STARTS.tease,
     landing: '/l/tease/',
-    primary: { label: 'Get the first look', href: '/l/tease/#signal', note: 'One email on reveal day. Nothing else.' },
-    secondary: { label: 'Turn the dial', href: '/l/tease/', note: '' },
-    banner: 'Something you can feel. Revealed 10.20.',
+    // Works on every page, including the ones that already show the product.
+    primary: { label: 'Get launch news', href: '/l/tease/#signal', note: `One email when the list opens ${dot(STARTS.waitlist)}. Nothing else.` },
+    secondary: { label: 'Crack the safe', href: '/crack/', note: '' },
+    banner: `The waitlist opens ${dot(STARTS.waitlist)}.`,
+    bannerShort: `The waitlist opens ${dot(STARTS.waitlist)}.`,
+    ships: BATCH_1,
   },
   waitlist: {
     id: 'waitlist',
     name: 'Waitlist',
-    starts: '2026-10-20',
+    starts: STARTS.waitlist,
     landing: '/l/waitlist/',
     primary: { label: 'Join the waitlist', href: '/l/waitlist/', note: 'Free. Every friend who confirms earns you a reward.' },
     secondary: { label: 'Crack the safe', href: '/crack/', note: '' },
-    banner: 'The waitlist is open. Early spots get the $299 launch price.',
+    returning: { label: 'Your pass', href: '/l/waitlist/#pass' },
+    banner: 'The waitlist is open. Every reservation locks the $299 launch price.',
+    bannerShort: 'The waitlist is open.',
+    ships: BATCH_1,
   },
   reserve: {
     id: 'reserve',
     name: 'Reserve',
-    starts: '2026-11-10',
+    starts: STARTS.reserve,
     landing: '/l/reserve/',
-    primary: { label: 'Reserve for $20', href: '/l/reserve/', note: 'Fully refundable. Locks the $299 launch price.' },
+    primary: { label: `Reserve for $${LAUNCH.depositUsd}`, href: '/l/reserve/', note: 'Fully refundable. Locks the $299 launch price.' },
     secondary: { label: 'Configure yours', href: '/shop/', note: '' },
-    banner: 'Reservations are open. Batch 1 ships February 2027.',
+    returning: { label: 'Your reservation', href: '/l/reserve/' },
+    banner: `Reservations are open. Batch 1 ships ${LAUNCH.firstShipBatch}.`,
+    bannerShort: `Reservations open. Ships ${LAUNCH.firstShipBatch}.`,
+    ships: BATCH_1,
   },
   launch: {
     id: 'launch',
     name: 'Launch day',
-    starts: '2026-12-01',
+    starts: STARTS.launch,
     landing: '/l/launch/',
-    primary: { label: 'Order Detent One', href: '/shop/', note: '$299 launch price for 72 hours. Free shipping.' },
+    // A dated deadline, never a relative one: the build is static for all three days.
+    primary: { label: 'Order Detent One', href: '/shop/', note: `$299 until ${dot(LAUNCH.launchPriceEnds)}. Free shipping.` },
     secondary: { label: 'Watch the film', href: '/l/launch/#film', note: '' },
-    banner: 'Detent One is here. Launch pricing ends in 72 hours.',
+    banner: `Detent One is here. $299 until ${priceEndsPT}.`,
+    bannerShort: `$299 until ${priceEndsPT.replace(/^\w+, /, '')}.`,
+    ships: BATCH_2,
   },
   live: {
     id: 'live',
     name: 'Live',
-    starts: '2026-12-04',
+    starts: STARTS.live,
     landing: '/',
     primary: { label: 'Buy Detent One', href: '/shop/', note: 'Free shipping. 60-day studio trial.' },
     secondary: { label: 'Compare finishes', href: '/shop/#finishes', note: '' },
     banner: 'Free shipping and a 60-day studio trial on every Detent.',
+    bannerShort: 'Free shipping. 60-day trial.',
+    ships: BATCH_2,
   },
 };
 
@@ -96,19 +159,6 @@ export const MODE: SiteMode = import.meta.env.PUBLIC_SITE_MODE === 'live' ? 'liv
 export const BUILD_PHASE: Phase = PHASE_ORDER.includes(envPhase as Phase)
   ? (envPhase as Phase)
   : 'reserve';
-
-export const LAUNCH = {
-  /** Launch day (orders open). */
-  launchDate: '2026-12-01T17:00:00Z',
-  /** Launch pricing window closes. */
-  launchPriceEnds: '2026-12-04T17:00:00Z',
-  firstShipBatch: 'February 2027',
-  secondShipBatch: 'April 2027',
-  /** Numbered Founders Edition run. */
-  foundersRun: 2000,
-  depositUsd: 20,
-  foundersDepositUsd: 50,
-} as const;
 
 export function phaseIndex(p: Phase): number {
   return PHASE_ORDER.indexOf(p);
