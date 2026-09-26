@@ -48,7 +48,7 @@ export const PHASES: Record<Phase, PhaseConfig> = {
     name: 'Waitlist',
     starts: '2026-10-20',
     landing: '/l/waitlist/',
-    primary: { label: 'Join the waitlist', href: '/l/waitlist/', note: 'Free. Move up the line with every friend who joins.' },
+    primary: { label: 'Join the waitlist', href: '/l/waitlist/', note: 'Free. Every friend who confirms earns you a reward.' },
     secondary: { label: 'Crack the safe', href: '/crack/', note: '' },
     banner: 'The waitlist is open. Early spots get the $299 launch price.',
   },
