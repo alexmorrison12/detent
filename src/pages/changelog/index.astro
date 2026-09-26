@@ -50,7 +50,7 @@ const ld = {
     title="What changed."
     sheet="Changelog"
     fact={`${RELEASES.length} releases · latest ${formatDate(latest.date)}`}
-    dial={{ text: `FW ${firmware.version.replace(/-.*/, '')}`, finish: 'raw', profile: 'ratchet' }}
+    dial={{ text: `v${firmware.version.replace(/-.*/, '')}`, finish: 'raw', profile: 'ratchet' }}
     lede="Firmware, Detent Studio and the SDK, newest first. Betas ran on testers’ EVT and DVT units and now run on the PVT units on their desks. Founders Edition owners keep this early channel for life."
   >
     <a class="rss" href={url('/changelog/rss.xml')} data-track="changelog_rss">

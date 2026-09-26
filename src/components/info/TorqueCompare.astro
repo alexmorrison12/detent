@@ -268,6 +268,14 @@ const physicsJson = JSON.stringify(
   .torque__x span:last-child {
     justify-content: flex-end;
   }
+  /* Below ~384px the ±90° labels run into the ±180° ones; the grid lines
+     still mark the quarter turns. visibility keeps the spacing intact. */
+  @media (max-width: 24rem) {
+    .torque__x span:nth-child(2),
+    .torque__x span:nth-child(4) {
+      visibility: hidden;
+    }
+  }
   .torque__legend {
     display: flex;
     flex-wrap: wrap;

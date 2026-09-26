@@ -1,15 +1,29 @@
 ---
 /**
  * The info pages' nameplate: Detent One seen from above, its round display
- * showing what the page is ("FAQ", the latest firmware, "0 BYTES"). The knob
+ * showing what the page is ("FAQ", the latest firmware, "TERMS"). The knob
  * display says the page, the way the 404 says 404. Decorative (the h1 says
  * it in words), muted, and a product still until the live dial takes over.
+ *
+ * One rule for every template that places it: the nameplate exists from
+ * 64rem up, in a column of 6rem or more beside the title, where the display
+ * word stays readable. Below that it would be a ~5rem knob whose word is a
+ * few pixels tall, so it is not shown at all: hidden, its lazy still is never
+ * fetched and the dial engine never loads. Templates give it that column at
+ * the same breakpoint, and leave it out wherever the title needs the room.
+ *
+ * It is drawn by the vector renderer only (quality="low"): at this size the
+ * SVG knob and the three.js one look the same, and a decorative nameplate
+ * should not cost three.js and a WebGL context.
  */
 import DialStage from '@/components/dial/DialStage.astro';
 import type { FinishId, ProfileId } from '@/data/product';
 
+/** Longer words run past the display's tick ring, even at its smallest readout size. */
+const MAX_TEXT = 6;
+
 export interface PageDialProps {
-  /** What the knob's display reads. The dial contract allows 10 characters. */
+  /** What the knob's display reads: at most 6 characters. */
   text: string;
   finish?: FinishId;
   /** Tints the display ring with this profile's feel color. */
@@ -17,11 +31,11 @@ export interface PageDialProps {
 }
 type Props = PageDialProps;
 const { text, finish = 'graphite', profile = 'ratchet' } = Astro.props;
-if (text.length > 10) throw new Error(`PageDial: "${text}" is longer than the knob display's 10 characters.`);
+if (text.length > MAX_TEXT) throw new Error(`PageDial: "${text}" is longer than ${MAX_TEXT} characters and would run past the knob display's tick ring.`);
 ---
 
 <div class="page-dial" aria-hidden="true">
-  <DialStage finish={finish} profile={profile} camera="top" display={text} muted sizes="10rem" />
+  <DialStage finish={finish} profile={profile} camera="top" display={text} quality="low" muted sizes="16rem" />
 </div>
 
 <style>
@@ -31,10 +45,15 @@ if (text.length > 10) throw new Error(`PageDial: "${text}" is longer than the kn
      keeps the oversized frame from widening the page; the round mask fades
      the halo glow out before the clip edge, so no square edge ever shows. */
   .page-dial {
-    display: flow-root;
+    display: none;
     inline-size: 100%;
     overflow: clip;
     pointer-events: none;
+  }
+  @media (min-width: 64rem) {
+    .page-dial {
+      display: flow-root;
+    }
   }
   .page-dial > :global(.dial-stage) {
     inline-size: 150%;

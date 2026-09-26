@@ -256,6 +256,14 @@ const first = VIEWS[0];
       flex: none;
       padding-inline: 0.7rem;
     }
+    /* Five views fit a 320px screen only with tighter pills; below this the
+       last one ("Exploded") would start clipped inside the scroller. */
+    @media (max-width: 24rem) {
+      .seg__btn {
+        min-inline-size: 2.75rem;
+        padding-inline: 0.4rem;
+      }
+    }
     .finishes {
       gap: 0.25rem;
     }
