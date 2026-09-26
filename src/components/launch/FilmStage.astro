@@ -378,6 +378,11 @@ const first = SHOTS[0]!;
   .film__chapters ol button .readout {
     font-size: var(--step--2);
   }
+  /* The list scrolls sideways on phones, so it clips anything outside a
+     button: the ring goes inside, where the scroller can't cut it. */
+  .film__chapters ol button:focus-visible {
+    outline-offset: -2px;
+  }
   @media (hover: hover) {
     .film__chapters ol button:hover {
       color: var(--ink-strong);

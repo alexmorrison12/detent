@@ -15,6 +15,11 @@ interface Props {
 }
 const { notices, placement } = Astro.props;
 const entries = Object.entries(notices) as [Phase, string][];
+/**
+ * Where a notice goes: the phase's landing page, except once the store is
+ * live. Its landing is home, and every live notice says "in the store".
+ */
+const hrefFor = (p: Phase) => url(p === 'live' ? PHASES.live.primary.href : PHASES[p].landing);
 ---
 
 {entries.map(([phase, text]) => (
@@ -23,7 +28,7 @@ const entries = Object.entries(notices) as [Phase, string][];
       <span class="phase-notice__dot" aria-hidden="true" />
       <a
         class="phase-notice__link"
-        href={url(PHASES[phase].landing)}
+        href={hrefFor(phase)}
         data-track="phase_notice_click"
         data-track-placement={placement}
       >

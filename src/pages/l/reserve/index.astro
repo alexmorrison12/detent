@@ -21,6 +21,7 @@ import { PHASES, LAUNCH } from '@/config/launch';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
 import { EDITIONS, FINISHES, FAQS, PAYMENT, SPECS, byEdition, formatUsd } from '@/data/product';
+import { REFERRAL } from '@/data/shop';
 import { url } from '@/lib/url';
 import { IS_DEMO } from '@/lib/waitlist';
 import { dotDate, longDate, serialRange } from '@/scripts/launch/format';
@@ -99,7 +100,7 @@ const stopB = polar(96, 138);
     placement="reserve-notice"
     notices={{
       tease: `Reservations open ${dotDate(PHASES.reserve.starts)}. Get the first look now and you’ll hear first.`,
-      waitlist: `Reservations open ${longDate(PHASES.reserve.starts)}, and the list goes first.`,
+      waitlist: `Reservations open ${longDate(PHASES.reserve.starts)}. Join the list and you get the email that minute.`,
       launch: `Orders are open. Skip the deposit and order at ${usd(one.launchPriceUsd)}.`,
       live: `${SITE.product} is in the store now. Free shipping, ${PAYMENT.trialDays}-day studio trial.`,
     }}
@@ -283,6 +284,10 @@ const stopB = polar(96, 138);
             {one.name} · Graphite · {usd(LAUNCH.depositUsd)} today,{' '}
             {usd(one.launchPriceUsd - LAUNCH.depositUsd)} when your batch ships.
           </p>
+          <p class="rv__feel" data-feel-line hidden>
+            <span class="rv__feel-dot" aria-hidden="true"></span>
+            <strong data-feel-name></strong> <span data-feel-text></span>
+          </p>
           <p class="rv__ritual-note">
             Three clicks on the dial arm it. Or just press it; it works either way.
           </p>
@@ -313,6 +318,10 @@ const stopB = polar(96, 138);
             <dt>Finish</dt>
             <dd data-res-finish></dd>
           </div>
+          <div data-res-feel-row hidden>
+            <dt>First feel</dt>
+            <dd data-res-feel></dd>
+          </div>
           <div>
             <dt>Deposit</dt>
             <dd class="readout" data-res-deposit></dd>
@@ -330,6 +339,11 @@ const stopB = polar(96, 138);
             <dd>{PHASES.reserve.ships}, in reservation order.</dd>
           </div>
         </dl>
+        <p class="rv__done-others" data-res-others hidden></p>
+        <p class="rv__done-refer">
+          Send a friend your link. When theirs ships, you both get a feel you can’t buy: the{' '}
+          {REFERRAL.profile}, with {REFERRAL.detail}.
+        </p>
         <div class="rv__done-actions">
           <button class="btn btn--primary" type="button" data-ics-launch>
             Add launch day to your calendar
@@ -973,6 +987,26 @@ const stopB = polar(96, 138);
     font-size: var(--step--1);
     color: var(--ink-muted);
   }
+  /* The feel an audience page sent: named in its own color, as on the waitlist. */
+  .rv__feel {
+    max-inline-size: 40ch;
+    font-size: var(--step--1);
+    color: var(--ink);
+    text-wrap: pretty;
+  }
+  .rv__feel strong {
+    font-weight: 620;
+    color: var(--ink-strong);
+  }
+  .rv__feel-dot {
+    display: inline-block;
+    inline-size: 0.6em;
+    block-size: 0.6em;
+    margin-inline-end: 0.2em;
+    border-radius: 50%;
+    background: var(--feel, var(--accent));
+    vertical-align: 0.05em;
+  }
 
   /* ---- Confirmation ------------------------------------------------------ */
   .rv__done {
@@ -1035,6 +1069,16 @@ const stopB = polar(96, 138);
   }
   .rv__done-aside {
     color: var(--ink-muted);
+  }
+  .rv__done-others {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .rv__done-refer {
+    max-inline-size: 52ch;
+    font-size: var(--step--1);
+    color: var(--ink);
+    text-wrap: pretty;
   }
   .rv__done-actions {
     display: flex;
@@ -1367,16 +1411,17 @@ const stopB = polar(96, 138);
       grid-template-columns: 1fr;
     }
   }
-  /* Phones: the dial comes up under the headline (the product, and the finish
-     preview, in view), and the button gets the full width. */
+  /* Phones: the form comes first, so the edition picker is in the first screen
+     and the email and button follow it directly. The ritual dial sits under the
+     button: optional, and the button above it fills as it arms. */
   @media (max-width: 40rem) {
     .rv__grid {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-areas: 'head' 'stage' 'fields' 'submit' 'done';
+      grid-template-areas: 'head' 'fields' 'submit' 'stage' 'done';
       row-gap: var(--space-m);
     }
     .rv[data-done] .rv__grid {
-      grid-template-areas: 'head' 'stage' 'done';
+      grid-template-areas: 'head' 'done' 'stage';
     }
     .rv__stage {
       justify-self: center;

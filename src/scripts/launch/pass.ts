@@ -263,7 +263,7 @@ export async function mountPass(section: HTMLElement): Promise<PassController> {
       'detent-reservations-open.ics',
       {
         start: PHASES.reserve.starts,
-        title: 'Detent One: reservations open (the list goes first)',
+        title: 'Detent One: reservations open',
         description: `Reserve for ${formatUsd(LAUNCH.depositUsd)}, fully refundable. ${location.origin}${location.pathname.replace(/waitlist\/?$/, 'reserve/')}`,
         url: `${location.origin}${location.pathname.replace(/waitlist\/?$/, 'reserve/')}`,
         alarm: 9,

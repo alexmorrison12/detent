@@ -63,7 +63,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 
 <BaseLayout
   title="Join the waitlist"
-  description={`Tell us what you’d turn and get on the ${SITE.product} list: the ${launchPrice} launch price (${fullPrice} from ${shortDate(LAUNCH.launchPriceEnds)}), first pick when reservations open ${reserveLong}, and a Feel Pass that’s yours alone.`}
+  description={`Tell us what you’d turn and get on the ${SITE.product} list: one email the minute reservations open on ${reserveLong}, when ${deposit} locks the ${launchPrice} launch price (${fullPrice} from ${shortDate(LAUNCH.launchPriceEnds)}), and a Feel Pass that’s yours alone.`}
   ogImage={ogPath('waitlist')}
   ogImageAlt="Get in line. Move up. The Detent One waitlist."
   chrome="minimal"
@@ -96,7 +96,9 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
           </div>
           <p>
             {SITE.product} is a machined aluminum dial whose clicks change with every app.{' '}
-            <span data-phase-only="tease waitlist">{launchPrice} for the list.</span>
+            <span data-phase-only="tease waitlist">
+              {launchPrice} at launch, {fullPrice} after.
+            </span>
           </p>
         </div>
         <p class="wl__line" data-seg-line>
@@ -186,8 +188,8 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
 
           <p class="join__offer" id="join-offer">
             <span data-phase-only="tease waitlist">
-              The list gets the <strong>{launchPrice}</strong> launch price and reserves first, from{' '}
-              {reserveLong}. From {priceEnds}, it’s {fullPrice}.
+              One email the minute reservations open, {reserveLong}. A {deposit} reservation locks
+              the <strong>{launchPrice}</strong> launch price. From {priceEnds}, it’s {fullPrice}.
             </span>
             <span data-phase-only="reserve">
               The list gets one email on launch day and a Feel Pass. The{' '}
@@ -205,7 +207,8 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
           <p class="joined__text">
             Saved as <span class="readout" data-joined-email></span>.{' '}
             <span data-phase-only="tease waitlist">
-              The {launchPrice} launch price is yours when reservations open {reserveDot}.
+              We’ll email you the minute reservations open, {reserveDot}. A {deposit} reservation
+              then locks {launchPrice}.
             </span>
             <span data-phase-only="reserve">
               Reservations are open now: {deposit} locks the {launchPrice} launch price.
@@ -290,7 +293,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
   >
     <div class="container gets__grid">
       <h2 id="gets-title" class="gets__title">
-        What the list gets you
+        Catch the launch price.
       </h2>
       <p class="gets__price">
         <span class="visually-hidden">
@@ -307,16 +310,15 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
         <p>
           <strong>The launch price, locked.</strong> Detent One is {fullPrice}.{' '}
           <span data-phase-only="tease waitlist">
-            Everyone on the list pays {launchPrice} when they reserve, and it holds until your batch
-            ships.
+            Reserve from {reserveLong} and you pay {launchPrice}, held until your batch ships.
           </span>
           <span data-phase-only="reserve">
             A reservation locks {launchPrice}, and it holds until your batch ships.
           </span>
         </p>
         <p data-phase-only="tease waitlist">
-          <strong>First in line.</strong> Reservations open to the list on {reserveLong}: {deposit},
-          fully refundable.{' '}
+          <strong>Told first.</strong> Reservations open on {reserveLong}, and the list gets the
+          email that minute: {deposit}, fully refundable.{' '}
           {reservationShips.map((g) => (
             <span data-phase-only={g.phases}>
               They ship in {g.ships}, in the order they came in.
@@ -375,7 +377,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     hideOver="#join, .wl__now, .closer, .site-footer"
     label={PHASES.waitlist.primary.label}
     target="#join-email"
-    note={`${launchPrice} on the list`}
+    note="Free. One click to leave."
     only="tease waitlist"
   >
     <PhaseCTA
@@ -727,7 +729,7 @@ const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
     fill: var(--ink-strong);
   }
 
-  /* ---- What the list gets you (day) ------------------------------------ */
+  /* ---- The launch price, and how the list catches it (day) ------------- */
   .gets {
     padding-block: var(--section-y);
   }

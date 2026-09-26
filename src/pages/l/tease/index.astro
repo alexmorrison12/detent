@@ -2,11 +2,13 @@
 /**
  * Tease: a dark, near-empty page. One dial whose display is a clock, one
  * line, one date. Set the knob to the date (10.20 -> 10:20) and hold it:
- * the page tunes in and the email field opens. "Skip the puzzle" is always
- * one visible link away.
+ * the page tunes in and the payoff opens: the email field before the reveal,
+ * the phase's own action (join, reserve, buy) after it. "Skip the puzzle" is
+ * always one visible link away.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import DialStage from '@/components/dial/DialStage.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
 import PhaseNotice from '@/components/launch/PhaseNotice.astro';
 import EmailField from '@/components/launch/EmailField.astro';
 import ConceptNote from '@/components/launch/ConceptNote.astro';
@@ -15,6 +17,7 @@ import { PHASES } from '@/config/launch';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
 import { dotDate, longDate } from '@/scripts/launch/format';
+import { tuneAt } from '@/scripts/launch/tease-tune';
 
 const revealIso = PHASES.waitlist.starts;
 const revealDot = dotDate(revealIso); // "10.20"
@@ -24,6 +27,9 @@ const target = (hh % 12) * 30 + mm * 0.5; // clock angle, 0 = 12 o'clock
 // Detent spacing: every 10 minutes if the date allows it, else finer.
 const detents = mm % 10 === 0 ? 72 : mm % 5 === 0 ? 144 : 720;
 const targetClock = `${hh}:${String(mm).padStart(2, '0')}`;
+// The script starts the knob at 12:00 and tunes the headline from there. Paint
+// that value first (with JS), so the headline doesn't snap when it takes over.
+const tuneStart = tuneAt(0, target).toFixed(3);
 
 const ticks = Array.from({ length: 72 }, (_, i) => i);
 const numerals = Array.from({ length: 12 }, (_, i) => (i === 0 ? 12 : i));
@@ -70,6 +76,7 @@ const description = `A dial on a dark page, a date and one line. Set the knob to
     data-hint2={`Set it to ${targetClock}, then hold still.`}
     data-hint-hold="Hold it there."
     data-hint-set={`Set to ${targetClock}.`}
+    style={`--tune-start: ${tuneStart}`}
     aria-labelledby="tease-title"
   >
     <div class="tease__stage">
@@ -160,15 +167,29 @@ const description = `A dial on a dark page, a date and one line. Set the knob to
           The dial has {detents} clicks. The one at {targetClock} is heavier than the other{' '}
           {detents - 1}. Nothing inside the knob changed shape. Software put it there.
         </p>
-        <p>
-          Now picture every app you use doing that. On {revealLong} we show you the knob.{' '}
-          {PHASES.tease.primary.note}
+        <p data-phase-only="tease">
+          Now picture every app you use doing that. On {revealLong}: the film, the full specs, the
+          price and the waitlist. {PHASES.tease.primary.note}
         </p>
+        <p data-phase-only="waitlist reserve launch live">
+          Now picture every app you use doing that. That’s {SITE.product}.
+        </p>
+      </div>
+
+      {/* After the reveal the payoff is the phase's own action, never a sign-up for a past date. */}
+      <div class="signal__next" data-phase-only="waitlist reserve launch live" data-signal-action>
+        <PhaseCTA
+          placement="tease-solved"
+          size="lg"
+          phases={['waitlist', 'reserve', 'launch', 'live']}
+        />
       </div>
 
       <form
         class="signal__form"
         data-tease-form
+        data-signal-action
+        data-phase-only="tease"
         novalidate
         method="dialog"
         aria-label="Get the first look"
@@ -190,7 +211,7 @@ const description = `A dial on a dark page, a date and one line. Set the knob to
         </noscript>
       </form>
 
-      <div class="signal__done" data-tease-done hidden>
+      <div class="signal__done" data-tease-done data-phase-only="tease" hidden>
         <h3 class="signal__done-title">You’re set for {revealDot}.</h3>
         <p>
           One email that morning. Put it in your calendar too, so the date does the remembering.
@@ -221,6 +242,11 @@ const description = `A dial on a dark page, a date and one line. Set the knob to
     min-block-size: calc(100svh - var(--header-h));
     padding-block: clamp(1rem, 4svh, 3rem) clamp(2rem, 6svh, 4rem);
     overflow: clip;
+  }
+  /* Without JS the headline sits fully tuned; with it, at the knob's starting
+     point, the value tease.ts takes over with (no jump on first tick). */
+  :global(html[data-js]) .tease {
+    --tune: var(--tune-start, 1);
   }
 
   /* ---- Stage: the clock ring around the dial, the trace behind ------- */
