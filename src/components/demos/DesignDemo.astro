@@ -323,10 +323,12 @@ const uid = Math.random().toString(36).slice(2, 8);
     gap: 0.2rem;
     color: var(--ink-muted);
   }
+  /* 16px floor: iOS zooms the page into any smaller field on focus. The brush
+     readout matches so the two values read as a pair. */
   .dz__input,
   .dz__value {
     font-family: var(--font-mono);
-    font-size: var(--step--1);
+    font-size: max(1rem, var(--step--1));
     font-variant-numeric: tabular-nums slashed-zero;
     color: var(--ink-strong);
   }

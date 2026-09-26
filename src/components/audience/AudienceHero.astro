@@ -40,7 +40,7 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
       <span class="hero__spec readout">{page.spec}</span>
     </p>
     <!-- prettier-ignore -->
-    <h1 id="hero-title" class:list={['display', 'hero__title', short && 'hero__title--short']}>{parts[0]}<span class="hero__accent">{parts[1]}</span>{parts[2]}</h1>
+    <h1 id="hero-title" class:list={['display', 'hero__title', short && 'hero__title--short']}>{parts[0]}{parts[1] && <span class="hero__accent" data-hero-accent data-word={parts[1]}>{parts[1]}</span>}{parts[2]}</h1>
     <div class="hero__sub">
       <p class="lede">{audience.subhead}</p>
       <PhaseCTA placement={`for-${audience.id}-hero`} size="lg" />
@@ -55,6 +55,33 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
     <FeelCurve profile={audience.profile} variant="trace" span={270} />
   </div>
 </section>
+
+<script>
+  import type { DetentChangeDetail } from '@/scripts/dial/types';
+
+  // The accent word follows the hero demo's dial the way the home headline does:
+  // where you first grab the knob is rest (full width), half a turn is 62%.
+  // Only hands move it; the demo positioning its own knob does not.
+  const accent = document.querySelector<HTMLElement>('[data-hero-accent]');
+  const demo = document.querySelector<HTMLElement>('#demo app-demo');
+  const dial = demo?.querySelector('detent-dial');
+  if (accent && demo && dial) {
+    let base: number | null = null;
+    let angle = 0;
+    let frame = 0;
+    const paint = () => {
+      frame = 0;
+      const t = (1 + Math.cos(((angle - (base ?? angle)) * Math.PI) / 180)) / 2;
+      accent.style.setProperty('--accent-stretch', `${(62 + 63 * t).toFixed(1)}%`);
+    };
+    dial.addEventListener('detent:change', (e) => {
+      if (!demo.hasAttribute('data-touched')) return;
+      angle = (e as CustomEvent<DetentChangeDetail>).detail.angle;
+      base ??= angle;
+      if (!frame) frame = requestAnimationFrame(paint);
+    });
+  }
+</script>
 
 <style>
   .hero {
@@ -113,8 +140,36 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
     font-size: clamp(2.8rem, 1.2rem + 6.4vw, 6rem);
     max-inline-size: 10ch;
   }
+  /* The accent word sits in a slot as wide as the word at rest, underlined in the
+     page's feel color. Turning the hero dial squeezes the visible copy along the
+     width axis inside that slot (the site's signature), so the headline never
+     reflows and the demo never moves under your hand. */
   .hero__accent {
-    color: var(--feel);
+    position: relative;
+    text-decoration: underline var(--feel);
+    text-decoration-thickness: 0.055em;
+    text-underline-offset: 0.12em;
+    text-decoration-skip-ink: none;
+  }
+  @supports (content: 'x' / '') {
+    .hero__accent {
+      color: transparent;
+    }
+    .hero__accent::after {
+      content: attr(data-word) / '';
+      position: absolute;
+      inset-inline-start: 0;
+      inset-block-start: 0;
+      color: var(--ink-strong);
+      font-stretch: var(--accent-stretch, var(--stretch-display));
+      white-space: nowrap;
+      pointer-events: none;
+    }
+  }
+  @media (forced-colors: active) {
+    .hero__accent::after {
+      display: none;
+    }
   }
   .hero__sub {
     display: grid;

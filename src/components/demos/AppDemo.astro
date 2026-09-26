@@ -234,6 +234,17 @@ const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(i
   .app-demo--linked .app-demo__pod {
     grid-template-columns: 1fr;
   }
+  /* Phones: side by side, the dial shrinks to a thumbnail and the feel cards
+     wrap to four lines. Stack them: a dial big enough to turn with a thumb,
+     then the feels full width, one line of hint each. */
+  @container demo (max-width: 26rem) {
+    .app-demo__pod {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .app-demo__dial {
+      max-inline-size: 13rem;
+    }
+  }
   @container demo (min-width: 54rem) {
     .app-demo:not(.app-demo--compact) .app-demo__pod {
       grid-template-columns: 1fr;

@@ -59,7 +59,8 @@ if (ph.detents) facts.push(`${ph.detents} detents per turn`);
 if (ph.accents?.length) facts.push(ph.detents ? 'a heavier detent at noon' : 'a bump halfway');
 if (ph.spring) facts.push('springs back to center');
 if (ph.stops) facts.push(`hard stops at ±${ph.stops[1]}°`);
-if (ph.snaps?.length) facts.push(`${ph.snaps.length} snap points`);
+// Magnet's snaps are wherever the app puts them (markers, keyframes, hunks); the curve draws one example.
+if (ph.snaps?.length) facts.push(`snap points set by the app (${ph.snaps.length} shown)`);
 if (!facts.length) facts.push('no detents, weighted glide');
 const summary = facts.join(', ').replace(/^./, (c) => c.toUpperCase());
 const label = `${p.name} torque curve: ${summary}.`;

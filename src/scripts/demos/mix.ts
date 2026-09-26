@@ -2,6 +2,11 @@
  * Mix demo controller. Wall rides the selected fader through a console fader
  * law (hard stops at −∞ and +6 dB, the bump moved to unity). Clock steps the
  * channel selection one heavy click at a time. Press mutes.
+ *
+ * The meters play on their own for a few seconds each time the mixer comes
+ * into view, then park until someone hovers, focuses, taps or turns the
+ * dial (the same budget as the dial's autorotate). The transport button
+ * overrides that either way: Pause stays paused, Play stays playing.
  */
 import { Jog, loop, pulse, type Mount } from './core';
 import {
@@ -23,6 +28,11 @@ import {
 
 const RELEASE = 20 / 66; // meter fall: 20 dB per second, in meter units
 const UNITY_CATCH = 1.6; // degrees either side of unity that read as exactly 0 dB
+const METER_MS = 30; // meters repaint at ~30 fps (every other frame at 60 Hz); the ballistics read the same
+const AUTO_MS = 5000; // unattended playback per view (WCAG 2.2.2), as for autorotate
+
+/** auto: plays unattended for AUTO_MS, then parks until engaged. on/off: the user's choice. */
+type Transport = 'auto' | 'on' | 'off';
 
 const mount: Mount = (ctx) => {
   const strips = ctx.refs('strip');
@@ -58,7 +68,12 @@ const mount: Mount = (ctx) => {
   };
   let t = 0;
   let lastBeat = -1;
-  let playing = !ctx.reduced();
+  let transportMode: Transport = ctx.reduced() ? 'off' : 'auto';
+  let playing = false;
+  let attendedAt = 0; // when the unattended budget started (0: at the next frame)
+  let pending = 0; // ms since the meters last repainted
+  let hovering = false;
+  let focused = false;
   const jog = new Jog(30, ctx.dial.angle);
 
   const name = (i: number) => CHANNELS[i]!.name;
@@ -115,8 +130,19 @@ const mount: Mount = (ctx) => {
     ctx.announce(`${name(i)} ${muted[i] ? 'muted' : 'unmuted'}.`);
   }
 
-  const meters = loop((dt) => {
+  const meters = loop((frameMs) => {
     if (!playing || !ctx.onScreen()) return false;
+    // Wall clock from the first frame actually drawn: a slow start doesn't eat
+    // the budget, and slow frames don't stretch it.
+    const now = performance.now();
+    attendedAt ||= now;
+    if (transportMode === 'auto' && !hovering && !focused && now - attendedAt > AUTO_MS) {
+      run(false);
+      return false;
+    }
+    if ((pending += frameMs) < METER_MS) return true;
+    const dt = pending;
+    pending = 0;
     t += dt / 1000;
     const beat = Math.floor(t / (60 / BPM));
     if (beat !== lastBeat) {
@@ -156,8 +182,9 @@ const mount: Mount = (ctx) => {
     return true;
   });
 
-  function setPlaying(on: boolean) {
+  function run(on: boolean) {
     playing = on;
+    pending = 0;
     transport.setAttribute('aria-pressed', String(on));
     transportLabel.textContent = on ? 'Pause meters' : 'Play meters';
     if (on) meters.start();
@@ -166,6 +193,36 @@ const mount: Mount = (ctx) => {
       paintStatic();
     }
   }
+
+  /** Someone is at the mixer: renew the unattended budget and bring parked meters back. */
+  function wake() {
+    attendedAt = 0;
+    if (transportMode === 'auto' && !playing) run(true);
+  }
+
+  // The transport is excluded, so reaching for "Play" never flips it to "Pause" first.
+  const atTransport = (e: Event) => e.target instanceof Node && transport.contains(e.target);
+  const root = ctx.root;
+  root.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'touch') hovering = true;
+    if (!atTransport(e)) wake();
+  });
+  root.addEventListener('pointerdown', (e) => {
+    if (!atTransport(e)) wake();
+  });
+  root.addEventListener('pointerleave', () => {
+    hovering = false;
+    attendedAt = 0;
+  });
+  root.addEventListener('focusin', (e) => {
+    focused = true;
+    if (!atTransport(e)) wake();
+  });
+  root.addEventListener('focusout', (e) => {
+    if (e.relatedTarget instanceof Node && root.contains(e.relatedTarget)) return;
+    focused = false;
+    attendedAt = 0;
+  });
 
   // Direct controls work with or without the dial.
   selects.forEach((b, i) =>
@@ -176,8 +233,11 @@ const mount: Mount = (ctx) => {
   );
   mutes.forEach((b, i) => b.addEventListener('click', () => toggleMute(i)));
   transport.hidden = false;
-  transport.addEventListener('click', () => setPlaying(!playing));
-  setPlaying(playing);
+  transport.addEventListener('click', () => {
+    transportMode = playing ? 'off' : 'on';
+    run(transportMode === 'on');
+  });
+  run(transportMode === 'auto');
 
   let lastP = dbToP(gain[sel]!);
 
@@ -198,6 +258,7 @@ const mount: Mount = (ctx) => {
     },
 
     change({ angle }) {
+      wake();
       if (mode === 'channel') {
         const n = jog.read(angle);
         if (n) step(n);
@@ -225,11 +286,16 @@ const mount: Mount = (ctx) => {
     },
 
     press() {
+      wake();
       toggleMute(sel);
     },
 
     visibility(on) {
-      if (on && playing) meters.start();
+      if (!on) return;
+      // Each time the mixer comes into view it gets a fresh unattended budget.
+      attendedAt = 0;
+      if (playing) meters.start();
+      else if (transportMode === 'auto') run(true);
     },
   };
 };

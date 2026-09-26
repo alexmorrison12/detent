@@ -26,7 +26,7 @@ export interface AudiencePage {
   title: string;
   /** Meta description, ≤ 160 characters. */
   description: string;
-  /** The word in AUDIENCES[id].headline set in the page's feel color. */
+  /** The word in AUDIENCES[id].headline underlined in the page's feel color; it follows the hero dial's width axis. */
   accentWord: string;
   /** The hero demo. */
   demo: DemoApp;
@@ -131,7 +131,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
       {
         pain: 'MIDI mapping that never quite sticks',
         profile: 'spring',
-        fix: 'Detent is a class-compliant USB-C MIDI device, no driver. Profiles are plain JSON that follow your plugin window, so a mapping made tonight is still there tomorrow.',
+        fix: 'Detent is a class-compliant USB-C MIDI device, no driver. Each mapping is saved with its feel in a plain JSON profile that follows your plugin window: MIDI-learn a Bitwig modulator tonight and it still springs back to center tomorrow.',
         where: 'Bitwig Studio, any DAW',
       },
     ],
@@ -234,7 +234,7 @@ export const AUDIENCE_PAGES: Record<AudienceId, AudiencePage> = {
         profile: 'ratchet',
         fix: 'Each click steps the debugger one line; press the knob to continue. The same detent you feel is the line you move.',
         mode: 'lines',
-        where: 'Xcode',
+        where: 'VS Code, Xcode',
       },
     ],
     appsTitle: 'In the editor, the debugger and the shell.',
