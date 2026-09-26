@@ -8,21 +8,13 @@
  *              <html data-phase="..."> before first paint, and CSS hides any
  *              element whose data-phase-only list doesn't include it.
  */
+import { PAYMENT, byEdition, formatUsd } from '@/data/product';
+import { LAUNCH } from './launch-terms';
+
+export { LAUNCH };
+
 export const PHASE_ORDER = ['tease', 'waitlist', 'reserve', 'launch', 'live'] as const;
 export type Phase = (typeof PHASE_ORDER)[number];
-
-export const LAUNCH = {
-  /** Launch day (orders open). */
-  launchDate: '2026-12-01T17:00:00Z',
-  /** Launch pricing window closes. */
-  launchPriceEnds: '2026-12-04T17:00:00Z',
-  firstShipBatch: 'February 2027',
-  secondShipBatch: 'April 2027',
-  /** Numbered Founders Edition run. */
-  foundersRun: 2000,
-  depositUsd: 20,
-  foundersDepositUsd: 50,
-} as const;
 
 export interface PhaseCta {
   label: string;
@@ -81,6 +73,11 @@ const priceEndsPT = `${new Date(LAUNCH.launchPriceEnds).toLocaleString('en-US', 
 })} PT`;
 const BATCH_1 = `Batch 1, ${LAUNCH.firstShipBatch}`;
 const BATCH_2 = `Batch 2, ${LAUNCH.secondShipBatch}`;
+/** Prices the phase copy quotes, from @/data/product (Detent One: the edition every CTA names). */
+const ONE = byEdition('one');
+const LAUNCH_PRICE = formatUsd(ONE.launchPriceUsd);
+const LIST_PRICE = formatUsd(ONE.priceUsd);
+const TRIAL = `${PAYMENT.trialDays}-day`;
 
 export const PHASES: Record<Phase, PhaseConfig> = {
   tease: {
@@ -103,7 +100,7 @@ export const PHASES: Record<Phase, PhaseConfig> = {
     primary: { label: 'Join the waitlist', href: '/l/waitlist/', note: 'Free. Every friend who confirms earns you a reward.' },
     secondary: { label: 'Crack the safe', href: '/crack/', note: '' },
     returning: { label: 'Your pass', href: '/l/waitlist/#pass' },
-    banner: 'The waitlist is open. Every reservation locks the $299 launch price.',
+    banner: `The waitlist is open. Every reservation locks the ${LAUNCH_PRICE} launch price.`,
     bannerShort: 'The waitlist is open.',
     ships: BATCH_1,
   },
@@ -112,7 +109,7 @@ export const PHASES: Record<Phase, PhaseConfig> = {
     name: 'Reserve',
     starts: STARTS.reserve,
     landing: '/l/reserve/',
-    primary: { label: `Reserve for $${LAUNCH.depositUsd}`, href: '/l/reserve/', note: 'Fully refundable. Locks the $299 launch price.' },
+    primary: { label: `Reserve for $${LAUNCH.depositUsd}`, href: '/l/reserve/', note: `Fully refundable. Locks the ${LAUNCH_PRICE} launch price.` },
     secondary: { label: 'Configure yours', href: '/shop/', note: '' },
     returning: { label: 'Your reservation', href: '/l/reserve/' },
     banner: `Reservations are open. Batch 1 ships ${LAUNCH.firstShipBatch}.`,
@@ -125,10 +122,10 @@ export const PHASES: Record<Phase, PhaseConfig> = {
     starts: STARTS.launch,
     landing: '/l/launch/',
     // A dated deadline, never a relative one: the build is static for all three days.
-    primary: { label: 'Order Detent One', href: '/shop/', note: `$299 until ${dot(LAUNCH.launchPriceEnds)}. Free shipping.` },
+    primary: { label: 'Order Detent One', href: '/shop/', note: `${LAUNCH_PRICE} until ${dot(LAUNCH.launchPriceEnds)}. Free shipping.` },
     secondary: { label: 'Watch the film', href: '/l/launch/#film', note: '' },
-    banner: `Detent One is here. $299 until ${priceEndsPT}.`,
-    bannerShort: `$299 until ${priceEndsPT.replace(/^\w+, /, '')}.`,
+    banner: `Detent One is here. ${LAUNCH_PRICE} until ${priceEndsPT}.`,
+    bannerShort: `${LAUNCH_PRICE} until ${priceEndsPT.replace(/^\w+, /, '')}.`,
     ships: BATCH_2,
   },
   live: {
@@ -136,10 +133,11 @@ export const PHASES: Record<Phase, PhaseConfig> = {
     name: 'Live',
     starts: STARTS.live,
     landing: '/',
-    primary: { label: 'Buy Detent One', href: '/shop/', note: 'Free shipping. 60-day studio trial.' },
+    // The longest phase: the price leads, since the first screen shows no other.
+    primary: { label: 'Buy Detent One', href: '/shop/', note: `${LIST_PRICE}. Free shipping, ${TRIAL} studio trial.` },
     secondary: { label: 'Compare finishes', href: '/shop/#finishes', note: '' },
-    banner: 'Free shipping and a 60-day studio trial on every Detent.',
-    bannerShort: 'Free shipping. 60-day trial.',
+    banner: `Detent One is ${LIST_PRICE}, with free shipping and a ${TRIAL} studio trial.`,
+    bannerShort: `${LIST_PRICE}. Free shipping, ${TRIAL} trial.`,
     ships: BATCH_2,
   },
 };

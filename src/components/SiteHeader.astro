@@ -285,6 +285,18 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
       color: var(--ink-strong);
     }
   }
+  /* A touch tablet in landscape gets this nav, not the menu: under a finger
+     each link is a 44px target. The side padding runs into the gap between
+     links (margins cancel it), so the words don't move. */
+  @media (pointer: coarse) {
+    .site-nav a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 2.75rem;
+      padding-inline: 0.5rem;
+      margin-inline: -0.5rem;
+    }
+  }
   .site-header__actions {
     display: flex;
     align-items: center;

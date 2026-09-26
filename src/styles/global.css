@@ -311,8 +311,9 @@
       --btn-bg: color-mix(in oklch, var(--accent) 88%, white);
       --btn-line: var(--btn-bg);
     }
+    /* Relative offset, not transform: transforms skip inline boxes. */
     .link-arrow:hover::after {
-      transform: translateX(3px);
+      inset-inline-start: 3px;
     }
     .input:hover {
       border-color: var(--ink-muted);
@@ -358,18 +359,51 @@
     pointer-events: none;
   }
 
-  /* Text link with an arrow that nudges on hover. */
+  /* Text link with an arrow that nudges on hover. The arrow is inline text,
+     not a flex item, so a link that wraps keeps it after the last word
+     instead of out at the far edge of the box. */
   .link-arrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4em;
+    display: inline-block;
+    /* Centers the text when the box is taller than one line (the 44px touch
+       row below, or a component's own min-block-size). */
+    align-content: center;
     font-weight: 600;
     text-decoration: none;
     color: var(--accent-text);
   }
   .link-arrow::after {
-    content: '→';
-    transition: transform var(--dur-2) var(--ease-out);
+    /* The leading space collapses into any trailing space in the markup, so
+       every link gets the same gap; the word joiner (U+2060) keeps the arrow
+       from wrapping onto a line of its own. */
+    content: ' \2060→';
+    position: relative;
+    inset-inline-start: 0;
+    margin-inline-start: 0.15em;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .link-arrow::after {
+      transition: inset-inline-start var(--dur-2) var(--ease-out);
+    }
+  }
+  /* In a paragraph the link is a run of text, not a box: it wraps with the
+     sentence and never sets the line's height. */
+  p > a.link-arrow {
+    display: inline;
+  }
+  /* Compact on a mouse; a full 44px row under a finger (PRODUCT.md). */
+  @media (pointer: coarse) {
+    .link-arrow {
+      min-block-size: 2.75rem;
+    }
+    /* A taller box would open the paragraph's leading, so the inline link's
+       padding carries its target past the line instead (an inline box is
+       about 1.1em tall). Inline boxes ignore vertical margins; where the
+       paragraph is a flex row the link is a block again, and the negative
+       margin trims its footprint back to the 44px row. */
+    p > a.link-arrow {
+      padding-block: max(0px, (2.75rem - 1em) / 2);
+      margin-block: min(0px, (1em - 1lh) / 2);
+    }
   }
 
   /* Form controls */

@@ -53,7 +53,7 @@ Strategy: **Committed accent on neutral worlds**, plus a **Full palette of feel 
 ## Layout
 
 - Container 88rem, gutters `--gutter` (never less than the safe-area inset, so landscape phones keep content off the notch), sections `--section-y`.
-- Touch targets are 44px: icon buttons are 2.75rem, and `.btn--sm` grows to 44px under `(pointer: coarse)`. Anything docked to the bottom of the viewport sets `data-visible` while shown so `global.css` keeps focused fields clear of it (`scroll-padding-bottom`).
+- Touch targets are 44px: icon buttons are 2.75rem, and `.btn--sm`, `.link-arrow` and the header nav grow to 44px under `(pointer: coarse)`. A `.link-arrow` inside a `<p>` is inline text: its padding carries the target past the line, so the paragraph's leading never changes. Anything docked to the bottom of the viewport sets `data-visible` while shown so `global.css` keeps focused fields clear of it (`scroll-padding-bottom`).
 - One dominant idea per viewport on brand pages. Asymmetry is welcome; the dial is often off-center, bleeding off an edge.
 - Z-index: use `--z-*` tokens only.
 
