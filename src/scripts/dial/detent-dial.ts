@@ -1,16 +1,23 @@
 /**
  * <detent-dial>: Detent One, live. Contract: ./types.ts.
  *
- * This module is the small eager part (element, physics, SVG renderer, audio,
- * haptics). three.js is imported only when a dial nears the viewport and the
- * browser is idle (or on intent: pointerenter, focus, touch), never while the
- * page is being prerendered, and never for quality="low" or without WebGL2.
+ * This module (element, physics, SVG renderer, audio, haptics) is itself
+ * fetched lazily by ./loader.ts. three.js is imported only when a dial nears
+ * the viewport and the browser is idle (or on intent: pointerenter, focus,
+ * touch; low-end devices wait for intent or a dial half in view), never while
+ * the page is being prerendered, and never for quality="low", without WebGL2,
+ * or when WebGL is software-rendered (unless quality="high").
  *
  * Visual layers inside the host, bottom to top:
  *   [data-dial-fallback]  server-rendered still (LCP), from <DialStage>
  *   svg.dd-svg            vector renderer: before 3D, fallback, low quality
  *   canvas.dd-canvas      the 3D view, blitted from the page's shared WebGL context
+ *   .dd-ring              keyboard focus ring: an ellipse around the whole product
  *   .dd-hit               the knob's projected circle: the only touch-action:none area
+ *
+ * aria-valuetext/-valuenow/-valuemin/-valuemax/-label: the engine writes them
+ * until a page writes one itself; from then on that attribute is the page's.
+ * A `valueText` formatter hands aria-valuetext back to the engine.
  */
 import {
   FINISHES,
@@ -36,13 +43,15 @@ import type {
   RendererKind,
   TickKind,
 } from './types';
-import type { DialView, ViewState } from './view';
+import type { DialView, KnobGrip, ViewState } from './view';
 import type { ThreeView } from './three-view';
 
 const DEG = Math.PI / 180;
 const CAMERA_PRESETS = Object.keys(PRESETS) as CameraPreset[];
 const AUTO_SECONDS = 5; // WCAG 2.2.2: autonomous motion stops within 5 s
 const AUTO_DEGREES = 16;
+/** Within this many knob radii of the axis a face drag has no usable angle. */
+const DEAD_ZONE = 0.22;
 
 const CSS = `
 :where(detent-dial){display:block;position:relative;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;outline:none}
@@ -57,7 +66,8 @@ const CSS = `
 :where(detent-dial[data-renderer=svg],detent-dial[data-renderer=webgl2])>:where([data-dial-fallback]){opacity:0;visibility:hidden;transition:opacity 240ms,visibility 0s linear 240ms}
 :where(detent-dial) :where(.dd-hit){position:absolute;left:0;top:0;border-radius:50%;touch-action:none;cursor:grab;z-index:1}
 :where(detent-dial[data-grabbed]) :where(.dd-hit){cursor:grabbing}
-:where(detent-dial:focus-visible) :where(.dd-hit){outline:2px solid var(--focus,#ff4d8d);outline-offset:6px}
+:where(detent-dial) :where(.dd-ring){position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;visibility:hidden}
+:where(detent-dial:focus-visible:not([data-focus-by=pointer]),detent-dial[data-focus-by=key]:focus) :where(.dd-ring){visibility:visible;outline:2px solid var(--focus,#ff4d8d);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){:where(detent-dial)>*{transition:none!important}}
 `;
 
@@ -102,12 +112,59 @@ function whenActivated(fn: () => void) {
   else fn();
 }
 
+/** Renderers that mean "no GPU": 3D would cost seconds of main thread and crawl. */
+const SOFTWARE_GL = /SwiftShader|llvmpipe|softpipe|Software|Basic Render|Microsoft Basic/i;
+let gpu: boolean | null = null;
+
+/**
+ * Once per page, before three.js is fetched: is there a real GPU behind WebGL2?
+ * failIfMajorPerformanceCaveat rules out blocklisted GPUs; the renderer string
+ * catches software rasterizers that still say yes. QA on a GPU-less machine can
+ * force 3D with ?webgl=any (or use quality="high", as the render harness does).
+ */
+function hardwareGL(): boolean {
+  if (gpu !== null) return gpu;
+  gpu = false;
+  try {
+    if (new URLSearchParams(location.search).get('webgl') === 'any') return (gpu = true);
+    const gl = document
+      .createElement('canvas')
+      .getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+    if (gl) {
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? '');
+      gpu = !SOFTWARE_GL.test(name);
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+  } catch {
+    gpu = false;
+  }
+  return gpu;
+}
+
 function lowTier(): boolean {
   const nav = navigator as Navigator & { deviceMemory?: number };
   return (
     (!!nav.deviceMemory && nav.deviceMemory <= 4) ||
     (!!nav.hardwareConcurrency && nav.hardwareConcurrency <= 4)
   );
+}
+
+interface PointerState {
+  id: number;
+  /** 'face': turn around the axis, like a finger on the top; 'side': push the knurl sideways. */
+  mode: 'face' | 'side';
+  /** Last angle on the face (rad), or NaN while the finger crosses the axis. */
+  a: number;
+  /** Last clientX, for side pushes. */
+  x: number;
+  t0: number;
+  x0: number;
+  y0: number;
+  moved: boolean;
+  start: number;
+  samples: { t: number; a: number }[];
+  lastT: number;
 }
 
 class DetentDial extends HTMLElement implements DetentDialElement {
@@ -130,6 +187,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   }
   set valueText(fn: ((s: DialValueState) => string) | null) {
     this.#valueText = typeof fn === 'function' ? fn : null;
+    // A formatter means the page wants the engine to speak for it again.
+    if (this.#valueText) this.#ariaPage.delete('aria-valuetext');
     if (this.#init) this.#updateAria(true);
   }
 
@@ -141,7 +200,11 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #kind: RendererKind = 'none';
   #svg: SvgView | null = null;
   #three: ThreeView | null = null;
+  /** 3D is ready but the knob is in someone's hand: switch renderers on release. */
+  #threeWaiting = false;
   #hit: HTMLDivElement | null = null;
+  #ring: HTMLDivElement | null = null;
+  #lastRing = '';
   #w = 0;
   #h = 0;
   #raf = 0;
@@ -150,6 +213,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #inView = false;
   #io: IntersectionObserver | null = null;
   #ro: ResizeObserver | null = null;
+  #half: IntersectionObserver | null = null;
   #bootState: 'idle' | 'waiting' | 'loading' | 'done' | 'failed' = 'idle';
   #govScale = 1;
   #frames: number[] = [];
@@ -172,17 +236,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #pressTarget = 0;
 
   // input
-  #pointer: {
-    id: number;
-    a: number;
-    t0: number;
-    x0: number;
-    y0: number;
-    moved: boolean;
-    start: number;
-    samples: { t: number; a: number }[];
-    lastT: number;
-  } | null = null;
+  #pointer: PointerState | null = null;
   #hover = false;
   #wheelAcc = 0;
   #keyDownAt = 0;
@@ -192,6 +246,11 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #lastEmit = NaN;
   #lastAriaAt = 0;
   #ariaTimer = 0;
+  /** What the engine last wrote per aria attribute, and the ones a page has taken over. */
+  #ariaMine = new Map<string, string>();
+  #ariaPage = new Set<string>();
+  /** A key/wheel step already announced its destination: stay quiet until it settles. */
+  #ariaGoal: number | null = null;
   #movedSinceSettle = false;
   #motion: MotionVoice | null = null;
   #motionKind: 'fluid' | 'spring' | null = null;
@@ -257,6 +316,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     const rad = Number(deg) * DEG;
     if (!Number.isFinite(rad)) return;
     this.#userDriven = false;
+    this.#ariaGoal = null;
     if (opts.instant || !this.#init) {
       this.#phys.setInstant(rad);
       this.#lastEmit = NaN;
@@ -284,6 +344,10 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     return (this.#activeView() ?? this.#svg)?.anchors() ?? [];
   }
 
+  refreshAria(): void {
+    if (this.#init) this.#updateAria(true);
+  }
+
   /* -------------------------------- lifecycle ------------------------------- */
 
   connectedCallback() {
@@ -299,6 +363,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     this.#raf = 0;
     this.#io?.disconnect();
     this.#ro?.disconnect();
+    this.#half?.disconnect();
+    this.#half = null;
     this.#motion?.stop();
     // Moved in the DOM? Keep everything. Removed for good? Free the GPU view.
     setTimeout(() => {
@@ -325,8 +391,13 @@ class DetentDial extends HTMLElement implements DetentDialElement {
         this.#applyPhysics();
         this.#applyA11y();
         break;
-      case 'interactive':
       case 'label':
+        // A new label attribute is the page speaking through the contract: it wins.
+        this.#ariaPage.delete('aria-label');
+        this.#ariaMine.set('aria-label', this.getAttribute('aria-label') ?? '');
+        this.#applyA11y();
+        break;
+      case 'interactive':
         this.#applyA11y();
         break;
       case 'camera':
@@ -348,9 +419,18 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   }
 
   #setup() {
-    // Properties set before this element was upgraded shadow the accessors; re-apply them.
+    // Properties set before this element was upgraded (the engine loads lazily) shadow
+    // the accessors; re-apply them, finish and profile first so physics lands on top.
     const pending: Record<string, unknown> = {};
-    for (const prop of ['physics', 'feelColor', 'valueText', 'explode', 'angle'] as const) {
+    for (const prop of [
+      'finish',
+      'profile',
+      'physics',
+      'feelColor',
+      'valueText',
+      'explode',
+      'angle',
+    ] as const) {
       if (Object.prototype.hasOwnProperty.call(this, prop)) {
         pending[prop] = (this as unknown as Record<string, unknown>)[prop];
         delete (this as unknown as Record<string, unknown>)[prop];
@@ -381,6 +461,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
 
     this.#applyA11y();
     this.#lastEmit = this.#phys.theta;
+    if (typeof pending.finish === 'string') this.finish = pending.finish as FinishId;
+    if (typeof pending.profile === 'string') this.profile = pending.profile as ProfileId;
     if ('physics' in pending) this.physics = pending.physics as Partial<FeelPhysics> | null;
     if ('feelColor' in pending) this.feelColor = pending.feelColor as string | null;
     if ('valueText' in pending) this.valueText = pending.valueText as DetentDial['valueText'];
@@ -391,7 +473,12 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     this.addEventListener('wheel', this.#onWheel, { passive: false });
     this.addEventListener('pointerenter', this.#onEnter);
     this.addEventListener('pointerleave', () => (this.#hover = false));
-    this.addEventListener('focusin', this.#intent);
+    this.addEventListener('focusin', () => {
+      this.#intent();
+      this.#lastRing = '';
+      this.#invalidate();
+    });
+    this.addEventListener('focusout', () => this.removeAttribute('data-focus-by'));
     this.addEventListener('touchstart', this.#intent, { passive: true });
     window.addEventListener('pagehide', () => {
       cancelAnimationFrame(this.#raf);
@@ -453,18 +540,26 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     return this.#physicsOverride ? { ...base, ...this.#physicsOverride } : base;
   }
   #applyPhysics(initial = false) {
-    const theta = this.#phys.theta;
-    this.#phys.setParams(this.#effectivePhysics());
-    const s = this.#phys.p.stops;
+    const ph = this.#phys;
+    const theta = ph.theta;
+    // Tuning (strength, damping, accents) leaves a move in flight alone: a keypress or
+    // setAngle() that is under way still lands. Only a new grid moves the knob.
+    const regrid = ph.setParams(this.#effectivePhysics());
+    const s = ph.p.stops;
+    const w = ph.width;
     if (s && (theta < s[0] || theta > s[1])) {
-      if (initial) this.#phys.setInstant(Math.min(s[1], Math.max(s[0], theta)));
-      else this.#phys.moveTo(Math.min(s[1], Math.max(s[0], theta)));
-    } else if (!initial && this.#phys.p.detents) {
-      this.#phys.moveTo(this.#phys.center);
+      if (initial) ph.setInstant(Math.min(s[1], Math.max(s[0], theta)));
+      else ph.moveTo(Math.min(s[1], Math.max(s[0], theta)));
+    } else if (!initial && regrid && w) {
+      // Land on the new grid: where the knob was heading, or where it is.
+      ph.moveTo(w * Math.round((ph.goal ?? theta) / w));
     }
-    this.#motion?.stop();
-    this.#motion = null;
-    this.#motionKind = null;
+    const v = voiceFor(this.#voiceSource());
+    if (this.#motionKind && this.#motionKind !== v) {
+      this.#motion?.stop();
+      this.#motion = null;
+      this.#motionKind = null;
+    }
     this.#applyA11y();
     this.#invalidate();
   }
@@ -493,15 +588,34 @@ class DetentDial extends HTMLElement implements DetentDialElement {
 
   /* ----------------------------------- a11y ----------------------------------- */
 
+  /**
+   * Write an aria attribute the engine owns, unless a page has written it itself
+   * (its value is no longer the one we last set): then it is the page's for good,
+   * and a delayed engine update never overwrites the page's words.
+   */
+  #aria(name: string, value: string) {
+    const cur = this.getAttribute(name);
+    const mine = this.#ariaMine.get(name);
+    if (cur !== null && cur !== mine) this.#ariaPage.add(name);
+    if (this.#ariaPage.has(name)) return;
+    if (cur !== value) this.setAttribute(name, value);
+    this.#ariaMine.set(name, value);
+  }
+
   #applyA11y() {
     const interactive = this.hasAttribute('interactive');
     const label = this.getAttribute('label');
     if (interactive) {
       this.tabIndex = 0;
       this.setAttribute('role', 'slider');
-      this.setAttribute('aria-label', label ?? `Detent dial, ${this.#profileData().name} feel`);
-      this.setAttribute('aria-valuemin', '0');
-      this.setAttribute('aria-valuemax', '100');
+      this.#aria('aria-label', label ?? `Detent dial, ${this.#profileData().name} feel`);
+      if (!this.#ring) {
+        this.#ring = document.createElement('div');
+        this.#ring.className = 'dd-ring';
+        this.#ring.setAttribute('aria-hidden', 'true');
+        this.insertBefore(this.#ring, this.#hit);
+        this.#lastRing = '';
+      }
       if (!this.#hit) {
         this.#hit = document.createElement('div');
         this.#hit.className = 'dd-hit';
@@ -518,55 +632,94 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     } else {
       this.removeAttribute('tabindex');
       this.setAttribute('role', 'img');
-      this.setAttribute(
+      for (const a of ['aria-valuemin', 'aria-valuemax', 'aria-valuenow', 'aria-valuetext']) {
+        this.removeAttribute(a);
+        this.#ariaMine.delete(a);
+        this.#ariaPage.delete(a);
+      }
+      this.#aria(
         'aria-label',
         label ?? `Detent One in ${this.#finishData().name}, ${this.#profileData().name} feel`,
       );
-      for (const a of ['aria-valuemin', 'aria-valuemax', 'aria-valuenow', 'aria-valuetext'])
-        this.removeAttribute(a);
       this.#hit?.remove();
       this.#hit = null;
+      this.#ring?.remove();
+      this.#ring = null;
     }
   }
 
-  #valueState(): DialValueState {
+  /** The value a screen reader gets, at the knob's angle or at a destination it is heading to. */
+  #valueState(theta = this.#phys.theta): DialValueState {
+    const at = theta === this.#phys.theta ? this.#phys : this.#phys.describe(theta);
     return {
-      angle: this.#phys.theta / DEG,
-      value: this.#phys.value,
-      index: this.#phys.index,
+      angle: theta / DEG,
+      value: at.value,
+      index: at.index,
       profile: this.profile,
       physics: this.#effectivePhysics(),
-      atStop: this.#phys.atStop,
+      atStop: at.atStop,
     };
+  }
+
+  /**
+   * aria-valuenow in the dial's own units, always inside min..max: the detent
+   * (0..n-1, or the reachable range between stops), percent for a detentless
+   * range, degrees for a free spin. Never a percentage that wraps at a detent.
+   */
+  #ariaRange(s: DialValueState): [number, number, number] {
+    const p = this.#phys.p;
+    const n = p.detents;
+    if (n && p.stops) {
+      const w = this.#phys.width;
+      const lo = Math.ceil(p.stops[0] / w - 1e-6);
+      const hi = Math.floor(p.stops[1] / w + 1e-6);
+      return [lo, hi, Math.min(hi, Math.max(lo, s.index))];
+    }
+    if (n) return [0, n - 1, ((s.index % n) + n) % n];
+    if (p.stops) return [0, 100, Math.round(s.value * 100)];
+    return [0, 359, Math.round(s.value * 360) % 360];
   }
 
   #updateAria(force = false) {
     if (!this.hasAttribute('interactive')) return;
     const now = performance.now();
+    clearTimeout(this.#ariaTimer);
+    // A step announced its destination already: skip the frames in between.
+    if (!force && this.#ariaGoal !== null) return;
     if (!force && now - this.#lastAriaAt < 250) {
       // ≤ 4 Hz while flicking; a trailing update lands the final value.
-      clearTimeout(this.#ariaTimer);
       this.#ariaTimer = window.setTimeout(() => this.#updateAria(true), 260);
       return;
     }
     this.#lastAriaAt = now;
+    const s = this.#valueState(this.#ariaGoal ?? this.#phys.theta);
     const p = this.#phys;
-    let words: string;
+    let words: string | undefined;
     try {
-      words =
-        this.#valueText?.(this.#valueState()) ??
-        readout({ theta: p.theta, value: p.value, index: p.index, p: p.p, atStop: p.atStop }).words;
+      words = this.#valueText?.(s);
     } catch {
-      words = readout({
-        theta: p.theta,
-        value: p.value,
-        index: p.index,
-        p: p.p,
-        atStop: p.atStop,
-      }).words;
+      words = undefined;
     }
-    this.setAttribute('aria-valuenow', String(Math.round(p.value * 100)));
-    this.setAttribute('aria-valuetext', words);
+    words ??= readout({
+      theta: s.angle * DEG,
+      value: s.value,
+      index: s.index,
+      p: p.p,
+      atStop: s.atStop,
+    }).words;
+    const [min, max, v] = this.#ariaRange(s);
+    this.#aria('aria-valuemin', String(min));
+    this.#aria('aria-valuemax', String(max));
+    this.#aria('aria-valuenow', String(v));
+    this.#aria('aria-valuetext', words);
+  }
+
+  /** Keys and wheel steps: say where the knob is going now, not ~0.3–1 s later. */
+  #announceGoal() {
+    const goal = this.#phys.goal;
+    if (goal === null) return;
+    this.#ariaGoal = goal;
+    this.#updateAria(true);
   }
 
   /* --------------------------------- input --------------------------------- */
@@ -580,22 +733,19 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     this.#intent();
   };
 
-  #center() {
-    const c = this.#activeView()?.knobCircle() ?? this.#svg?.knobCircle();
-    return c ?? { x: this.#w / 2, y: this.#h / 2, r: Math.min(this.#w, this.#h) / 3 };
-  }
-
-  #pointerAngle(e: PointerEvent): number {
+  /** The knob under a pointer, in the renderer that is on screen (the SVG while the still shows). */
+  #grip(e: PointerEvent): KnobGrip | null {
     const r = this.getBoundingClientRect();
-    const c = this.#center();
-    const el = Math.max(0.35, Math.sin(Math.min(89.9, this.#rig.el) * DEG));
-    return Math.atan2((e.clientY - r.top - c.y) / el, e.clientX - r.left - c.x);
+    return (this.#activeView() ?? this.#svg)?.grip(e.clientX - r.left, e.clientY - r.top) ?? null;
   }
 
   #onDown = (e: PointerEvent) => {
     if (!this.hasAttribute('interactive') || (e.pointerType === 'mouse' && e.button !== 0)) return;
     e.preventDefault();
-    this.focus({ preventScroll: true });
+    // Focus for the keyboard, without the keyboard's focus ring: a hand on the knob
+    // doesn't need a ring drawn around it (the flag covers browsers without the option).
+    this.dataset.focusBy = 'pointer';
+    this.focus({ preventScroll: true, focusVisible: false } as FocusOptions);
     try {
       this.#hit!.setPointerCapture(e.pointerId);
     } catch {
@@ -603,12 +753,19 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     }
     unlockAudio();
     this.#userDriven = true;
+    this.#ariaGoal = null;
     this.#phys.grab();
     this.#autoT = -1;
     const now = e.timeStamp || performance.now();
+    const g = this.#grip(e);
+    // Grabbed below the top face: push the knurl sideways, the way a hand turns a knob
+    // by its side. On the face: turn around the axis, like a fingertip on top.
+    const mode = g?.side ? 'side' : 'face';
     this.#pointer = {
       id: e.pointerId,
-      a: this.#pointerAngle(e),
+      mode,
+      a: g && mode === 'face' && g.r >= DEAD_ZONE && Number.isFinite(g.r) ? g.a : NaN,
+      x: e.clientX,
       t0: now,
       x0: e.clientX,
       y0: e.clientY,
@@ -624,15 +781,38 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     this.#invalidate();
   };
 
+  /** How far a pointer sample turns the knob (rad); 0 while it crosses the axis. */
+  #dragDelta(ptr: PointerState, ev: PointerEvent): number {
+    const g = this.#grip(ev);
+    if (!g) return 0;
+    if (ptr.mode === 'side') {
+      // Pushing the front of the knurl to the right turns the knob counterclockwise.
+      const d = -(ev.clientX - ptr.x) / g.rpx;
+      ptr.x = ev.clientX;
+      return d;
+    }
+    // Near the axis the angle is meaningless (it flips by up to 180° as a thumb crosses
+    // the display): hold still, then pick up again from wherever the finger leaves it.
+    if (!Number.isFinite(g.r) || g.r < DEAD_ZONE) {
+      ptr.a = NaN;
+      return 0;
+    }
+    if (Number.isNaN(ptr.a)) {
+      ptr.a = g.a;
+      return 0;
+    }
+    let d = g.a - ptr.a;
+    d -= Math.PI * 2 * Math.round(d / (Math.PI * 2));
+    ptr.a = g.a;
+    return d;
+  }
+
   #onMove = (e: PointerEvent) => {
     const ptr = this.#pointer;
     if (!ptr || e.pointerId !== ptr.id) return;
     const list = e.getCoalescedEvents?.() ?? [];
     for (const ev of list.length ? list : [e]) {
-      const a = this.#pointerAngle(ev);
-      let d = a - ptr.a;
-      d -= Math.PI * 2 * Math.round(d / (Math.PI * 2));
-      ptr.a = a;
+      const d = this.#dragDelta(ptr, ev);
       const t = ev.timeStamp || performance.now();
       this.#phys.drag(d, Math.max(0.001, (t - ptr.lastT) / 1000));
       ptr.lastT = t;
@@ -665,7 +845,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       if (e.pointerType !== 'mouse') hapticTap('accent');
     }
     this.#emit('detent:release', {});
-    this.#invalidate();
+    this.#afterRelease();
   };
 
   #onCancel = (e: PointerEvent) => {
@@ -676,8 +856,14 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     this.#pressTarget = 0;
     this.removeAttribute('data-grabbed');
     this.#emit('detent:release', {});
-    this.#invalidate();
+    this.#afterRelease();
   };
+
+  #afterRelease() {
+    // 3D finished loading mid-drag: swap renderers now that the knob is out of the hand.
+    if (this.#threeWaiting) this.#useThree();
+    this.#invalidate();
+  }
 
   #pressFeedback(level: 1 | 2 | 3) {
     this.#press = Math.max(this.#press, 1);
@@ -693,6 +879,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   }
 
   #onKey = (e: KeyboardEvent) => {
+    // The keyboard is in use: from here on focus shows its ring.
+    if (document.activeElement === this) this.dataset.focusBy = 'key';
     if (!this.hasAttribute('interactive') || e.altKey || e.ctrlKey || e.metaKey) return;
     const steps: Record<string, number> = {
       ArrowRight: 1,
@@ -720,6 +908,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
         : turn * Math.round(this.#phys.theta / turn);
       this.#ensureLive();
       this.#phys.moveTo(to);
+      this.#announceGoal();
       this.#invalidate();
     } else if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
       e.preventDefault();
@@ -778,7 +967,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     const ph = this.#phys;
     const p = ph.p;
     if (p.snaps.length && !p.detents) {
-      let theta = ph.theta;
+      // Chained presses continue from where the last one is heading.
+      let theta = ph.goal ?? ph.theta;
       const dir = Math.sign(n);
       for (let k = 0; k < Math.abs(n); k++) {
         let best = Infinity;
@@ -802,6 +992,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
         ph.moveBy(n * ph.stepSize);
       }
     }
+    this.#announceGoal();
     this.#invalidate();
   }
 
@@ -940,6 +1131,9 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #settle() {
     this.#frames.length = 0;
     this.#motion?.update(0, 0);
+    const announced = this.#ariaGoal !== null;
+    this.#ariaGoal = null;
+    if (announced && !this.#movedSinceSettle) this.#updateAria(true);
     if (this.#movedSinceSettle) {
       this.#movedSinceSettle = false;
       this.#updateAria(true);
@@ -1006,15 +1200,28 @@ class DetentDial extends HTMLElement implements DetentDialElement {
 
   #placeHit() {
     if (!this.#hit) return;
-    const c = (this.#mode === 'webgl2' ? this.#three : this.#svg)?.knobCircle();
+    const view = this.#mode === 'webgl2' ? this.#three : this.#svg;
+    const c = view?.knobCircle();
     if (!c) return;
     const r = Math.max(22, c.r * 1.02); // ≥ 44 px target
     const key = `${Math.round(c.x * 2)}|${Math.round(c.y * 2)}|${Math.round(r * 2)}`;
-    if (key === this.#lastHit) return;
-    this.#lastHit = key;
-    const st = this.#hit.style;
-    st.width = st.height = `${(2 * r).toFixed(1)}px`;
-    st.transform = `translate(${(c.x - r).toFixed(1)}px, ${(c.y - r).toFixed(1)}px)`;
+    if (key !== this.#lastHit) {
+      this.#lastHit = key;
+      const st = this.#hit.style;
+      st.width = st.height = `${(2 * r).toFixed(1)}px`;
+      st.transform = `translate(${(c.x - r).toFixed(1)}px, ${(c.y - r).toFixed(1)}px)`;
+    }
+    // The focus ring hugs the whole product (base to glass), so it never cuts across it.
+    if (!this.#ring || document.activeElement !== this) return;
+    const o = view?.outline();
+    if (!o) return;
+    const ring = `${Math.round(o.x)}|${Math.round(o.y)}|${Math.round(o.rx)}|${Math.round(o.ry)}`;
+    if (ring === this.#lastRing) return;
+    this.#lastRing = ring;
+    const st = this.#ring.style;
+    st.width = `${(2 * o.rx).toFixed(1)}px`;
+    st.height = `${(2 * o.ry).toFixed(1)}px`;
+    st.transform = `translate(${(o.x - o.rx).toFixed(1)}px, ${(o.y - o.ry).toFixed(1)}px)`;
   }
 
   #pendingCamera: CameraPreset | null = null;
@@ -1029,6 +1236,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     const kind: RendererKind = mode === 'still' ? 'none' : mode;
     this.dataset.renderer = kind;
     this.#lastHit = '';
+    this.#lastRing = '';
     if (kind !== this.#kind) {
       this.#kind = kind;
       if (kind !== 'none') this.#emit('detent:ready', { renderer: kind });
@@ -1070,8 +1278,30 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       };
       if (nav.connection?.saveData) return false;
       if (nav.deviceMemory && nav.deviceMemory < 2) return false;
+      // No GPU (WebGL off, blocklisted, or drawn in software): the SVG is the better dial,
+      // and three.js is never downloaded.
+      if (!hardwareGL()) return false;
     }
     return true;
+  }
+
+  /** Low-end devices boot 3D only when someone reaches for the dial or it is half in view. */
+  #patient(): boolean {
+    return lowTier() && this.getAttribute('quality') !== 'high';
+  }
+
+  #watchHalf() {
+    if (this.#half) return;
+    this.#half = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.intersectionRatio >= 0.5)) return;
+        this.#half?.disconnect();
+        this.#half = null;
+        whenIdle(() => this.#boot());
+      },
+      { threshold: 0.5 },
+    );
+    this.#half.observe(this);
   }
 
   #scheduleBoot() {
@@ -1088,10 +1318,12 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       return;
     }
     this.#bootState = 'waiting';
-    if (this.#inView) this.#bootWhenIdle();
+    if (this.#patient()) this.#watchHalf();
+    else if (this.#inView) this.#bootWhenIdle();
   }
 
   #bootWhenIdle() {
+    if (this.#patient()) return;
     whenLoaded(() => whenIdle(() => this.#boot()));
   }
 
@@ -1100,6 +1332,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       return;
     const doc = document as Document & { prerendering?: boolean };
     if (doc.prerendering || !this.#wants3D()) return;
+    this.#half?.disconnect();
+    this.#half = null;
     this.#bootState = 'loading';
     try {
       const mod = await loadThree();
@@ -1126,12 +1360,19 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #useThree() {
     const v = this.#three;
     if (!v) return;
-    if (!v.el.isConnected) this.insertBefore(v.el, this.#hit);
+    // Never swap models under a finger mid-drag: the SVG and 3D grip geometry differ.
+    this.#threeWaiting = this.#phys.grabbed;
+    if (this.#threeWaiting) return;
+    if (!v.el.isConnected) this.insertBefore(v.el, this.#ring ?? this.#hit);
     v.resize(this.#w || this.clientWidth, this.#h || this.clientHeight, this.#dpr());
     v.draw(this.#state());
     // Let the first 3D frame reach the screen at opacity 0, then crossfade.
     requestAnimationFrame(() => {
       if (!this.#three || !this.isConnected) return;
+      if (this.#phys.grabbed) {
+        this.#threeWaiting = true;
+        return;
+      }
       this.#setMode('webgl2');
       this.#startAuto();
       this.#invalidate();

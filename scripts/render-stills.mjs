@@ -7,9 +7,11 @@
  *   node scripts/render-stills.mjs --no-build     # reuse dist/
  *   node scripts/render-stills.mjs --only graphite-hero,raw-top
  *
- * Output (public/renders/): {finish}-{view}.{avif,webp} at 1600 px and
- * {finish}-{view}-800.{avif,webp} at 800 px, transparent background.
- * Finishes: raw, graphite, glacier, tally. Views: hero, top, side, front, exploded.
+ * Output (public/renders/): {finish}-{view}.{avif,webp} at 1600 px, plus
+ * {finish}-{view}-{800,480,240}.{avif,webp}, transparent background, so a 72 px
+ * thumbnail never downloads a hero-sized file.
+ * Finishes: raw, graphite, glacier, tally. Views: hero, top, side, front, exploded,
+ * config (the shop configurator's camera, so its 3D takeover is a still-matched crossfade).
  *
  * Chromium runs headless with SwiftShader, so this works on GPU-less CI too.
  */
@@ -27,7 +29,9 @@ const OUT = path.join(ROOT, 'public', 'renders');
 const BASE = (process.env.SITE_BASE ?? '/detent').replace(/\/+$/, '');
 
 const FINISHES = ['raw', 'graphite', 'glacier', 'tally'];
-const VIEWS = ['hero', 'top', 'side', 'front', 'exploded'];
+const VIEWS = ['hero', 'top', 'side', 'front', 'exploded', 'config'];
+/** Downscaled widths next to the full SIZE; DialStill's srcset lists the same set. */
+const WIDTHS = [800, 480, 240];
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
@@ -36,7 +40,6 @@ const opt = (name, d) => {
   return i > -1 ? args[i + 1] : d;
 };
 const SIZE = Number(opt('size', 1600));
-const SMALL = Math.round(SIZE / 2);
 const only = opt('only', '')
   .split(',')
   .map((s) => s.trim())
@@ -138,19 +141,25 @@ for (const job of jobs) {
 
   const img = await cleanAlpha(png);
   const full = await img.clone().png().toBuffer();
-  const small = await sharp(full).resize(SMALL, SMALL, { kernel: 'lanczos3' }).png().toBuffer();
   const outputs = [
     [`${job.name}.avif`, sharp(full).avif({ quality: 52, effort: 6 })],
     [
       `${job.name}.webp`,
       sharp(full).webp({ quality: 78, alphaQuality: 80, effort: 6, smartSubsample: true }),
     ],
-    [`${job.name}-800.avif`, sharp(small).avif({ quality: 56, effort: 6 })],
-    [
-      `${job.name}-800.webp`,
-      sharp(small).webp({ quality: 80, alphaQuality: 85, effort: 6, smartSubsample: true }),
-    ],
   ];
+  for (const w of WIDTHS.filter((x) => x < SIZE)) {
+    const small = await sharp(full).resize(w, w, { kernel: 'lanczos3' }).png().toBuffer();
+    // Smaller files carry fewer pixels per detail: a touch more quality keeps edges clean.
+    const q = w >= 800 ? 56 : 60;
+    outputs.push(
+      [`${job.name}-${w}.avif`, sharp(small).avif({ quality: q, effort: 6 })],
+      [
+        `${job.name}-${w}.webp`,
+        sharp(small).webp({ quality: q + 24, alphaQuality: 85, effort: 6, smartSubsample: true }),
+      ],
+    );
+  }
   let bytes = 0;
   for (const [file, pipeline] of outputs) {
     const buf = await pipeline.toBuffer();

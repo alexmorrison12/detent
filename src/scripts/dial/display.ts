@@ -8,6 +8,7 @@
  * Fonts: call `loadDisplayFonts()` once first, or the fallback face gets baked in.
  */
 import type { ResolvedPhysics } from './physics';
+import { TYPE, readoutSize } from './model';
 
 export interface DisplayModel {
   name: string;
@@ -166,22 +167,21 @@ export function drawDisplay(ctx: CanvasRenderingContext2D, size: number, m: Disp
   const c = ctx as CanvasRenderingContext2D & { letterSpacing?: string; fontStretch?: string };
   c.fontStretch = 'expanded';
   c.letterSpacing = `${0.3 * u}px`;
-  ctx.font = `720 ${1.75 * u}px ${SANS}`;
+  ctx.font = `720 ${TYPE.name * u}px ${SANS}`;
   ctx.fillStyle = m.color;
-  ctx.fillText(m.name.toUpperCase(), 0, -6.6 * u);
+  ctx.fillText(m.name.toUpperCase(), 0, TYPE.nameY * u);
   c.fontStretch = 'normal';
   c.letterSpacing = '0px';
   // The big readout is set in expanded Archivo, like an engraved scale.
-  const len = m.text.length;
   c.fontStretch = 'expanded';
-  ctx.font = `640 ${(len > 4 ? 4.6 : len > 3 ? 5.6 : 7) * u}px ${SANS}`;
+  ctx.font = `640 ${readoutSize(m.text) * u}px ${SANS}`;
   ctx.fillStyle = INK;
-  ctx.fillText(m.text, 0, 2.7 * u, 29 * u);
+  ctx.fillText(m.text, 0, TYPE.textY * u, 29 * u);
   c.fontStretch = 'normal';
   c.letterSpacing = `${0.18 * u}px`;
-  ctx.font = `450 ${1.45 * u}px ${MONO}`;
-  ctx.fillStyle = 'rgba(244,241,242,0.55)';
-  ctx.fillText(m.sub, 0, 8.2 * u);
+  ctx.font = `450 ${TYPE.sub * u}px ${MONO}`;
+  ctx.fillStyle = 'rgba(244,241,242,0.6)';
+  ctx.fillText(m.sub, 0, TYPE.subY * u);
   c.letterSpacing = '0px';
 
   if (m.press > 0.01) {
