@@ -1,11 +1,16 @@
 ---
 /**
- * The five questions that most often stand between a visitor and a deposit.
- * Exclusive accordion via <details name>; each marker is a tiny knob whose
- * indicator turns a quarter-turn when the answer opens.
+ * The questions that most often stand between a visitor and a deposit or an
+ * order, each shown only in the phases it is true in. Exclusive accordion via
+ * <details name>; each marker is a tiny knob whose indicator turns a
+ * quarter-turn when the answer opens. The first question of the phase opens:
+ * the build phase in the HTML, a previewed phase (?phase=) by the script.
  */
 import { url } from '@/lib/url';
-import { HOME_FAQS } from './data';
+import { BUILD_PHASE } from '@/config/launch';
+import { HOME_FAQS, faqInPhase } from './data';
+
+const firstOpen = HOME_FAQS.findIndex((f) => faqInPhase(f, BUILD_PHASE));
 ---
 
 <section class="faq section" data-world="day" aria-labelledby="faq-title" id="faq">
@@ -21,7 +26,12 @@ import { HOME_FAQS } from './data';
     </div>
     <div class="faq__list">
       {HOME_FAQS.map((f, i) => (
-        <details class="qa" name="home-faq" open={i === 0}>
+        <details
+          class="qa"
+          name="home-faq"
+          open={i === firstOpen}
+          data-phase-only={f.phases?.join(' ')}
+        >
           <summary class="qa__q">
             <span>{f.q}</span>
             <svg class="qa__knob" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
@@ -37,6 +47,14 @@ import { HOME_FAQS } from './data';
     </div>
   </div>
 </section>
+
+<script>
+  // A previewed phase can hide the question the HTML opened: open the first
+  // one this phase shows instead (<details name> closes the hidden one).
+  const list = [...document.querySelectorAll<HTMLDetailsElement>('details[name="home-faq"]')];
+  const shown = list.filter((d) => getComputedStyle(d).display !== 'none');
+  if (shown.length && !shown.some((d) => d.open)) shown[0]!.open = true;
+</script>
 
 <style>
   .faq {

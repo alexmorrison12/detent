@@ -6,7 +6,7 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { SITE } from '@/config/site';
-import { MODE } from '@/config/launch';
+import { BUILD_PHASE, MODE } from '@/config/launch';
 import { ogPath } from '@/config/og';
 import { EDITIONS, byProfile, formatUsd } from '@/data/product';
 import { absoluteUrl } from '@/lib/url';
@@ -19,7 +19,7 @@ import Proof from '@/components/home/Proof.astro';
 import Offer from '@/components/home/Offer.astro';
 import Faq from '@/components/home/Faq.astro';
 import Closing from '@/components/home/Closing.astro';
-import { EDITION_ONE, FACTS, HOME_FAQS } from '@/components/home/data';
+import { EDITION_ONE, FACTS, HOME_FAQS, faqInPhase } from '@/components/home/data';
 
 const detents = byProfile('ratchet').physics.detents;
 const description = `Detent One is a machined aluminum dial with software-defined haptics: ${detents} crisp clicks in Resolve, a bump at 0 dB in Logic, a snap to every diff hunk. ${FACTS.weight}, open firmware, from ${formatUsd(EDITION_ONE.priceUsd)}.`;
@@ -51,7 +51,8 @@ if (MODE === 'live') {
 const faqLd = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  mainEntity: HOME_FAQS.map((f) => ({
+  // Only the questions the built page shows (see Faq.astro).
+  mainEntity: HOME_FAQS.filter((f) => faqInPhase(f, BUILD_PHASE)).map((f) => ({
     '@type': 'Question',
     name: f.q,
     acceptedAnswer: { '@type': 'Answer', text: f.a },

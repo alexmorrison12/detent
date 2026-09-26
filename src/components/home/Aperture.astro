@@ -41,7 +41,9 @@ import DialStill from '@/components/dial/DialStill.astro';
   }
   .aperture__pin {
     /* The line is two lines at line-height 1, so its height is known and the
-       still's clip circle can be centered on the pin, not on itself. */
+       still's clip circle can be centered on the pin, not on itself. (A
+       reader's own text spacing can wrap it to more: then the reveal opens a
+       little off-centre and nothing is cut, WCAG 1.4.12.) */
     --ap-fs: min(var(--step-5), 10.5vw);
     --ap-gap: var(--space-l);
     --ap-line: calc(2 * var(--ap-fs));
@@ -87,7 +89,7 @@ import DialStill from '@/components/dial/DialStill.astro';
   }
   .aperture__line span {
     display: block;
-    white-space: nowrap;
+    text-wrap: balance;
   }
   .aperture__still {
     position: relative;

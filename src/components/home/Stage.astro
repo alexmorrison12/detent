@@ -14,6 +14,13 @@
  *   stack  portrait phones and tablets: the stage docks under the header and,
  *          as the hero scrolls away, compacts to a small dial and one readout
  *          row so the demos it drives stay on screen (--dock-t, instrument.ts).
+ *          Only where there is room (≥ 34rem tall): shorter screens, and pages
+ *          zoomed to 300–400%, get a stage that scrolls with the page. While
+ *          the mechanism is taken apart the docked dial grows back to full
+ *          size (flow unchanged) and a caption under it names the part.
+ *
+ * −/+ steppers beside the dial turn it one detent per tap: a single-pointer
+ * alternative to dragging (WCAG 2.5.7) that stays with the dial when it docks.
  */
 import DialStage from '@/components/dial/DialStage.astro';
 import { PROFILES, byProfile } from '@/data/product';
@@ -43,9 +50,13 @@ for (let i = 0; i < 36; i++) {
   if (deg % 90 === 0) bezelMajor += tick(deg, 114, 121);
   else bezelMinor += tick(deg, 117, 120);
 }
+// 0 and 180 centre on their quarter mark; 90 and 270 read outward from it,
+// the same clearance away, so a three-digit label never runs into its tick.
 const numerals = [0, 90, 180, 270].map((deg) => {
-  const [x, y] = polar(deg, 127);
-  return { deg, x: f(x), y: f(y) };
+  const side = deg === 90 ? 1 : deg === 270 ? -1 : 0;
+  const [x, y] = side ? [side * 124.5, 0] : polar(deg, 127);
+  const anchor = side > 0 ? 'start' : side < 0 ? 'end' : 'middle';
+  return { deg, x: f(x), y: f(y), anchor };
 });
 
 // Per-profile engraving: where this feel has something to say. One element
@@ -107,7 +118,7 @@ const knobSizes = [
       <path class="scale__minor" d={bezelMinor}></path>
       <path class="scale__major" d={bezelMajor}></path>
       {numerals.map((n) => (
-        <text class="scale__num" x={n.x} y={n.y} text-anchor="middle" dominant-baseline="central">
+        <text class="scale__num" x={n.x} y={n.y} text-anchor={n.anchor} dominant-baseline="central">
           {n.deg}
         </text>
       ))}
@@ -133,6 +144,7 @@ const knobSizes = [
       <DialStage
         id="home-dial"
         interactive
+        steppers
         priority
         finish="graphite"
         profile={initial.id}
@@ -150,7 +162,7 @@ const knobSizes = [
   <div class="stage__meta">
     <p class="stage__hint" data-hint>
       <span class="stage__hint-fine">Drag it around, or tab to it and use the arrow keys.</span>
-      <span class="stage__hint-coarse">Drag the knob in a circle.</span>
+      <span class="stage__hint-coarse">Drag the knob in a circle, or tap − and +.</span>
     </p>
     <button class="sound-chip" type="button" data-sound-chip aria-pressed="false">
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -199,9 +211,16 @@ const knobSizes = [
 </div>
 
 <style>
+  /* 0 → 1 while the mechanism scene has the dial apart (stack layout). */
+  @property --stage-mech {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+  }
+
+  /* --dial-full and --dock-dial (the stack layout's full and docked dial)
+     come from Instrument.astro, which sizes the chapter gaps around them. */
   .stage {
-    /* The docked, compact dial on phones and tablets. */
-    --dock-dial: clamp(7rem, 15svh, 8rem);
     position: sticky;
     inset-block-start: var(--header-h);
     z-index: var(--z-raised);
@@ -329,13 +348,62 @@ const knobSizes = [
     outline-offset: 6px;
   }
 
+  /* −/+ (DialStage steppers): on the 3 and 9 o'clock line, just clear of the
+     tick ring. The knob box is the dial's middle 75%, so the ring (radius
+     0.465 of the dial) reaches 12% of the knob past its edge. */
+  .stage__knob :global(.dial-stage__steppers) {
+    position: absolute;
+    inset-inline: calc(-12% - 3rem);
+    inset-block-start: calc(50% - 1.375rem);
+    justify-content: space-between;
+    pointer-events: none;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      visibility var(--dur-3);
+  }
+  .stage__knob :global(.dial-step) {
+    pointer-events: auto;
+    background-color: var(--instrument-bg, var(--bg));
+  }
+  /* The 90 and 270 numerals sit on that line from 40rem up: clear them too. */
+  @media (min-width: 40rem) {
+    .stage__knob :global(.dial-stage__steppers) {
+      inset-inline: calc(-22% - 3rem);
+    }
+  }
+
   /* Taking it apart: the scale belongs to the assembled knob, so it steps
-     back and a callout names the part in focus on the model itself. */
+     back (with the steppers) and a callout names the part in focus. */
   :global([data-instrument][data-scene='mech']) .scale {
     opacity: 0;
   }
+  :global([data-instrument][data-scene='mech']) .stage__knob :global(.dial-stage__steppers) {
+    opacity: 0;
+    visibility: hidden;
+  }
   .stage__callout {
     display: none;
+    align-items: baseline;
+    gap: 0.6em;
+    margin: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .stage__callout-name,
+  .stage__callout-figure {
+    white-space: nowrap;
+  }
+  .stage__callout-name {
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .stage__callout-figure {
+    color: var(--ink-muted);
+  }
+  :global([data-instrument][data-scene='mech']) .stage__callout[data-on] {
+    opacity: 1;
   }
 
   .stage__meta {
@@ -483,13 +551,48 @@ const knobSizes = [
     (max-width: 39.99rem) {
     .stage {
       --t: var(--dock-t, 0);
-      --dial-full: min(72vw, 34svh, 26rem);
+      /* Taking it apart needs the full-size dial back. It grows over the
+         content below (the negative margin keeps the flow, and so every
+         scene boundary, exactly where it was: no scroll feedback). */
+      --grow: calc((var(--dial-full) - var(--dock-dial)) * var(--t) * var(--stage-mech));
       gap: 0;
+      margin-block-end: calc(-1 * var(--grow));
       padding-block: calc(var(--space-xs) - (var(--space-xs) - var(--space-2xs)) * var(--t))
         var(--space-xs);
     }
+    :global([data-instrument][data-scene='mech']) .stage {
+      --stage-mech: 1;
+    }
     .stage__dial {
-      inline-size: calc(var(--dial-full) + (var(--dock-dial) - var(--dial-full)) * var(--t));
+      inline-size: calc(
+        var(--dial-full) + (var(--dock-dial) - var(--dial-full)) * var(--t) + var(--grow)
+      );
+    }
+    /* Too short to dock (small landscape phones, 300–400% zoom): the stage
+       scrolls with the page instead of covering it (WCAG 1.4.10, 2.4.11). */
+    @media (max-height: 33.99rem) {
+      .stage {
+        position: relative;
+        inset-block-start: auto;
+      }
+    }
+    /* The part in focus, captioned under the dial where the readout sits
+       (the readout keeps its space, so nothing moves). */
+    .stage__callout {
+      position: absolute;
+      display: flex;
+      inset-inline-start: 50%;
+      inset-block-start: calc(100% + 100% / 6 + var(--space-2xs));
+      translate: -50% 0;
+    }
+    .stage__callout-name {
+      font-size: var(--step--1);
+    }
+    .stage__callout-figure {
+      font-size: var(--step--1);
+    }
+    :global([data-instrument][data-scene='mech']) .stage__readout {
+      visibility: hidden;
     }
     .stage__meta {
       margin-block-start: calc(var(--space-xs) * (1 - var(--t)));
@@ -550,18 +653,24 @@ const knobSizes = [
       inline-size: min(100%, calc(100svh - var(--header-h) - 16.5rem), 46rem);
     }
 
+    /* No room beside the dial in this column: the steppers take the 4:30
+       and 7:30 shoulders, just outside the ring (radius 0.465 of the dial =
+       0.62 of the knob; 4px gap, 22px button radius, along the diagonal). */
+    .stage__knob :global(.dial-stage__steppers) {
+      inset-inline: calc(6.2% - 2.525rem);
+      inset-block-start: calc(93.8% - 0.225rem);
+    }
+
+    /* Pinned to the active part on the model; instrument.ts caps its width
+       to the room left in the column, and the figure wraps under the name. */
     .stage__callout {
       position: absolute;
       display: flex;
-      align-items: baseline;
-      gap: 0.6em;
-      margin: 0;
+      flex-wrap: wrap;
+      /* One line unless the cap bites (not the knob box's shrink-to-fit). */
+      inline-size: max-content;
       padding-inline-start: var(--space-xl);
       translate: 0 -50%;
-      white-space: nowrap;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity var(--dur-2) var(--ease-out);
     }
     .stage__callout::before {
       content: '';
@@ -583,15 +692,6 @@ const knobSizes = [
     }
     .stage__callout-name {
       font-size: var(--step-0);
-      font-weight: 680;
-      font-stretch: var(--stretch-ui);
-      color: var(--ink-strong);
-    }
-    .stage__callout-figure {
-      color: var(--ink-muted);
-    }
-    :global([data-instrument][data-scene='mech']) .stage__callout[data-on] {
-      opacity: 1;
     }
   }
 
@@ -605,6 +705,11 @@ const knobSizes = [
     .stage__dial {
       inline-size: min(100%, calc(100svh - var(--header-h) - 7.5rem));
     }
+    /* A small dial with room at its sides: back to 3 and 9 o'clock. */
+    .stage__knob :global(.dial-stage__steppers) {
+      inset-inline: calc(-12% - 3rem);
+      inset-block-start: calc(50% - 1.375rem);
+    }
     .scale__num,
     .stage__meta,
     .stage__callout,
@@ -616,6 +721,14 @@ const knobSizes = [
     }
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .stage {
+      transition:
+        background-color var(--dur-4) var(--ease-out),
+        --stage-mech var(--dur-3) var(--ease-out);
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .scale__marker path,
     .stage[data-ticked] .scale__marker path {
@@ -624,7 +737,8 @@ const knobSizes = [
     }
     .ring__mark,
     .stage__dial,
-    .scale {
+    .scale,
+    .stage__knob :global(.dial-stage__steppers) {
       transition: none;
     }
   }

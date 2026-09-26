@@ -1,8 +1,10 @@
 ---
 /**
  * The offer: two real editions (no decoy), phase-correct prices, honest
- * scarcity (a numbered run, real batch months), risk reversal and the
- * installment line. Phase-specific lines use data-phase-only.
+ * scarcity (a numbered run, real batch months), risk reversal and, in the
+ * live store only, the installment line (the shop and checkout offer pay over
+ * time from live on, never beside a deposit: docs/LAUNCH_PLAN.md).
+ * Phase-specific lines use data-phase-only.
  */
 import PhaseCTA from '@/components/PhaseCTA.astro';
 import DialStill from '@/components/dial/DialStill.astro';
@@ -82,7 +84,7 @@ for (const p of PHASE_ORDER) {
               comes off the price.
             </p>
             <p class="price__line" data-phase-only="launch">
-              {`Launch price until ${launchPriceEndsLabel}, ${PAYMENT.installmentLabel(one.launchPriceUsd)}.`}
+              Launch price until {launchPriceEndsLabel}.
             </p>
             <p class="price__line" data-phase-only="live">
               {PAYMENT.installmentLabel(one.priceUsd)}.
@@ -133,9 +135,6 @@ for (const p of PHASE_ORDER) {
             <p class="price__line" data-phase-only="reserve">
               Reserve with a {formatUsd(LAUNCH.foundersDepositUsd)} refundable deposit.
             </p>
-            <p class="price__line" data-phase-only="launch">
-              {PAYMENT.installmentLabel(founders.launchPriceUsd)}.
-            </p>
             <p class="price__line" data-phase-only="live">
               {PAYMENT.installmentLabel(founders.priceUsd)}.
             </p>
@@ -171,7 +170,13 @@ for (const p of PHASE_ORDER) {
         <strong>{formatUsd(LAUNCH.depositUsd)} deposit, fully refundable.</strong>
         <span>Cancel any time before your batch ships. No questions.</span>
       </li>
-      <li data-phase-only="launch live">
+      <li data-phase-only="launch">
+        <strong>
+          {one.name} at {launchPrice}.
+        </strong>
+        <span>On every order placed until {launchPriceEndsLabel}.</span>
+      </li>
+      <li data-phase-only="live">
         <strong>Pay in {PAYMENT.installments}.</strong>
         <span>Interest-free, split at checkout.</span>
       </li>

@@ -3,7 +3,7 @@
  * Engagement-triggered, NON-modal capture. Server-rendered hidden; revealed by
  * src/scripts/home/capture.ts after the third profile change, at most once
  * per session, and suppressed for 30 days after a dismissal. Never an overlay.
- * Live phase swaps it for a one-line "Get launch news" form.
+ * Live phase swaps it for a one-line news form (new feels and firmware).
  */
 const demo = !import.meta.env.PUBLIC_WAITLIST_ENDPOINT;
 const SEGMENTS = [
@@ -100,7 +100,7 @@ const note = demo
     class="capture__close"
     type="button"
     data-capture-close
-    aria-label="Dismiss launch news sign-up"
+    aria-label="Dismiss the news sign-up"
   >
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
       <path
@@ -128,7 +128,7 @@ const note = demo
         aria-describedby="news-error news-note"
       />
       <button class="btn btn--primary" type="submit">
-        Get launch news
+        Send me the news
       </button>
     </div>
     <p class="capture__error" id="news-error" data-capture-error role="alert"></p>
