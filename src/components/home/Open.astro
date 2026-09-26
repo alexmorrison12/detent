@@ -1,0 +1,225 @@
+---
+/**
+ * Open: local-first, no account, open SDK and firmware. The code panel is a
+ * complete profile file built from the Magnet physics in @/data/product,
+ * syntax-highlighted at build time (zero client JS).
+ */
+import { url } from '@/lib/url';
+import { FACTS, PROFILE_FILE, PROFILE_FILE_NAME, spec } from './data';
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const highlighted = esc(JSON.stringify(PROFILE_FILE, null, 2))
+  .replace(
+    /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?)|([{}[\],])/g,
+    (
+      _m,
+      str: string | undefined,
+      colon: string | undefined,
+      num: string | undefined,
+      punc: string | undefined,
+    ) => {
+      if (str)
+        return colon
+          ? `<span class="j-key">${str}</span>${colon}`
+          : `<span class="j-str">${str}</span>`;
+      if (num) return `<span class="j-num">${num}</span>`;
+      return `<span class="j-p">${punc}</span>`;
+    },
+  )
+  .split('\n')
+  .map((line) => `<span class="line">${line}</span>`)
+  .join('\n');
+
+const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+const FACT_ROWS = [
+  { term: 'Account', desc: sentence(spec('Software', 'Account')) },
+  { term: 'SDK', desc: sentence(spec('Software', 'SDK')) },
+  { term: 'Firmware', desc: sentence(spec('Software', 'Firmware')) },
+  { term: 'Drivers', desc: sentence(spec('Connectivity & power', 'Wired')) },
+];
+---
+
+<section class="open section" data-world="day" aria-labelledby="open-title" id="open">
+  <div class="container open__grid">
+    <div class="open__copy">
+      <h2 id="open-title" class="display open__title">
+        It keeps working without&nbsp;us.
+      </h2>
+      <p class="open__lede">
+        Detent Studio runs without an account, a cloud or a subscription. Profiles are plain JSON on
+        the dial, the SDK is open and the firmware is {FACTS.license}. If Detent Labs disappeared
+        tomorrow, your dial would not notice.
+      </p>
+      <dl class="open__facts">
+        {FACT_ROWS.map((r) => (
+          <div class="open__fact">
+            <dt>{r.term}</dt>
+            <dd>{r.desc}</dd>
+          </div>
+        ))}
+      </dl>
+      <p class="open__credit">
+        The idea stands on the shoulders of Scott Bezek’s open-source
+        <a href="https://github.com/scottbez1/smartknob" rel="noopener">
+          SmartKnob
+        </a>
+        . If you like building things, go read it.
+      </p>
+      <p>
+        <a class="link-arrow" href={url('/profiles/')}>
+          Browse the feel library
+        </a>
+      </p>
+    </div>
+
+    <figure class="code" data-world="night">
+      <figcaption class="code__bar">
+        <span class="code__dots" aria-hidden="true">
+          <i></i>
+          <i></i>
+          <i></i>
+        </span>
+        <span class="code__name">{PROFILE_FILE_NAME}</span>
+      </figcaption>
+      <pre
+        class="code__pre"
+        tabindex="0"
+        aria-label={`Example profile file, ${PROFILE_FILE_NAME}`}
+      ><code set:html={highlighted} /></pre>
+      <p class="code__note">
+        Snap to each diff hunk in VS Code. Press to stage it, press hard to revert. Edit it in any
+        text editor.
+      </p>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .open__grid {
+    display: grid;
+    gap: var(--space-2xl) clamp(2rem, 6vw, 6rem);
+    align-items: center;
+  }
+  .open__copy {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .open__title {
+    font-size: var(--step-5);
+    max-inline-size: 12ch;
+  }
+  .open__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 42ch;
+  }
+  .open__facts {
+    margin: 0;
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .open__fact {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: var(--space-s);
+    padding-block: var(--space-xs);
+    border-block-end: 1px solid var(--line);
+  }
+  .open__fact dt {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .open__fact dd {
+    margin: 0;
+    color: var(--ink-muted);
+  }
+  .open__credit {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 52ch;
+  }
+
+  .code {
+    margin: 0;
+    border-radius: var(--r-l);
+    background: var(--graphite-900);
+    overflow: hidden;
+    box-shadow: var(--shadow-2);
+  }
+  .code__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    padding: var(--space-xs) var(--space-s);
+    border-block-end: 1px solid var(--line);
+  }
+  .code__dots {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .code__dots i {
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--graphite-700);
+  }
+  .code__dots i:first-child {
+    background: var(--tally);
+  }
+  .code__name {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .code__pre {
+    margin: 0;
+    padding: var(--space-s) var(--space-s) var(--space-m) 0;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: clamp(0.72rem, 0.66rem + 0.25vw, 0.84rem);
+    line-height: 1.75;
+    color: var(--ink);
+    counter-reset: ln;
+    tab-size: 2;
+  }
+  .code__pre:focus-visible {
+    outline-offset: -3px;
+  }
+  .code__pre :global(.line) {
+    counter-increment: ln;
+  }
+  .code__pre :global(.line)::before {
+    content: counter(ln);
+    display: inline-block;
+    inline-size: 3.2em;
+    padding-inline-end: 1.2em;
+    text-align: end;
+    color: var(--graphite-600);
+    user-select: none;
+  }
+  .code__pre :global(.j-key) {
+    color: var(--alu-200);
+  }
+  .code__pre :global(.j-str) {
+    color: var(--feel-spring);
+  }
+  .code__pre :global(.j-num) {
+    color: var(--feel-clock);
+  }
+  .code__pre :global(.j-p) {
+    color: var(--ink-muted);
+  }
+  .code__note {
+    padding: var(--space-s);
+    border-block-start: 1px solid var(--line);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  @media (min-width: 64rem) {
+    .open__grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    }
+  }
+</style>

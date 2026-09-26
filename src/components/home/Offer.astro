@@ -1,0 +1,369 @@
+---
+/**
+ * The offer: two real editions (no decoy), phase-correct prices, honest
+ * scarcity (a numbered run, real batch months), risk reversal and the
+ * installment line. Phase-specific lines use data-phase-only.
+ */
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import DialStill from '@/components/dial/DialStill.astro';
+import { FINISHES, PAYMENT, byFinish, formatUsd } from '@/data/product';
+import { LAUNCH } from '@/config/launch';
+import { url } from '@/lib/url';
+import { EDITION_FOUNDERS, EDITION_ONE, FACTS, launchPriceEndsLabel } from './data';
+import CantDo from './CantDo.astro';
+
+const one = EDITION_ONE;
+const founders = EDITION_FOUNDERS;
+const oneFinishes = one.finishes.map(byFinish);
+const run = (founders.limited ?? LAUNCH.foundersRun).toLocaleString('en-US');
+const price = formatUsd(one.priceUsd);
+const launchPrice = formatUsd(one.launchPriceUsd);
+const shipping =
+  PAYMENT.freeShippingOverUsd === 0
+    ? 'Free shipping'
+    : `Free shipping over ${formatUsd(PAYMENT.freeShippingOverUsd)}`;
+const tally = FINISHES.find((f) => f.foundersOnly)!;
+---
+
+<section class="offer section" data-world="day" aria-labelledby="offer-title" id="editions">
+  <div class="container">
+    <div class="offer__head">
+      <h2 id="offer-title" class="display offer__title">
+        Two editions of one instrument.
+      </h2>
+      <p class="offer__lede">
+        Same motor, same encoder, the same {FACTS.onDeviceProfiles} on-device profiles and every
+        update after. Founders adds the red, the number and the walnut.
+      </p>
+    </div>
+
+    <div class="editions">
+      <article class="edition edition--one" aria-labelledby="ed-one">
+        <div class="edition__still">
+          <DialStill finish="graphite" view="hero" />
+        </div>
+        <div class="edition__body">
+          <h3 class="edition__name" id="ed-one">
+            {one.name}
+          </h3>
+          <p class="edition__summary">{one.summary}</p>
+
+          <div class="price">
+            <p class="price__now" data-phase-only="tease waitlist live">
+              <span class="price__big">{price}</span>
+            </p>
+            <p class="price__now" data-phase-only="reserve launch">
+              <span class="price__big">{launchPrice}</span>
+              <s class="price__was">
+                <span class="visually-hidden">Regular price </span>
+                {price}
+              </s>
+            </p>
+            <p class="price__line" data-phase-only="tease">
+              Early reservations get the {launchPrice} launch price.
+            </p>
+            <p class="price__line" data-phase-only="waitlist">
+              Waitlist members reserve first, at the {launchPrice} launch price.
+            </p>
+            <p class="price__line" data-phase-only="reserve">
+              Launch price, locked with a {formatUsd(LAUNCH.depositUsd)} refundable deposit that
+              comes off the price.
+            </p>
+            <p class="price__line" data-phase-only="launch">
+              Launch price until {launchPriceEndsLabel}.{' '}
+              {PAYMENT.installmentLabel(one.launchPriceUsd)}.
+            </p>
+            <p class="price__line" data-phase-only="live">
+              {PAYMENT.installmentLabel(one.priceUsd)}.
+            </p>
+          </div>
+
+          <ul class="edition__includes" role="list">
+            {one.includes.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+          <p class="edition__finishes">
+            <span class="edition__chips" aria-hidden="true">
+              {oneFinishes.map((f) => (
+                <span class="edition__chip" style={`--body: ${f.body}`} />
+              ))}
+            </span>
+            {new Intl.ListFormat('en-US', { type: 'disjunction' }).format(
+              oneFinishes.map((f) => f.name),
+            )}
+          </p>
+          <a
+            class="link-arrow"
+            href={url(`/shop/?edition=${one.id}#configure`)}
+            data-track="edition_click"
+            data-track-edition={one.id}
+            data-track-placement="home-offer"
+          >
+            Configure {one.name}
+          </a>
+        </div>
+      </article>
+
+      <article class="edition edition--founders" aria-labelledby="ed-founders">
+        <div class="edition__still">
+          <DialStill finish="tally" view="hero" />
+        </div>
+        <div class="edition__body">
+          <h3 class="edition__name" id="ed-founders">
+            {founders.name}
+          </h3>
+          <p class="edition__summary">{founders.summary}</p>
+
+          <div class="price">
+            <p class="price__now">
+              <span class="price__big">{formatUsd(founders.priceUsd)}</span>
+            </p>
+            <p class="price__line" data-phase-only="reserve">
+              Reserve with a {formatUsd(LAUNCH.foundersDepositUsd)} refundable deposit.
+            </p>
+            <p class="price__line" data-phase-only="launch">
+              {PAYMENT.installmentLabel(founders.launchPriceUsd)}.
+            </p>
+            <p class="price__line" data-phase-only="live">
+              {PAYMENT.installmentLabel(founders.priceUsd)}.
+            </p>
+            <p class="price__scarcity">
+              A run of {run}, serial-engraved. When they are gone, {tally.name} is gone.
+            </p>
+          </div>
+
+          <ul class="edition__includes" role="list">
+            {founders.includes.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+          <a
+            class="link-arrow"
+            href={url(`/shop/?edition=${founders.id}&finish=${tally.id}#configure`)}
+            data-track="edition_click"
+            data-track-edition={founders.id}
+            data-track-placement="home-offer"
+          >
+            Configure the {founders.name}
+          </a>
+        </div>
+      </article>
+    </div>
+
+    <ul class="assure" role="list" aria-label="What every order includes">
+      <li data-phase-only="tease waitlist reserve">
+        <strong>{formatUsd(LAUNCH.depositUsd)} deposit, fully refundable.</strong>
+        <span>Cancel any time before your batch ships. No questions.</span>
+      </li>
+      <li data-phase-only="launch live">
+        <strong>Pay in {PAYMENT.installments}.</strong>
+        <span>Interest-free, split at checkout.</span>
+      </li>
+      <li>
+        <strong>{PAYMENT.trialDays}-day studio trial.</strong>
+        <span>Not earning its spot? Prepaid label, full refund.</span>
+      </li>
+      <li>
+        <strong>{PAYMENT.warrantyYears}-year warranty.</strong>
+        <span>Parts and labor, and it opens with four screws.</span>
+      </li>
+      <li>
+        <strong>{shipping}.</strong>
+        <span>Tracked, insured, duties included.</span>
+      </li>
+    </ul>
+
+    <p class="offer__batches" data-phase-only="tease waitlist reserve launch">
+      Reservations ship in the order they were made: Batch 1 in {LAUNCH.firstShipBatch}, Batch 2 in
+      {LAUNCH.secondShipBatch}.
+    </p>
+
+    <div class="offer__cta">
+      <PhaseCTA placement="offer" size="lg" showNote showSecondary align="center" />
+    </div>
+
+    <CantDo />
+  </div>
+</section>
+
+<style>
+  .offer__head {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-end: var(--space-xl);
+  }
+  .offer__title {
+    font-size: var(--step-5);
+    max-inline-size: 16ch;
+  }
+  .offer__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+
+  .editions {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .edition {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    border-radius: var(--r-l);
+    border: 1px solid var(--line-strong);
+    overflow: hidden;
+  }
+  .edition--founders {
+    border-color: color-mix(in oklch, var(--tally) 55%, transparent);
+  }
+  .edition__still {
+    display: grid;
+    place-items: center;
+    padding: var(--space-l);
+    background: var(--bg-raised);
+  }
+  .edition__still :global(svg),
+  .edition__still :global(img) {
+    inline-size: min(100%, 13rem);
+    block-size: auto;
+    aspect-ratio: 1;
+  }
+  .edition__body {
+    display: grid;
+    align-content: start;
+    gap: var(--space-s);
+    padding: var(--space-l);
+  }
+  .edition__name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3em 0.75em;
+    font-size: var(--step-2);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.1;
+  }
+  .edition__summary {
+    color: var(--ink-muted);
+  }
+
+  .price {
+    display: grid;
+    gap: var(--space-3xs);
+    padding-block: var(--space-s);
+    border-block: 1px solid var(--line);
+  }
+  .price__now {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+  }
+  .price__big {
+    font-size: var(--step-4);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    color: var(--ink-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .price__was {
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+  }
+  .price__line {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .price__scarcity {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .edition__includes {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0;
+  }
+  .edition__includes li {
+    display: grid;
+    grid-template-columns: 1rem minmax(0, 1fr);
+    gap: 0.5rem;
+    color: var(--ink);
+  }
+  .edition__includes li::before {
+    content: '';
+    inline-size: 0.45rem;
+    block-size: 0.45rem;
+    margin-block-start: 0.55em;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-muted);
+  }
+  .edition--founders .edition__includes li::before {
+    border-color: var(--tally);
+  }
+  .edition__finishes {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .edition__chips {
+    display: flex;
+  }
+  .edition__chip {
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    border-radius: 50%;
+    background: var(--body);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      inset 0 0 0 1px oklch(0 0 0 / 0.15);
+  }
+  .edition__chip + .edition__chip {
+    margin-inline-start: -0.25rem;
+  }
+
+  .assure {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0;
+    padding: 0;
+    margin-block: var(--space-xl) 0;
+    border-block: 1px solid var(--line-strong);
+  }
+  .assure li {
+    display: grid;
+    gap: 0.2rem;
+    padding: var(--space-s) var(--space-s) var(--space-s) 0;
+  }
+  .assure strong {
+    font-stretch: var(--stretch-ui);
+  }
+  .assure span {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .offer__batches {
+    margin-block-start: var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .offer__cta {
+    display: grid;
+    justify-items: center;
+    padding-block: var(--space-2xl) var(--space-3xl);
+  }
+
+  @media (min-width: 48rem) {
+    .editions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

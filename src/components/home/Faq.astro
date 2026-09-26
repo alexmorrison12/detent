@@ -1,0 +1,139 @@
+---
+/**
+ * The five questions that most often stand between a visitor and a deposit.
+ * Exclusive accordion via <details name>; each marker is a tiny knob whose
+ * indicator turns a quarter-turn when the answer opens.
+ */
+import { url } from '@/lib/url';
+import { HOME_FAQS } from './data';
+---
+
+<section class="faq section" data-world="day" aria-labelledby="faq-title" id="faq">
+  <div class="container faq__grid">
+    <div class="faq__head">
+      <h2 id="faq-title" class="display faq__title">
+        Fair questions.
+      </h2>
+      <p class="faq__lede">
+        The rest are in <a href={url('/support/')}>Support &amp; FAQ</a>, including shipping
+        countries, returns and the SDK.
+      </p>
+    </div>
+    <div class="faq__list">
+      {HOME_FAQS.map((f, i) => (
+        <details class="qa" name="home-faq" open={i === 0}>
+          <summary class="qa__q">
+            <span>{f.q}</span>
+            <svg class="qa__knob" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="4.5" x2="12" y2="9" />
+            </svg>
+          </summary>
+          <div class="qa__a">
+            <p>{f.a}</p>
+          </div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    border-block-start: 1px solid var(--line);
+  }
+  .faq__grid {
+    display: grid;
+    gap: var(--space-xl) clamp(2rem, 6vw, 6rem);
+  }
+  .faq__head {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .faq__title {
+    font-size: var(--step-4);
+  }
+  .faq__lede {
+    color: var(--ink-muted);
+    max-inline-size: 34ch;
+  }
+  .faq__list {
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .qa {
+    border-block-end: 1px solid var(--line);
+  }
+  .qa__q {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-m);
+    min-block-size: 3.5rem;
+    padding-block: var(--space-s);
+    font-size: var(--step-1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.3;
+    color: var(--ink-strong);
+    cursor: pointer;
+    list-style: none;
+  }
+  .qa__q::-webkit-details-marker {
+    display: none;
+  }
+  .qa__q:hover .qa__knob circle {
+    fill: var(--surface);
+  }
+  .qa__knob {
+    flex: none;
+    fill: none;
+    stroke: var(--ink-strong);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+  .qa__knob circle {
+    transition: fill var(--dur-2) var(--ease-out);
+  }
+  .qa__knob line {
+    stroke: var(--tally-deep);
+    stroke-width: 2.4;
+    transform-origin: 12px 12px;
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+  .qa[open] .qa__knob line {
+    transform: rotate(90deg);
+  }
+  .qa__a {
+    padding-block-end: var(--space-m);
+  }
+  .qa__a p {
+    color: var(--ink-muted);
+    max-inline-size: 60ch;
+  }
+
+  @supports selector(::details-content) {
+    @media (prefers-reduced-motion: no-preference) {
+      .qa::details-content {
+        block-size: 0;
+        overflow: clip;
+        transition:
+          block-size var(--dur-3) var(--ease-out),
+          content-visibility var(--dur-3) allow-discrete;
+      }
+      .qa[open]::details-content {
+        block-size: auto;
+      }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qa__knob line {
+      transition: none;
+    }
+  }
+  @media (min-width: 64rem) {
+    .faq__grid {
+      grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+    }
+  }
+</style>

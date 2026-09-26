@@ -1,0 +1,422 @@
+---
+/**
+ * The instrument stage: the page's one live dial, wrapped in an engraved
+ * scale that re-engraves itself for the active feel profile, plus a mono
+ * readout. Sticky across hero → feel → mechanism → context, so the page runs
+ * a single WebGL context for the whole night chapter.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import { PROFILES, byProfile } from '@/data/product';
+
+const polar = (deg: number, r: number): [number, number] => {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return [r * Math.cos(a), r * Math.sin(a)];
+};
+const f = (n: number) => (Math.abs(n) < 1e-9 ? '0' : n.toFixed(2).replace(/\.?0+$/, ''));
+const tick = (deg: number, r0: number, r1: number) => {
+  const [x1, y1] = polar(deg, r0);
+  const [x2, y2] = polar(deg, r1);
+  return `M${f(x1)} ${f(y1)}L${f(x2)} ${f(y2)}`;
+};
+const arc = (from: number, to: number, r: number) => {
+  const [x1, y1] = polar(from, r);
+  const [x2, y2] = polar(to, r);
+  const large = to - from > 180 ? 1 : 0;
+  return `M${f(x1)} ${f(y1)}A${r} ${r} 0 ${large} 1 ${f(x2)} ${f(y2)}`;
+};
+
+// Fixed bezel: a fine 10° scale, a long mark at each quarter.
+let bezelMinor = '';
+let bezelMajor = '';
+for (let i = 0; i < 36; i++) {
+  const deg = i * 10;
+  if (deg % 90 === 0) bezelMajor += tick(deg, 114, 121);
+  else bezelMinor += tick(deg, 117, 120);
+}
+const numerals = [0, 90, 180, 270].map((deg) => {
+  const [x, y] = polar(deg, 127);
+  return { deg, x: f(x), y: f(y) };
+});
+
+// Per-profile engraving: where this feel has something to say.
+const rings = PROFILES.map((p) => {
+  const ph = p.physics;
+  let fine = '';
+  let heavy = '';
+  let guide = '';
+  if (ph.detents > 0) {
+    const step = 360 / ph.detents;
+    for (let i = 0; i < ph.detents; i++) {
+      const deg = i * step;
+      const accent = (ph.accents ?? []).some(
+        (a) => Math.abs((((deg - a) % 360) + 360) % 360) < 1e-6,
+      );
+      if (accent) heavy += tick(deg, 95, 110);
+      else fine += tick(deg, 100, 109);
+    }
+  } else if (ph.accents?.length) {
+    for (const a of ph.accents) fine += tick(a, 100, 109);
+  }
+  if (ph.stops) {
+    guide += arc(ph.stops[0], ph.stops[1], 105);
+    heavy += tick(ph.stops[0], 95, 112) + tick(ph.stops[1], 95, 112);
+    if (ph.spring > 0) fine += tick(0, 99, 109);
+  }
+  if (ph.snaps?.length) {
+    for (const s of ph.snaps) heavy += tick(s, 97, 110);
+  }
+  if (!fine && !heavy && !guide) guide = arc(0, 359.9, 105);
+  return { id: p.id, fine, heavy, guide };
+});
+
+const initial = byProfile('ratchet');
+---
+
+<div class="stage" data-stage data-profile={initial.id}>
+  <div class="stage__dial">
+    <svg class="scale" viewBox="-130 -130 260 260" aria-hidden="true" focusable="false">
+      <path class="scale__minor" d={bezelMinor}></path>
+      <path class="scale__major" d={bezelMajor}></path>
+      {numerals.map((n) => (
+        <text class="scale__num" x={n.x} y={n.y} text-anchor="middle" dominant-baseline="central">
+          {n.deg}
+        </text>
+      ))}
+      {rings.map((r) => (
+        <g class={`ring ring--${r.id}`} style={`--ring-c: var(--feel-${r.id})`}>
+          {r.guide && <path class="ring__guide" d={r.guide} />}
+          {r.fine && <path class="ring__fine" d={r.fine} />}
+          {r.heavy && <path class="ring__heavy" d={r.heavy} />}
+        </g>
+      ))}
+      <g class="scale__marker" data-marker>
+        <path d="M0 -112.5L-4.6 -122L4.6 -122Z"></path>
+      </g>
+    </svg>
+
+    <div class="stage__knob">
+      <DialStage
+        id="home-dial"
+        interactive
+        priority
+        finish="graphite"
+        profile={initial.id}
+        camera="hero"
+        label="Detent One. Drag it in a circle, or use the arrow keys, to turn it."
+      />
+    </div>
+
+    <button class="sound-chip" type="button" data-sound-chip aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path>
+        <path
+          class="sound-chip__wave"
+          d="M15.2 9.2a4 4 0 0 1 0 5.6M17.8 6.6a7.6 7.6 0 0 1 0 10.8"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        ></path>
+      </svg>
+      <span data-sound-label>Hear the detents?</span>
+    </button>
+  </div>
+
+  <p class="stage__hint" data-hint>
+    <span class="stage__hint-fine">Drag it around, or tab to it and use the arrow keys.</span>
+    <span class="stage__hint-coarse">Drag the knob in a circle.</span>
+  </p>
+
+  <dl class="stage__readout" aria-label="Dial readout">
+    <div>
+      <dt>Angle</dt>
+      <dd class="readout" data-ro-angle>
+        +000.0°
+      </dd>
+    </div>
+    <div>
+      <dt data-ro-detent-label>Detent</dt>
+      <dd class="readout" data-ro-detent>
+        00 / {initial.physics.detents}
+      </dd>
+    </div>
+    <div>
+      <dt>Profile</dt>
+      <dd class="stage__profile" data-ro-profile>
+        {initial.name}
+      </dd>
+    </div>
+    <div>
+      <dt>Headline</dt>
+      <dd class="readout" data-ro-width>
+        125%
+      </dd>
+    </div>
+  </dl>
+  <p class="visually-hidden" aria-live="polite" data-announce></p>
+  <span class="stage__scrim" aria-hidden="true"></span>
+</div>
+
+<style>
+  .stage {
+    position: sticky;
+    inset-block-start: var(--header-h);
+    z-index: var(--z-raised);
+    align-self: start;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: var(--space-s);
+    /* Full-bleed on phones so nothing peeks past the docked stage in the gutters. */
+    margin-inline: calc(-1 * var(--gutter));
+    padding: var(--space-xs) var(--gutter) var(--space-s);
+    background-color: var(--instrument-bg, var(--bg));
+    transition: background-color var(--dur-4) var(--ease-out);
+  }
+  /* While docked on phones, content sliding under the stage fades rather
+     than cuts. Only when actually stuck (scroll-state queries); elsewhere a
+     clean edge, so the scrim never dims the CTA below an undocked stage. */
+  .stage__scrim {
+    display: none;
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 100%;
+    block-size: var(--space-m);
+    background: linear-gradient(var(--instrument-bg, var(--bg)), transparent);
+    pointer-events: none;
+  }
+  @supports (container-type: scroll-state) {
+    .stage {
+      container-type: scroll-state;
+    }
+    @container scroll-state(stuck: top) {
+      .stage__scrim {
+        display: block;
+      }
+    }
+  }
+
+  .stage__dial {
+    position: relative;
+    inline-size: min(66vw, 31svh, 26rem);
+    aspect-ratio: 1;
+  }
+
+  .scale {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    fill: none;
+    stroke-linecap: round;
+  }
+  .scale__minor {
+    stroke: var(--ink-faint);
+    stroke-opacity: 0.5;
+    stroke-width: 0.6;
+  }
+  .scale__major {
+    stroke: var(--ink-muted);
+    stroke-width: 1.1;
+  }
+  .scale__num {
+    fill: var(--ink-muted);
+    stroke: none;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    letter-spacing: 0.04em;
+  }
+  .ring {
+    display: none;
+    stroke: var(--ring-c);
+  }
+  .stage[data-profile='ratchet'] .ring--ratchet,
+  .stage[data-profile='fluid'] .ring--fluid,
+  .stage[data-profile='spring'] .ring--spring,
+  .stage[data-profile='clock'] .ring--clock,
+  .stage[data-profile='wall'] .ring--wall,
+  .stage[data-profile='magnet'] .ring--magnet {
+    display: inline;
+  }
+  .ring__guide {
+    stroke-width: 0.8;
+    stroke-opacity: 0.55;
+  }
+  .ring__fine {
+    stroke-width: 1.3;
+  }
+  .ring__heavy {
+    stroke-width: 3;
+  }
+  .scale__marker {
+    fill: var(--accent);
+    stroke: none;
+  }
+  .scale__marker path {
+    transition: transform var(--dur-1) var(--ease-out);
+    transform-origin: 0 -117px;
+  }
+  .stage[data-ticked] .scale__marker path {
+    transform: scale(1.35);
+    transition-duration: 40ms;
+  }
+
+  .stage__knob {
+    position: absolute;
+    inset: 12.5%;
+  }
+  .stage__knob :global(detent-dial:focus-visible) {
+    border-radius: 50%;
+    outline-offset: 6px;
+  }
+
+  .stage__hint {
+    margin-block: calc(-1 * var(--space-2xs)) 0;
+    text-align: center;
+    font-size: var(--step--1);
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    pointer-events: none;
+    transition: opacity var(--dur-3) var(--ease-out);
+  }
+  .stage__hint-coarse {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .stage__hint-fine {
+      display: none;
+    }
+    .stage__hint-coarse {
+      display: inline;
+    }
+  }
+  :global(html:not([data-js])) .stage__hint {
+    display: none;
+  }
+  /* Once the knob has been turned the hint has done its job. */
+  :global([data-instrument][data-touched]) .stage__hint {
+    display: none;
+  }
+
+  .sound-chip {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    min-block-size: 2.75rem;
+    padding: 0.4em 0.95em;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+    background: color-mix(in oklch, var(--instrument-bg, var(--bg)) 70%, transparent);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .sound-chip:hover {
+    border-color: var(--ink);
+  }
+  .sound-chip:active {
+    transform: translateY(1px);
+  }
+  .sound-chip__wave {
+    opacity: 0.35;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .sound-chip[aria-pressed='true'] {
+    border-color: color-mix(in oklch, var(--accent) 60%, transparent);
+    color: var(--ink-strong);
+  }
+  .sound-chip[aria-pressed='true'] .sound-chip__wave {
+    opacity: 1;
+    stroke: var(--accent-text);
+  }
+  :global(html:not([data-js])) .sound-chip {
+    display: none;
+  }
+
+  .stage__readout {
+    display: grid;
+    grid-template-columns: repeat(4, auto);
+    justify-content: center;
+    gap: var(--space-2xs) clamp(0.9rem, 3vw, 2.25rem);
+    margin: 0;
+  }
+  .stage__readout > div {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .stage__readout dt {
+    font-size: var(--step--2);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .stage__readout dd {
+    margin: 0;
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+  .stage__profile {
+    font-size: var(--step--1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+  }
+  [data-ro-angle] {
+    min-inline-size: 7.2ch;
+  }
+
+  @media (max-width: 22.5rem) {
+    .stage__readout > div:last-child {
+      display: none;
+    }
+    .stage__readout {
+      grid-template-columns: repeat(3, auto);
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .scale__num {
+      display: none;
+    }
+    .sound-chip {
+      inset-inline-end: calc(-1 * var(--space-2xs));
+      padding-inline: 0.75em;
+    }
+    .stage__hint {
+      font-size: var(--step--2);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .stage {
+      block-size: calc(100svh - var(--header-h));
+      align-content: center;
+      gap: var(--space-m);
+      margin-inline: 0;
+      padding-block: var(--space-l);
+      padding-inline: 0 var(--gutter);
+      background-color: transparent;
+    }
+    .stage__scrim {
+      display: none !important;
+    }
+    .stage__dial {
+      inline-size: min(100%, calc(100svh - var(--header-h) - 13rem), 46rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scale__marker path,
+    .stage[data-ticked] .scale__marker path {
+      transition: none;
+      transform: none;
+    }
+  }
+</style>

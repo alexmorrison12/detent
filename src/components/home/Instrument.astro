@@ -1,0 +1,195 @@
+---
+/**
+ * The night chapter. One grid, one sticky stage, one live dial driving:
+ *   hero headline width/weight → feel switcher → exploded mechanism → app demos.
+ * Desktop: text column left, stage pinned right. Mobile: headline, then the
+ * stage docks under the header while the chapter scrolls beneath it.
+ */
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import { SITE } from '@/config/site';
+import { byProfile } from '@/data/product';
+import Stage from './Stage.astro';
+import FeelSwitcher from './FeelSwitcher.astro';
+import Mechanism from './Mechanism.astro';
+import ContextDemo from './ContextDemo.astro';
+import TorqueDefs from './TorqueDefs.astro';
+
+const words = SITE.tagline.split(' ');
+const lines = words.length === 4 ? [words[0], `${words[1]} ${words[2]}`, words[3]] : words;
+const ratchet = byProfile('ratchet').physics.detents;
+---
+
+<div class="instrument" data-instrument data-scene="hero" data-world="night">
+  <TorqueDefs />
+
+  <div class="hero-head" data-scene-id="hero">
+    <h1 class="hero-title" data-headline>
+      {lines.map((l, i) => (
+        <span class="hero-title__line">
+          {l}
+          {i < lines.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </h1>
+  </div>
+
+  <Stage />
+
+  <div class="hero-foot" data-scene-id="hero">
+    <p class="hero-lede">
+      A machined aluminum dial with a motor where the clicks used to be. It steps {ratchet} crisp
+      clicks a turn in Resolve, stops dead at 0&nbsp;dB in Logic and snaps to every hunk in your
+      diff.
+    </p>
+    <PhaseCTA placement="hero" size="lg" showNote showSecondary class="hero-cta" />
+  </div>
+
+  <FeelSwitcher />
+  <Mechanism />
+  <ContextDemo />
+</div>
+
+<script>
+  import '@/scripts/home/instrument';
+</script>
+
+<style>
+  @property --wdth {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 125;
+  }
+  @property --wght {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 780;
+  }
+
+  .instrument {
+    --feel: var(--feel-ratchet);
+    --instrument-bg: var(--graphite-950);
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: var(--gutter);
+    background-color: var(--instrument-bg);
+    transition: background-color var(--dur-4) var(--ease-out);
+  }
+  .instrument:has(input[name='home-profile'][value='fluid']:checked) {
+    --feel: var(--feel-fluid);
+  }
+  .instrument:has(input[name='home-profile'][value='spring']:checked) {
+    --feel: var(--feel-spring);
+  }
+  .instrument:has(input[name='home-profile'][value='clock']:checked) {
+    --feel: var(--feel-clock);
+  }
+  .instrument:has(input[name='home-profile'][value='wall']:checked) {
+    --feel: var(--feel-wall);
+  }
+  .instrument:has(input[name='home-profile'][value='magnet']:checked) {
+    --feel: var(--feel-magnet);
+  }
+  .instrument[data-scene='feel'] {
+    --instrument-bg: color-mix(in oklch, var(--feel) 13%, var(--graphite-950));
+  }
+  .instrument[data-scene='mech'] {
+    --instrument-bg: var(--graphite-900);
+  }
+
+  /* ---- Hero ------------------------------------------------------------ */
+  .hero-head {
+    display: grid;
+    align-content: end;
+    gap: var(--space-s);
+    padding-block: var(--space-m) var(--space-xs);
+  }
+  .hero-title {
+    --wdth: 125;
+    --wght: 780;
+    font-size: clamp(3rem, 1.1rem + 9.2vw, 6rem);
+    font-stretch: calc(var(--wdth) * 1%);
+    font-weight: var(--wght);
+    letter-spacing: -0.02em;
+    line-height: 0.99;
+    color: var(--ink-strong);
+    contain: layout paint;
+    padding-block-end: 0.06em;
+  }
+  .hero-title__line {
+    display: block;
+    white-space: nowrap;
+  }
+  .hero-lede {
+    font-size: var(--step-0);
+    line-height: 1.5;
+    color: var(--ink-muted);
+    max-inline-size: 46ch;
+  }
+  .hero-foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-m);
+    padding-block: var(--space-2xs) var(--space-xl);
+  }
+  /* Phones: the action sits right under the dial; the explanation follows. */
+  .hero-foot > :global(.hero-cta) {
+    order: -1;
+  }
+
+  /* One well-orchestrated load: the headline breathes in from condensed,
+     as if someone just turned the knob to rest. Visible from frame one. */
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-title {
+      animation: hero-breathe 1.5s var(--ease-out) 0.15s backwards;
+    }
+    @keyframes hero-breathe {
+      from {
+        --wdth: 64;
+        --wght: 560;
+      }
+    }
+  }
+
+  /* Phones: in-page jumps land below the docked stage, not under it. */
+  @media (max-width: 63.99rem) {
+    .instrument > :global(section) {
+      scroll-margin-top: calc(var(--header-h) + 31svh + 7rem);
+    }
+  }
+
+  /* ---- Desktop: text left, pinned stage right ------------------------- */
+  @media (min-width: 64rem) {
+    .instrument {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+      column-gap: clamp(2rem, 5vw, 6rem);
+      padding-inline: max(var(--gutter), calc((100% - var(--container)) / 2)) 0;
+    }
+    .instrument > :global(*:not(.stage)) {
+      grid-column: 1;
+    }
+    .instrument > :global(.stage) {
+      grid-column: 2;
+      grid-row: 1 / span 5;
+    }
+    .hero-head {
+      min-block-size: calc(100svh - var(--header-h) - 24.5rem);
+      padding-block: var(--space-2xl) 0;
+    }
+    .hero-title {
+      font-size: clamp(3.5rem, 1rem + 5.4vw, 6rem);
+    }
+    .hero-lede {
+      font-size: var(--step-1);
+      line-height: 1.45;
+      max-inline-size: 34ch;
+    }
+    .hero-foot {
+      gap: var(--space-l);
+      padding-block: var(--space-l) var(--space-3xl);
+    }
+    .hero-foot > :global(.hero-cta) {
+      order: 0;
+    }
+  }
+</style>

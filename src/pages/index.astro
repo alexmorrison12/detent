@@ -1,17 +1,72 @@
 ---
+/**
+ * Home: the flagship narrative.
+ * Night (the instrument: hero → feel → mechanism → apps) → the aperture →
+ * day (craft, open, integrations, notes, offer, FAQ) → night again (closing).
+ */
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import DialStage from '@/components/dial/DialStage.astro';
-import PhaseCTA from '@/components/PhaseCTA.astro';
 import { SITE } from '@/config/site';
+import { MODE } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { EDITIONS, byProfile, formatUsd } from '@/data/product';
+import { absoluteUrl } from '@/lib/url';
+import Instrument from '@/components/home/Instrument.astro';
+import Aperture from '@/components/home/Aperture.astro';
+import Craft from '@/components/home/Craft.astro';
+import Open from '@/components/home/Open.astro';
+import Integrations from '@/components/home/Integrations.astro';
+import Proof from '@/components/home/Proof.astro';
+import Offer from '@/components/home/Offer.astro';
+import Faq from '@/components/home/Faq.astro';
+import Closing from '@/components/home/Closing.astro';
+import { EDITION_ONE, FACTS, HOME_FAQS } from '@/components/home/data';
+
+const detents = byProfile('ratchet').physics.detents;
+const description = `Detent One is a machined aluminum dial with software-defined haptics: ${detents} crisp clicks in Resolve, a hard stop at 0 dB in Logic, a snap to every diff hunk. ${FACTS.weight}, open firmware, from ${formatUsd(EDITION_ONE.priceUsd)}.`;
+
+const prices = EDITIONS.map((e) => e.priceUsd);
+const product: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: SITE.product,
+  description: SITE.description,
+  image: absoluteUrl('/renders/graphite-hero.webp', Astro.site),
+  brand: { '@type': 'Brand', name: SITE.name },
+  manufacturer: { '@type': 'Organization', name: SITE.legalName },
+  material: FACTS.material,
+  sku: EDITION_ONE.sku,
+  weight: { '@type': 'QuantitativeValue', value: parseInt(FACTS.weight, 10), unitCode: 'GRM' },
+};
+if (MODE === 'live') {
+  product.offers = {
+    '@type': 'AggregateOffer',
+    priceCurrency: 'USD',
+    lowPrice: Math.min(...prices),
+    highPrice: Math.max(...prices),
+    offerCount: EDITIONS.length,
+    url: absoluteUrl('/shop/', Astro.site),
+  };
+}
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: HOME_FAQS.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+};
 ---
 
-<BaseLayout>
-  <section class="section container">
-    <h1 class="display display--xl">{SITE.tagline}</h1>
-    <p class="lede">{SITE.description}</p>
-    <div style="max-width: 28rem; margin-block: 2rem">
-      <DialStage interactive finish="graphite" profile="ratchet" priority />
-    </div>
-    <PhaseCTA placement="hero" size="lg" showSecondary />
-  </section>
+<BaseLayout description={description} ogImage={ogPath('home')} jsonLd={[product, faqLd]}>
+  <Instrument />
+  <Aperture />
+  <Craft />
+  <Open />
+  <Integrations />
+  <Proof />
+  <Offer />
+  <Faq />
+  <Closing />
 </BaseLayout>

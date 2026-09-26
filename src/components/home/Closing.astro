@@ -1,0 +1,129 @@
+---
+/**
+ * Closing: back to 11 p.m. A smaller dial (Raw, Clock: twelve heavy detents,
+ * a deeper one at noon) that mounts only when it nears the viewport, so the
+ * page never starts two renderers at load. The headline answers it too.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import DialStill from '@/components/dial/DialStill.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import { byProfile } from '@/data/product';
+
+const clock = byProfile('clock');
+---
+
+<section class="closing" data-world="night" aria-labelledby="closing-title">
+  <div class="container closing__grid">
+    <div class="closing__dial" data-lazy-dial>
+      <template>
+        <DialStage
+          id="closing-dial"
+          interactive
+          finish="raw"
+          profile={clock.id}
+          camera="hero"
+          quality="low"
+          label="Detent One in Raw, Clock profile. Drag it, or use the arrow keys, to turn it."
+        />
+      </template>
+      <div class="closing__still" data-lazy-still>
+        <DialStill finish="raw" view="hero" />
+      </div>
+    </div>
+    <div class="closing__copy">
+      <h2 id="closing-title" class="display closing__title" data-closing-headline>
+        Your hands already know how to use&nbsp;it.
+      </h2>
+      <p class="closing__lede">
+        {clock.name}: {clock.feel.charAt(0).toLowerCase() + clock.feel.slice(1)} Give it a turn,
+        then pick yours.
+      </p>
+      <PhaseCTA placement="closing" size="lg" showNote showSecondary />
+    </div>
+  </div>
+</section>
+
+<script>
+  import type { DetentChangeDetail } from '@/scripts/dial/types';
+
+  const host = document.querySelector<HTMLElement>('[data-lazy-dial]');
+  const headline = document.querySelector<HTMLElement>('[data-closing-headline]');
+
+  function mount() {
+    if (!host) return;
+    const tpl = host.querySelector('template');
+    if (!tpl) return;
+    host.append(tpl.content.cloneNode(true));
+    tpl.remove();
+    host.querySelector('[data-lazy-still]')?.remove();
+    const dial = host.querySelector('detent-dial');
+    let frame = 0;
+    let angle = 0;
+    dial?.addEventListener('detent:change', (e: CustomEvent<DetentChangeDetail>) => {
+      angle = e.detail.angle;
+      if (frame || !headline) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const t = (1 + Math.cos((angle * Math.PI) / 180)) / 2;
+        headline.style.setProperty('--wdth', (72 + 53 * t).toFixed(1));
+      });
+    });
+  }
+
+  if (host) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          mount();
+        }
+      },
+      { rootMargin: '300px 0px' },
+    );
+    io.observe(host);
+  }
+</script>
+
+<style>
+  .closing {
+    padding-block: var(--section-y);
+    overflow: clip;
+  }
+  .closing__grid {
+    display: grid;
+    gap: var(--space-xl);
+    align-items: center;
+  }
+  .closing__dial {
+    position: relative;
+    inline-size: min(78vw, 24rem);
+    aspect-ratio: 1;
+    justify-self: center;
+  }
+  .closing__still {
+    position: absolute;
+    inset: 0;
+  }
+  .closing__copy {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .closing__title {
+    --wdth: 125;
+    font-size: var(--step-5);
+    font-stretch: calc(var(--wdth) * 1%);
+    max-inline-size: 14ch;
+  }
+  .closing__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 36ch;
+  }
+  @media (min-width: 64rem) {
+    .closing__grid {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: clamp(2rem, 6vw, 6rem);
+    }
+  }
+</style>

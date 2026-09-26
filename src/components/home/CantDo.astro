@@ -1,0 +1,76 @@
+---
+/**
+ * "What it can't do (yet)": candor next to the price, because skeptical
+ * buyers trust a company that names its own limits. Derived from the specs.
+ */
+import { CANT_DO } from './data';
+---
+
+<aside class="cantdo" aria-labelledby="cantdo-title" data-world="night">
+  <div class="cantdo__head">
+    <h3 id="cantdo-title" class="display cantdo__title">
+      What it can’t do (yet).
+    </h3>
+    <p class="cantdo__lede">Better you hear it from us than from your return label.</p>
+  </div>
+  <ul class="cantdo__list" role="list">
+    {CANT_DO.map((c) => (
+      <li class="cantdo__item">
+        <p class="cantdo__claim">{c.title}</p>
+        <p class="cantdo__body">{c.body}</p>
+      </li>
+    ))}
+  </ul>
+</aside>
+
+<style>
+  .cantdo {
+    display: grid;
+    gap: var(--space-l);
+    padding: clamp(1.5rem, 4vw, 3.5rem);
+    border-radius: var(--r-l);
+  }
+  .cantdo__head {
+    display: grid;
+    gap: var(--space-xs);
+    align-content: start;
+  }
+  .cantdo__title {
+    font-size: var(--step-3);
+    max-inline-size: 12ch;
+  }
+  .cantdo__lede {
+    color: var(--ink-muted);
+    max-inline-size: 30ch;
+  }
+  .cantdo__list {
+    padding: 0;
+    margin: 0;
+    display: grid;
+  }
+  .cantdo__item {
+    display: grid;
+    gap: 0.25rem;
+    padding-block: var(--space-s);
+    border-block-start: 1px solid var(--line);
+  }
+  .cantdo__item:first-child {
+    border-block-start: 0;
+    padding-block-start: 0;
+  }
+  .cantdo__claim {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .cantdo__body {
+    color: var(--ink-muted);
+    max-inline-size: 60ch;
+  }
+  @media (min-width: 64rem) {
+    .cantdo {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+      gap: var(--space-2xl);
+    }
+  }
+</style>

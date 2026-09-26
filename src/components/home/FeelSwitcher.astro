@@ -1,0 +1,373 @@
+---
+/**
+ * Six feels, one knob. A native radio group (works without JS through :has())
+ * that switches the stage dial's profile, the chapter's color world and a
+ * live torque plot whose cursor rides the curve as the dial turns.
+ */
+import { PROFILES, type ProfileId } from '@/data/product';
+import { TQ_BOX, plotX, plotY, torque } from '@/scripts/home/torque';
+import TorqueGlyph from './TorqueGlyph.astro';
+import FeelCapture from './FeelCapture.astro';
+
+const physicsRows = (id: ProfileId) => {
+  const ph = PROFILES.find((p) => p.id === id)!.physics;
+  const rows: string[] = [];
+  rows.push(`detents ${ph.detents}`);
+  if (ph.strength) rows.push(`strength ${ph.strength.toFixed(2)}`);
+  rows.push(`damping ${ph.damping.toFixed(2)}`);
+  if (ph.spring) rows.push(`spring ${ph.spring.toFixed(2)}`);
+  if (ph.stops)
+    rows.push(
+      ph.stops[0] === -ph.stops[1]
+        ? `stops ±${ph.stops[1]}°`
+        : `stops ${ph.stops[0]}°…${ph.stops[1]}°`,
+    );
+  if (ph.snaps?.length) rows.push(`snaps ${ph.snaps.length}`);
+  if (ph.accents?.length) rows.push(`accent ${ph.accents.map((a) => `${a}°`).join(' ')}`);
+  return rows;
+};
+
+const first = PROFILES[0]!;
+const pct = (v: number, of: number) => `${((v / of) * 100).toFixed(2)}%`;
+const x0 = pct(plotX(0, TQ_BOX), TQ_BOX.width);
+const y0 = pct(plotY(torque(first.physics, 0), TQ_BOX), TQ_BOX.height);
+const quarter = [-180, -90, 0, 90, 180];
+---
+
+<section class="feel" data-scene-id="feel" aria-labelledby="feel-title" id="feel">
+  <div class="feel__intro">
+    <h2 id="feel-title" class="display feel__title">
+      <span>One knob.</span>
+      <span>Six ways to push&nbsp;back.</span>
+    </h2>
+    <p class="feel__lede">
+      Pick a feel, then turn the dial. Firmware moves the clicks, sets how hard they land and
+      decides whether the knob springs home.
+    </p>
+  </div>
+
+  <fieldset class="picker" data-picker>
+    <legend class="visually-hidden">Feel profile for the dial</legend>
+    {PROFILES.map((p, i) => (
+      <label class="picker__opt" style={`--c: var(--feel-${p.id})`}>
+        <input
+          class="picker__input"
+          type="radio"
+          name="home-profile"
+          value={p.id}
+          checked={i === 0}
+        />
+        <TorqueGlyph profile={p.id} class="picker__glyph" />
+        <span class="picker__name">{p.name}</span>
+      </label>
+    ))}
+  </fieldset>
+
+  <div class="feel__now">
+    {PROFILES.map((p) => (
+      <div class="feel__head" data-feel-show={p.id} style={`--c: var(--feel-${p.id})`}>
+        <p class="feel__name display">{p.name}</p>
+        <p class="feel__feel">{p.feel}</p>
+      </div>
+    ))}
+
+    <figure class="plot">
+      <div class="plot__frame">
+        <svg
+          class="plot__svg"
+          viewBox={`0 0 ${TQ_BOX.width} ${TQ_BOX.height}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <g class="plot__grid">
+            {quarter.slice(1, -1).map((a) => (
+              <line x1={plotX(a, TQ_BOX)} x2={plotX(a, TQ_BOX)} y1="0" y2={TQ_BOX.height} />
+            ))}
+            <line
+              class="plot__zero"
+              x1="0"
+              x2={TQ_BOX.width}
+              y1={TQ_BOX.height / 2}
+              y2={TQ_BOX.height / 2}
+            />
+          </g>
+          {PROFILES.map((p) => (
+            <g class="plot__layer" data-feel-show={p.id}>
+              {p.physics.stops && (
+                <>
+                  <rect
+                    class="plot__beyond"
+                    x="0"
+                    y="0"
+                    width={plotX(p.physics.stops[0], TQ_BOX)}
+                    height={TQ_BOX.height}
+                  />
+                  <rect
+                    class="plot__beyond"
+                    x={plotX(p.physics.stops[1], TQ_BOX)}
+                    y="0"
+                    width={TQ_BOX.width - plotX(p.physics.stops[1], TQ_BOX)}
+                    height={TQ_BOX.height}
+                  />
+                </>
+              )}
+              <use class="plot__curve" href={`#tq-${p.id}`} />
+            </g>
+          ))}
+        </svg>
+        <span class="plot__cursor" data-plot-cursor style={`left: ${x0}`} aria-hidden="true"></span>
+        <span
+          class="plot__dot"
+          data-plot-dot
+          style={`left: ${x0}; top: ${y0}`}
+          aria-hidden="true"
+        ></span>
+      </div>
+      <div class="plot__axis readout" aria-hidden="true">
+        {quarter.map((a) => (
+          <span>{a > 0 ? `+${a}` : a}°</span>
+        ))}
+      </div>
+      <figcaption class="plot__cap">
+        Torque against angle: what your finger meets at every point of the turn. Flat is free, teeth
+        are detents, a cliff is a hard stop. The dot is your dial.
+      </figcaption>
+    </figure>
+
+    {PROFILES.map((p) => (
+      <div class="feel__detail" data-feel-show={p.id}>
+        <p class="feel__use">
+          <span class="feel__use-label">In practice</span>
+          {p.use}
+        </p>
+        <ul class="feel__physics" role="list" aria-label={`${p.name} profile parameters`}>
+          {physicsRows(p.id).map((r) => (
+            <li class="readout">{r}</li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+
+  <FeelCapture />
+</section>
+
+<style>
+  .feel {
+    padding-block: var(--section-y);
+    display: grid;
+    gap: var(--space-m);
+  }
+  .feel__intro {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .feel__title {
+    font-size: var(--step-4);
+    max-inline-size: 13ch;
+  }
+  .feel__title span {
+    display: block;
+  }
+  .feel__lede {
+    color: var(--ink-muted);
+    max-inline-size: 48ch;
+  }
+
+  /* ---- Picker ---------------------------------------------------------- */
+  .picker {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2xs);
+  }
+  .picker__opt {
+    position: relative;
+    display: grid;
+    gap: var(--space-2xs);
+    padding: var(--space-xs) var(--space-xs) var(--space-2xs);
+    min-block-size: 4.25rem;
+    border-radius: var(--r-m);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .picker__opt:hover {
+    border-color: var(--line-strong);
+  }
+  .picker__opt:active {
+    transform: translateY(1px);
+  }
+  .picker__input {
+    position: absolute;
+    opacity: 0;
+    inline-size: 1px;
+    block-size: 1px;
+    pointer-events: none;
+  }
+  .picker__opt:has(.picker__input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .picker__opt:has(.picker__input:checked) {
+    border-color: var(--c);
+    background: color-mix(in oklch, var(--c) 12%, transparent);
+  }
+  .picker__opt :global(.picker__glyph) {
+    inline-size: 100%;
+    block-size: 1.4rem;
+    opacity: 0.55;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .picker__opt:hover :global(.picker__glyph),
+  .picker__opt:has(.picker__input:checked) :global(.picker__glyph) {
+    opacity: 1;
+  }
+  .picker__name {
+    font-size: var(--step--1);
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+
+  /* ---- Active profile ------------------------------------------------- */
+  .feel__now {
+    display: grid;
+    gap: var(--space-s);
+  }
+  [data-feel-show] {
+    display: none;
+  }
+  .feel:has(.picker__input[value='ratchet']:checked) [data-feel-show='ratchet'],
+  .feel:has(.picker__input[value='fluid']:checked) [data-feel-show='fluid'],
+  .feel:has(.picker__input[value='spring']:checked) [data-feel-show='spring'],
+  .feel:has(.picker__input[value='clock']:checked) [data-feel-show='clock'],
+  .feel:has(.picker__input[value='wall']:checked) [data-feel-show='wall'],
+  .feel:has(.picker__input[value='magnet']:checked) [data-feel-show='magnet'] {
+    display: grid;
+  }
+  .feel:has(.picker__input[value='ratchet']:checked) g[data-feel-show='ratchet'],
+  .feel:has(.picker__input[value='fluid']:checked) g[data-feel-show='fluid'],
+  .feel:has(.picker__input[value='spring']:checked) g[data-feel-show='spring'],
+  .feel:has(.picker__input[value='clock']:checked) g[data-feel-show='clock'],
+  .feel:has(.picker__input[value='wall']:checked) g[data-feel-show='wall'],
+  .feel:has(.picker__input[value='magnet']:checked) g[data-feel-show='magnet'] {
+    display: inline;
+  }
+  .feel__head {
+    gap: var(--space-3xs);
+  }
+  .feel__name {
+    font-size: var(--step-3);
+    color: var(--c);
+  }
+  .feel__feel {
+    font-size: var(--step-1);
+    line-height: 1.35;
+    color: var(--ink-strong);
+    max-inline-size: 38ch;
+  }
+  .feel__detail {
+    gap: var(--space-2xs);
+  }
+  .feel__use {
+    color: var(--ink-muted);
+    max-inline-size: 48ch;
+  }
+  .feel__use-label {
+    display: block;
+    font-size: var(--step--2);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+  }
+  .feel__physics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-s);
+    padding: 0;
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+  }
+
+  /* ---- Plot ------------------------------------------------------------ */
+  .plot {
+    display: grid;
+    gap: var(--space-2xs);
+    margin-block: var(--space-2xs);
+  }
+  .plot__frame {
+    position: relative;
+    block-size: clamp(7.5rem, 17svh, 10rem);
+  }
+  .plot__svg {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+  }
+  .plot__grid line {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .plot__grid .plot__zero {
+    stroke: var(--line-strong);
+  }
+  .plot__curve {
+    stroke: var(--feel);
+    stroke-width: 2.25;
+  }
+  .plot__beyond {
+    fill: color-mix(in oklch, var(--feel) 16%, transparent);
+  }
+  .plot__cursor {
+    position: absolute;
+    inset-block: 0;
+    inline-size: 0;
+    border-inline-start: 1px dashed var(--ink-faint);
+  }
+  .plot__dot {
+    position: absolute;
+    inline-size: 0.9rem;
+    block-size: 0.9rem;
+    margin: -0.45rem 0 0 -0.45rem;
+    border-radius: 50%;
+    background: var(--ink-strong);
+    box-shadow: 0 0 0 3px var(--instrument-bg, var(--bg));
+  }
+  :global(html:not([data-js])) .plot__cursor,
+  :global(html:not([data-js])) .plot__dot {
+    display: none;
+  }
+  .plot__axis {
+    display: flex;
+    justify-content: space-between;
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+  }
+  .plot__cap {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 60ch;
+  }
+
+  @media (min-width: 40rem) {
+    .picker {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 64rem) {
+    .feel {
+      min-block-size: 100svh;
+      align-content: center;
+      padding-block: var(--space-3xl);
+    }
+  }
+</style>

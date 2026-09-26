@@ -1,0 +1,104 @@
+---
+/**
+ * The designed switch from night to day. A tally dot (the on-air light) sits
+ * in the dark; as you scroll, the white world opens out of it like an iris.
+ * The line uses difference blending, so it reads light-on-dark, then
+ * dark-on-light, with no JS. Without scroll timelines, or with reduced motion,
+ * it is a calm white band: the finished state.
+ */
+---
+
+<div class="aperture">
+  <div class="aperture__pin">
+    <span class="aperture__dot" aria-hidden="true"></span>
+    <span class="aperture__iris" aria-hidden="true"></span>
+    <p class="aperture__line display">
+      <span>Now look at it</span>
+      <span>in daylight.</span>
+    </p>
+  </div>
+</div>
+
+<style>
+  .aperture {
+    position: relative;
+    background: var(--graphite-950);
+    view-timeline: --aperture block;
+  }
+  .aperture__pin {
+    position: relative;
+    isolation: isolate;
+    overflow: clip;
+    display: grid;
+    place-items: center;
+    min-block-size: 44svh;
+    padding: var(--space-3xl) var(--gutter);
+  }
+  .aperture__dot,
+  .aperture__iris {
+    position: absolute;
+    pointer-events: none;
+  }
+  .aperture__dot {
+    inset-inline-start: 50%;
+    inset-block-start: 50%;
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  .aperture__iris {
+    inset: 0;
+    background: var(--white);
+    clip-path: circle(75% at 50% 50%);
+  }
+  .aperture__line {
+    position: relative;
+    font-size: var(--step-5);
+    text-align: center;
+    color: var(--white);
+    mix-blend-mode: difference;
+  }
+  .aperture__line span {
+    display: block;
+  }
+
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .aperture {
+        block-size: 150svh;
+      }
+      .aperture__pin {
+        position: sticky;
+        inset-block-start: 0;
+        block-size: 100svh;
+        padding-block: 0;
+      }
+      .aperture__iris {
+        animation: aperture-open linear both;
+        animation-timeline: --aperture;
+        animation-range: contain 0% contain 80%;
+      }
+      .aperture__dot {
+        animation: aperture-dot linear both;
+        animation-timeline: --aperture;
+        animation-range: entry 40% contain 5%;
+      }
+      @keyframes aperture-open {
+        from {
+          clip-path: circle(0.375rem at 50% 50%);
+        }
+        to {
+          clip-path: circle(75% at 50% 50%);
+        }
+      }
+      @keyframes aperture-dot {
+        from {
+          opacity: 0;
+          scale: 0.4;
+        }
+      }
+    }
+  }
+</style>

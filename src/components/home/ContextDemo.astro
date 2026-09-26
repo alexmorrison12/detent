@@ -1,0 +1,214 @@
+---
+/**
+ * "It knows which app you're in." Four app demos, all driven by the stage
+ * dial (dialId="home-dial", so no extra WebGL contexts). Switching tabs also
+ * switches the dial's feel: the product's actual behavior, demonstrated.
+ * No JS: every demo is listed in order and the tab strip is hidden.
+ */
+import AppDemo from '@/components/demos/AppDemo.astro';
+import { byProfile } from '@/data/product';
+import { url } from '@/lib/url';
+import { CONTEXT_TABS, FACTS } from './data';
+---
+
+<section class="ctx" data-scene-id="context" aria-labelledby="ctx-title" id="apps">
+  <h2 id="ctx-title" class="display ctx__title">
+    It knows which app you’re&nbsp;in.
+  </h2>
+  <p class="ctx__lede">
+    Switch windows and the feel switches with you. {FACTS.onDeviceProfiles} profiles live on the
+    dial itself, so the right one is loaded before your hand is back on the knob. Try it: pick an
+    app, then turn.
+  </p>
+
+  <div class="ctx__tabs" role="tablist" aria-label="Apps" data-ctx-tabs>
+    {CONTEXT_TABS.map((t, i) => (
+      <button
+        class="ctx__tab"
+        type="button"
+        role="tab"
+        id={`ctx-tab-${t.app}`}
+        aria-controls={`ctx-panel-${t.app}`}
+        aria-selected={i === 0 ? 'true' : 'false'}
+        tabindex={i === 0 ? 0 : -1}
+        data-app={t.app}
+        data-profile={t.profile}
+        data-display={t.display}
+        style={`--c: var(--feel-${t.profile})`}
+      >
+        <span class="ctx__tab-name">{t.tab}</span>
+        <span class="ctx__tab-app">
+          <span class="ctx__dot" aria-hidden="true" />
+          {t.appName}
+        </span>
+      </button>
+    ))}
+  </div>
+
+  <div class="ctx__panels">
+    {CONTEXT_TABS.map((t, i) => (
+      <div
+        class="ctx__panel"
+        id={`ctx-panel-${t.app}`}
+        role="tabpanel"
+        aria-labelledby={`ctx-tab-${t.app}`}
+        data-panel={t.app}
+        data-active={i === 0 ? '' : undefined}
+        tabindex="-1"
+      >
+        <h3 class="ctx__panel-title">
+          {t.appName}
+          <span class="ctx__panel-feel" style={`--c: var(--feel-${t.profile})`}>
+            <span class="ctx__dot" aria-hidden="true" />
+            {byProfile(t.profile).name}
+          </span>
+        </h3>
+        <AppDemo app={t.app} dialId="home-dial" profile={t.profile} />
+        <p class="ctx__line">
+          {t.line}{' '}
+          <a class="link-arrow" href={url(`/for/${t.audience}/`)}>
+            {t.linkLabel}
+          </a>
+        </p>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .ctx {
+    padding-block: var(--section-y);
+    display: grid;
+    gap: var(--space-l);
+  }
+  .ctx__title {
+    font-size: var(--step-5);
+    max-inline-size: 14ch;
+  }
+  .ctx__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+
+  .ctx__tabs {
+    display: none;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-block-end: 1px solid var(--line);
+  }
+  :global(html[data-js]) .ctx__tabs {
+    display: grid;
+  }
+  .ctx__tab {
+    display: grid;
+    gap: 0.15rem;
+    justify-items: start;
+    text-align: start;
+    min-block-size: 3.5rem;
+    padding: var(--space-2xs) var(--space-2xs) var(--space-xs);
+    margin-block-end: -1px;
+    border-block-end: 2px solid transparent;
+    color: var(--ink-muted);
+    transition:
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out);
+  }
+  .ctx__tab:hover {
+    color: var(--ink-strong);
+  }
+  .ctx__tab[aria-selected='true'] {
+    color: var(--ink-strong);
+    border-block-end-color: var(--c);
+  }
+  .ctx__tab-name {
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .ctx__tab-app {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: var(--step--2);
+    font-weight: 540;
+  }
+  .ctx__dot {
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: 50%;
+    background: var(--c);
+    flex: none;
+  }
+
+  .ctx__panels {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  :global(html[data-js]) .ctx__panel:not([data-active]) {
+    display: none;
+  }
+  .ctx__panel {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .ctx__panel:focus-visible {
+    outline-offset: 6px;
+  }
+  .ctx__panel-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2xs) var(--space-s);
+    font-size: var(--step-1);
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+  }
+  :global(html[data-js]) .ctx__panel-title {
+    position: absolute;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .ctx__panel-feel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--ink-muted);
+  }
+  .ctx__line {
+    color: var(--ink-muted);
+    max-inline-size: 52ch;
+  }
+  .ctx__line .link-arrow {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 30rem) {
+    .ctx__tab-app {
+      display: none;
+    }
+    .ctx__tab-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+      font-size: var(--step-0);
+    }
+    .ctx__tab-name::before {
+      content: '';
+      inline-size: 0.5rem;
+      block-size: 0.5rem;
+      border-radius: 50%;
+      background: var(--c);
+    }
+  }
+  @media (min-width: 64rem) {
+    .ctx {
+      padding-block: var(--space-3xl) var(--space-2xl);
+    }
+  }
+</style>
