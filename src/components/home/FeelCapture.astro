@@ -179,9 +179,11 @@ const note = demo
     border-radius: 50%;
     color: var(--ink-muted);
   }
-  .capture__close:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .capture__close:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
   }
   .capture__step {
     display: grid;
@@ -221,9 +223,11 @@ const note = demo
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .capture__seg:hover {
-    border-color: var(--ink);
-    background: var(--surface);
+  @media (hover: hover) {
+    .capture__seg:hover {
+      border-color: var(--ink);
+      background: var(--surface);
+    }
   }
   .capture__seg:active {
     transform: translateY(1px);
@@ -253,7 +257,9 @@ const note = demo
     text-underline-offset: 0.2em;
     min-block-size: 2.75rem;
   }
-  .capture__back:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .capture__back:hover {
+      color: var(--ink-strong);
+    }
   }
 </style>

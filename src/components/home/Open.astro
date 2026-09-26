@@ -79,9 +79,13 @@ const FACT_ROWS = [
         </span>
         <span class="code__name">{PROFILE_FILE_NAME}</span>
       </figcaption>
+      {/* Lines run wider than a phone, so the file scrolls sideways: focusable
+          for keyboard scrolling, and a named region so that focus lands on
+          something a screen reader can announce (a bare <pre> drops the label). */}
       <pre
         class="code__pre"
         tabindex="0"
+        role="region"
         aria-label={`Example profile file, ${PROFILE_FILE_NAME}`}
       ><code set:html={highlighted} /></pre>
       <p class="code__note">

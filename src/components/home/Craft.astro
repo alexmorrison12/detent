@@ -224,8 +224,10 @@ const OPS = [
       outline-color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .swatch:hover .swatch__chip {
-    outline-color: var(--line-strong);
+  @media (hover: hover) {
+    .swatch:hover .swatch__chip {
+      outline-color: var(--line-strong);
+    }
   }
   .swatch:active .swatch__chip {
     transform: translateY(1px);

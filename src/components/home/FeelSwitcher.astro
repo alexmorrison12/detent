@@ -197,9 +197,6 @@ const quarter = [-180, -90, 0, 90, 180];
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .picker__opt:hover {
-    border-color: var(--line-strong);
-  }
   .picker__opt:active {
     transform: translateY(1px);
   }
@@ -224,9 +221,16 @@ const quarter = [-180, -90, 0, 90, 180];
     opacity: 0.55;
     transition: opacity var(--dur-2) var(--ease-out);
   }
-  .picker__opt:hover :global(.picker__glyph),
   .picker__opt:has(.picker__input:checked) :global(.picker__glyph) {
     opacity: 1;
+  }
+  @media (hover: hover) {
+    .picker__opt:hover {
+      border-color: var(--line-strong);
+    }
+    .picker__opt:hover :global(.picker__glyph) {
+      opacity: 1;
+    }
   }
   .picker__name {
     font-size: var(--step--1);
