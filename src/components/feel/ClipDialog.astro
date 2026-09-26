@@ -74,6 +74,7 @@
     letter-spacing: var(--tracking-display);
   }
   .clip__close {
+    flex: none;
     display: grid;
     place-items: center;
     inline-size: 2.75rem;
@@ -101,6 +102,47 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-xs);
+  }
+  /*
+   * Landscape phones: a square preview stacked over the actions would push
+   * Download below the fold of a 360px-tall dialog. Put the clip beside them,
+   * as tall as the dialog allows, so preview and Download share one screen.
+   */
+  @media (orientation: landscape) and (max-height: 32rem) {
+    .clip {
+      inline-size: min(100vw - 2 * var(--gutter), 48rem);
+    }
+    .clip__panel {
+      grid-template-columns: auto minmax(12rem, 1fr);
+      grid-template-rows: auto auto auto 1fr;
+      column-gap: var(--space-m);
+      align-items: start;
+    }
+    .clip__video {
+      grid-column: 1;
+      grid-row: 1 / -1;
+      /* The dialog's height, less its margin, padding and border. */
+      block-size: calc(100dvh - 2rem - 2 * var(--space-m) - 2px);
+      inline-size: auto;
+      max-inline-size: 60vw;
+    }
+    .clip__head {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .clip__meta {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .clip__actions {
+      grid-column: 2;
+      grid-row: 3;
+    }
+    .clip__panel > .concept-note {
+      grid-column: 2;
+      grid-row: 4;
+      align-self: end;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .clip,

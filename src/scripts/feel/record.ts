@@ -316,3 +316,45 @@ export async function recordClip(opts: {
   const file = new File([blob], name, { type });
   return { blob, url: URL.createObjectURL(blob), file, mime: type, ext, width: out, height: out };
 }
+
+/* ---- Where the clip lands ------------------------------------------------- */
+let shownUrl = '';
+let wired = false;
+
+/** Put a finished clip in the page's clip dialog: looping preview, Download, Share (when the OS can take the file). */
+export function showClip(dialog: HTMLDialogElement, clip: Clip, share: { title: string; text: string; onShare?: () => void }): void {
+  const video = dialog.querySelector<HTMLVideoElement>('[data-clip-video]');
+  const dl = dialog.querySelector<HTMLAnchorElement>('[data-clip-download]');
+  const shareBtn = dialog.querySelector<HTMLButtonElement>('[data-clip-share]');
+  const meta = dialog.querySelector<HTMLElement>('[data-clip-meta]');
+  if (!wired) {
+    wired = true;
+    dialog.addEventListener('click', (ev) => {
+      if (ev.target === dialog || (ev.target as Element).closest('[data-clip-close]')) dialog.close();
+    });
+    dialog.addEventListener('close', () => video?.pause());
+  }
+  if (shownUrl) URL.revokeObjectURL(shownUrl);
+  shownUrl = clip.url;
+  if (video) {
+    video.src = clip.url;
+    void video.play().catch(() => undefined);
+  }
+  if (dl) {
+    dl.href = clip.url;
+    dl.download = clip.file.name;
+  }
+  if (meta) meta.textContent = `${clip.ext.toUpperCase()} · ${clip.width} × ${clip.height} · ${(clip.blob.size / 1e6).toFixed(1)} MB`;
+  if (shareBtn) {
+    shareBtn.hidden = !(navigator.canShare?.({ files: [clip.file] }) ?? false);
+    shareBtn.onclick = async () => {
+      try {
+        await navigator.share({ files: [clip.file], title: share.title, text: share.text });
+        share.onShare?.();
+      } catch {
+        /* dismissed */
+      }
+    };
+  }
+  dialog.showModal();
+}

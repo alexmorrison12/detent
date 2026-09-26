@@ -78,8 +78,9 @@ const markup = torqueCurveMarkup(physics, { width: W, height: H, compact });
     overflow: visible;
     font-family: var(--font-mono);
   }
+  /* A host can shorten the compact plot (the builder's pinned monitor on short screens). */
   [data-compact] .curve__svg {
-    --curve-h: 7.5rem;
+    --curve-h: var(--curve-compact-h, 7.5rem);
   }
   .curve__cap {
     display: flex;
