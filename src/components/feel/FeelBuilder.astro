@@ -72,12 +72,12 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       <legend>Clicks</legend>
       <div class="ctl">
         <label for="b-detents">Detents per turn</label>
-        <output for="b-detents" class="readout" data-out="detents"></output>
+        <output for="b-detents" class="readout" aria-live="off" data-out="detents"></output>
         <input id="b-detents" type="range" min={dMin} max={dMax} step="1" value={p.detents} data-b="detents" />
       </div>
       <div class="ctl">
         <label for="b-strength">Click strength</label>
-        <output for="b-strength" class="readout" data-out="strength"></output>
+        <output for="b-strength" class="readout" aria-live="off" data-out="strength"></output>
         <input id="b-strength" type="range" min="0" max="100" step="1" value={Math.round(p.strength * 100)} data-b="strength" />
       </div>
       <label class="toggle">
@@ -91,12 +91,12 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       <legend>Weight</legend>
       <div class="ctl">
         <label for="b-damping">Damping</label>
-        <output for="b-damping" class="readout" data-out="damping"></output>
+        <output for="b-damping" class="readout" aria-live="off" data-out="damping"></output>
         <input id="b-damping" type="range" min="0" max="100" step="1" value={Math.round(p.damping * 100)} data-b="damping" />
       </div>
       <div class="ctl">
         <label for="b-spring">Spring back to noon</label>
-        <output for="b-spring" class="readout" data-out="spring"></output>
+        <output for="b-spring" class="readout" aria-live="off" data-out="spring"></output>
         <input id="b-spring" type="range" min="0" max="100" step="1" value={Math.round(p.spring * 100)} data-b="spring" />
       </div>
     </fieldset>
@@ -110,7 +110,7 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       </label>
       <div class="ctl">
         <label for="b-stops">Stops at</label>
-        <output for="b-stops" class="readout" data-out="stops"></output>
+        <output for="b-stops" class="readout" aria-live="off" data-out="stops"></output>
         <input
           id="b-stops"
           type="range"
@@ -128,7 +128,7 @@ const [sMin, sMax] = FEEL_LIMITS.stop;
       <legend>Magnet</legend>
       <div class="ctl">
         <label for="b-snaps">Snap points</label>
-        <output for="b-snaps" class="readout" data-out="snaps"></output>
+        <output for="b-snaps" class="readout" aria-live="off" data-out="snaps"></output>
         <input id="b-snaps" type="range" min="0" max="12" step="1" value={(p.snaps ?? []).length} data-b="snaps" />
       </div>
     </fieldset>
