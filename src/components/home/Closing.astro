@@ -10,9 +10,12 @@
 import DialStage from '@/components/dial/DialStage.astro';
 import DialStill from '@/components/dial/DialStill.astro';
 import PhaseCTA from '@/components/PhaseCTA.astro';
-import { byProfile } from '@/data/product';
+import { byProfile, type FinishId } from '@/data/product';
 
 const clock = byProfile('clock');
+// Shared by the live dial and its placeholder still so they always show one picture.
+const finish: FinishId = 'raw';
+const sizes = '(min-width: 64rem) 24rem, 78vw';
 ---
 
 <section class="closing" data-world="night" aria-labelledby="closing-title">
@@ -23,15 +26,17 @@ const clock = byProfile('clock');
           id="closing-dial"
           interactive
           steppers
-          finish="raw"
+          finish={finish}
           profile={clock.id}
           camera="hero"
-          sizes="(min-width: 64rem) 24rem, 78vw"
+          sizes={sizes}
           label="Detent One in Raw, Clock profile. Drag it, or use the arrow keys, to turn it."
         />
       </template>
+      {/* The same still DialStage falls back to (Clock at 12 on the display), so
+          no-JS, first paint and the swap to the live dial match. */}
       <div class="closing__still" data-lazy-still>
-        <DialStill finish="raw" view="hero" sizes="(min-width: 64rem) 24rem, 78vw" />
+        <DialStill finish={finish} view="hero" profile={clock.id} sizes={sizes} />
       </div>
     </div>
     <div class="closing__copy">
