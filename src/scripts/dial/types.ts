@@ -9,7 +9,11 @@
  *   camera       CameraPreset        'hero' | 'top' | 'side' | 'front' | 'exploded' | 'config'
  *   autorotate   boolean attr        one gentle idle look-around (≤ 5 s) each time it scrolls into view
  *   label        string              accessible name (default 'Detent dial')
- *   display      string              short text shown on the knob's round display (≤ 10 chars)
+ *   display      string              short text shown on the knob's round display (≤ 10 chars).
+ *                                    While it is set the page owns the whole display: the
+ *                                    engine's small readout line under it is cleared
+ *   display-sub  string              (extension) the small line under `display` (≤ 16 chars,
+ *                                    caps read best, e.g. "OF 3"); ignored without `display`
  *   quality      'auto'|'low'|'high' renderer tier hint ('low' = SVG only, never loads three.js)
  *   muted        boolean attr        (extension) no sound and no vibration from this dial
  *   loading      'lazy'|'eager'      (extension) 'eager' boots 3D immediately (render harness, above-the-fold toys)
@@ -53,6 +57,10 @@
  *
  * Units: angles in degrees, clockwise positive seen from above, 0 = the tally
  * line at 12 o'clock. velocity in degrees per second.
+ *
+ * Worlds: a dial whose computed color-scheme is light (inside data-world="day") keeps the
+ * halo's light on the desk to a faint line at the foot; night keeps the full glow.
+ * Read when the dial connects.
  *
  * CSS hooks on the host (read-only, for page reactions without JS listeners):
  *   --dial-value (0..1), --dial-turn (angle / 360, unbounded), [data-renderer], [data-grabbed]

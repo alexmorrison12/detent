@@ -33,6 +33,19 @@ const C_STOP = 2 * Math.sqrt(K_STOP);
 const K_COUPLE = 5200; // pointer → knob coupling
 const C_COUPLE = 2 * 0.85 * Math.sqrt(K_COUPLE);
 const SNAP_FRACTION = 0.55; // hysteresis: switch detent after 55% of the way
+/** An accent detent (Clock noon, a heavy mark in a custom feel) is this much stiffer. */
+const ACCENT_GAIN = 1.9;
+/**
+ * No well may hold harder than a finger one step away can pull: its torque is capped
+ * at this share of the coupling's pull at the well's edge. Without the cap a strength-1
+ * accent (1.9 × 2600) out-pulls the coupling (5200) short of the 55 % ridge, so an
+ * arrow key or a one-detent drag parks the knob halfway and it falls back.
+ * With it, an accent engages 1.9× stiffer, peaks ~1.3× harder than a plain detent
+ * and lets go about 0.9 of a detent behind the finger (a plain one, ~0.8).
+ */
+const ESCAPE = 0.8;
+/** Peak torque (rad/s²) for a well whose edge (where it lets go) is `edge` rad out. */
+const holdFor = (edge: number) => ESCAPE * K_COUPLE * edge * (1 / SNAP_FRACTION - 1);
 const BUMP_HALF_WIDTH = 7 * DEG;
 const MAGNET_RADIUS = 15 * DEG;
 const STOP_OVERSHOOT = 4 * DEG; // hard clamp beyond the virtual stop
@@ -377,20 +390,26 @@ export class DialPhysics {
         const acc = this.isAccentAngle(this.center);
         this.emit(acc ? 'accent' : 'detent', this.index, acc);
       }
-      const heavy = this.isAccentAngle(this.center) ? 1.9 : 1;
+      const heavy = this.isAccentAngle(this.center) ? ACCENT_GAIN : 1;
       const k = K_DETENT * (0.25 + 0.75 * p.strength) * heavy;
-      a += -k * (this.theta - this.center);
+      // Linear near the centre, flat once it reaches the cap (see ESCAPE). Plain detents
+      // never reach it (≤ 1430·w at strength 1); heavy ones do, above strength ~0.58.
+      const hold = holdFor(snap);
+      a += -clamp(k * (this.theta - this.center), -hold, hold);
       // Crisp settle near a centre, but let flicks carry through.
       const f = speed < 4 ? 1 : speed > 14 ? 0.1 : 1 - ((speed - 4) / 10) * 0.9;
       a += -2 * 0.5 * Math.sqrt(k) * f * this.omega;
     } else if (p.accents.length) {
-      // Accent wells on a detentless profile: a soft bump you feel pass.
+      // Accent wells on a detentless profile: a soft bump you feel pass. It is a detent
+      // well one key step wide at most, capped the same way, so one step always clears it.
       const k = K_BUMP * (0.3 + p.strength);
+      const half = Math.min(BUMP_HALF_WIDTH, SNAP_FRACTION * this.stepSize);
+      const hold = holdFor(half);
       p.accents.forEach((acc, i) => {
         const d = p.stops ? this.theta - acc : wrapPi(this.theta - acc);
         const side = Math.sign(d) || 1;
-        if (Math.abs(d) < BUMP_HALF_WIDTH) {
-          a += -k * d - 2 * 0.45 * Math.sqrt(k) * this.omega;
+        if (Math.abs(d) < half) {
+          a += -clamp(k * d, -hold, hold) - 2 * 0.45 * Math.sqrt(k) * this.omega;
           const prev = this.bumpSide.get(i);
           if (prev !== undefined && prev !== side) this.emit('accent', i, true);
         }

@@ -23,10 +23,17 @@ import {
 const NS = 'http://www.w3.org/2000/svg';
 const DEG = Math.PI / 180;
 const VIEW_K = 2 * Math.tan((FOV / 2) * DEG);
-/** Diamond knurl, as in 3D (144 teeth, 12 rows); drawn every other tooth. */
-const KNURL_TEETH = 144;
-const KNURL_DRAWN = 72;
+/** Diamond knurl, as in 3D (MM.knurlTeeth lines, 12 rows); drawn every other tooth. */
+const KNURL_TEETH = MM.knurlTeeth;
+const KNURL_DRAWN = Math.round(KNURL_TEETH / 2);
 const CHAMFER = '#e4e4e2';
+/**
+ * Radius (mm) of the desk-glow ellipse. The day glow is a small ellipse of its own:
+ * perspective shifts a projected circle's centre with its radius, so on the 64 mm one
+ * the base's front edge sits at 0.4 of the gradient and its sides at 0.56, and no
+ * set of stops can hug the foot all round.
+ */
+const GLOW_R = { night: 64, day: 43 } as const;
 let uid = 0;
 
 type Attrs = Record<string, string | number>;
@@ -358,13 +365,23 @@ export class SvgView implements DialView {
     set(this.n.indicator!, { stroke: s.finish.accent });
   }
 
-  private paintColor(color: string) {
-    const list: [number, number][] = [
-      [0.52, 0.5],
-      [0.6, 0.22],
-      [0.74, 0.06],
-      [1, 0],
-    ];
+  private paintColor(color: string, day: boolean) {
+    // The halo's light on the desk, in glow radii (see GLOW_R). Night: a soft pool out
+    // to ~47 mm. Day: a faint line hugging the foot, since the same pool on a white page
+    // reads as a colored stain, not light.
+    const list: [number, number][] = day
+      ? [
+          [0.8, 0.28],
+          [0.87, 0.11],
+          [0.94, 0.025],
+          [1, 0],
+        ]
+      : [
+          [0.52, 0.5],
+          [0.6, 0.22],
+          [0.74, 0.06],
+          [1, 0],
+        ];
     list.forEach(([o, a], i) =>
       set(this.stops.glow![i]!, { offset: o, 'stop-color': color, 'stop-opacity': a }),
     );
@@ -445,12 +462,13 @@ export class SvgView implements DialView {
       this.finishKey = s.finish.id;
       this.paintFinish(s);
     }
-    if (this.colorKey !== s.color) {
-      this.colorKey = s.color;
-      this.paintColor(s.color);
+    const colorKey = `${s.color}|${s.day}`;
+    if (this.colorKey !== colorKey) {
+      this.colorKey = colorKey;
+      this.paintColor(s.color, s.day);
     }
     const r = s.rig;
-    const geoKey = `${r.az.toFixed(2)}|${r.el.toFixed(2)}|${r.dist.toFixed(1)}|${r.ty.toFixed(2)}|${s.explode.toFixed(4)}|${s.press.toFixed(3)}|${this.w}x${this.h}`;
+    const geoKey = `${r.az.toFixed(2)}|${r.el.toFixed(2)}|${r.dist.toFixed(1)}|${r.ty.toFixed(2)}|${s.explode.toFixed(4)}|${s.press.toFixed(3)}|${this.w}x${this.h}|${s.day}`;
     if (geoKey !== this.geoKey) {
       this.geoKey = geoKey;
       this.layout(s);
@@ -481,7 +499,7 @@ export class SvgView implements DialView {
 
     // Ground (moves with the foot, as in 3D)
     this.ell('shadow', 44, L.foot!, 2.2);
-    this.ell('glow', 64, L.foot!, 1.5);
+    this.ell('glow', GLOW_R[s.day ? 'day' : 'night'], L.foot!, s.day ? 0.6 : 1.5);
 
     // Foot
     set(this.n.footSide!, { d: this.side(MM.footR, L.foot!, L.foot! + MM.footH) });

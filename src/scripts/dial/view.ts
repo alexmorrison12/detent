@@ -24,6 +24,11 @@ export interface ViewState {
   press: number;
   /** Magnet: index of the snap the knob sits on, -1 when free. */
   snap: number;
+  /**
+   * The dial sits in a day world (light color-scheme): the halo's light on the desk
+   * stays a faint, tight line instead of a colored haze on a white page.
+   */
+  day: boolean;
 }
 
 export interface KnobCircle {
