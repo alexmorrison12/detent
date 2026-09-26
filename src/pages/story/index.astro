@@ -142,7 +142,7 @@ const aboutLd = {
           </div>
           <p class="stage__figure">
             <span class="readout">{LAUNCH.foundersRun.toLocaleString('en-US')}</span>
-            <span class="stage__label">Founders serials, then no more</span>
+            <span class="stage__label">Founders Editions, then no more</span>
           </p>
         </li>
       </ol>
@@ -476,8 +476,10 @@ const aboutLd = {
   .principle__proof {
     color: var(--ink-muted);
   }
-  .principle:hover .principle__word {
-    color: var(--accent-text);
+  @media (hover: hover) {
+    .principle:hover .principle__word {
+      color: var(--accent-text);
+    }
   }
   .principle__word {
     transition: color var(--dur-2) var(--ease-out);

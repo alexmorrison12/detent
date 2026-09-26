@@ -37,7 +37,7 @@ const policies = POLICIES.map((p) => ({
         <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
         <path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
       </svg>
-      <input id="faq-q" type="search" class="faq__input" placeholder="Search: battery, refund, Linux…" autocomplete="off" data-q />
+      <input id="faq-q" type="search" class="input faq__input" placeholder="Search: battery, refund, Linux…" autocomplete="off" data-q />
     </div>
     <p class="faq__count" data-count><span class="readout">{total}</span> answers</p>
     <p class="visually-hidden" role="status" data-count-status></p>
@@ -227,29 +227,19 @@ const policies = POLICIES.map((p) => ({
     color: var(--ink-muted);
     pointer-events: none;
   }
+  /* Border, fill, hover and focus come from .input (--line-input, >= 3:1);
+     this only sizes the field up to be the page's first tool. */
   .faq__input {
     inline-size: 100%;
     min-block-size: 4.25rem;
     padding: 0.5rem 1.25rem 0.5rem 3.4rem;
-    border: 1px solid var(--line-strong);
     border-radius: var(--r-l);
-    background: var(--bg-raised);
-    color: var(--ink-strong);
     font-size: var(--step-2);
     font-weight: 560;
     font-stretch: var(--stretch-ui);
-    transition: border-color var(--dur-2) var(--ease-out);
   }
   .faq__input::placeholder {
-    color: var(--ink-muted);
     font-weight: 400;
-  }
-  .faq__input:hover {
-    border-color: var(--ink-muted);
-  }
-  .faq__input:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 2px;
   }
   .faq__count {
     font-size: var(--step--1);
@@ -281,8 +271,10 @@ const policies = POLICIES.map((p) => ({
       border-color var(--dur-2) var(--ease-out),
       opacity var(--dur-2) var(--ease-out);
   }
-  .faq__topics a:hover {
-    border-color: var(--ink-strong);
+  @media (hover: hover) {
+    .faq__topics a:hover {
+      border-color: var(--ink-strong);
+    }
   }
   .faq__topics a[data-empty] {
     opacity: 0.4;
@@ -337,8 +329,10 @@ const policies = POLICIES.map((p) => ({
   .qa summary::-webkit-details-marker {
     display: none;
   }
-  .qa summary:hover .qa__knob {
-    border-color: var(--ink-strong);
+  @media (hover: hover) {
+    .qa summary:hover .qa__knob {
+      border-color: var(--ink-strong);
+    }
   }
   .qa__q :global(mark) {
     background: color-mix(in oklch, var(--tally) 22%, transparent);
@@ -421,8 +415,10 @@ const policies = POLICIES.map((p) => ({
     text-underline-offset: 0.2em;
     transition: text-decoration-color var(--dur-2) var(--ease-out);
   }
-  .policy-hit a:hover .policy-hit__head {
-    text-decoration-color: currentColor;
+  @media (hover: hover) {
+    .policy-hit a:hover .policy-hit__head {
+      text-decoration-color: currentColor;
+    }
   }
   .faq__none {
     display: grid;
@@ -430,6 +426,9 @@ const policies = POLICIES.map((p) => ({
     justify-items: start;
     padding-block: var(--space-l);
     color: var(--ink-muted);
+  }
+  .faq__none .link-arrow {
+    min-block-size: 2.75rem;
   }
   .faq__none-title {
     font-size: var(--step-2);

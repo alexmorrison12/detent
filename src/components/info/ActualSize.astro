@@ -100,8 +100,10 @@ const CARD = { w: 85.6, h: 53.98, r: 3.18 };
     text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
     text-underline-offset: 0.25em;
   }
-  .actual-btn:hover {
-    text-decoration-color: currentColor;
+  @media (hover: hover) {
+    .actual-btn:hover {
+      text-decoration-color: currentColor;
+    }
   }
 
   .actual {
@@ -156,8 +158,10 @@ const CARD = { w: 85.6, h: 53.98, r: 3.18 };
     block-size: 2.75rem;
     border-radius: 50%;
   }
-  .actual__close:hover {
-    background: var(--surface);
+  @media (hover: hover) {
+    .actual__close:hover {
+      background: var(--surface);
+    }
   }
   .actual__step {
     max-inline-size: 60ch;

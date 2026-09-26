@@ -115,8 +115,10 @@ const BOX = 'In the box';
     color: var(--ink-muted);
     transition: color var(--dur-2) var(--ease-out);
   }
-  .sheet__index a:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .sheet__index a:hover {
+      color: var(--ink-strong);
+    }
   }
   .sheet__index .readout {
     font-size: var(--step--2);

@@ -108,7 +108,7 @@ const faqLd = {
       <dl class="contact__facts">
         <div><dt>First reply</dt><dd>Within {CONTACT.firstReply}, in a live launch</dd></div>
         <div><dt>Hours</dt><dd>{CONTACT.hours}</dd></div>
-        <div><dt>Press</dt><dd><a href={url('/press/')}>Press kit and press contact</a></dd></div>
+        <div><dt>Press</dt><dd><a class="contact__link" href={url('/press/')}>Press kit and press contact</a></dd></div>
       </dl>
       <p class="concept-note">
         Detent is a concept product, so this is a placeholder address on a reserved domain and it does not receive mail.
@@ -299,11 +299,17 @@ const faqLd = {
     display: grid;
     grid-template-columns: 7rem 1fr;
     gap: var(--space-s);
+    /* Baselines, not tops: the press link is a 44px target, taller than its text. */
+    align-items: baseline;
   }
   .contact__facts dt {
     color: var(--ink-muted);
     font-size: var(--step--1);
-    padding-block-start: 0.15em;
+  }
+  .contact__link {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2.75rem;
   }
   .contact__include ul {
     display: grid;

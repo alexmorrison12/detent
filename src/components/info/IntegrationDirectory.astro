@@ -6,11 +6,12 @@
  */
 import DialStage from '@/components/dial/DialStage.astro';
 import ProfileTag from './ProfileTag.astro';
-import { INTEGRATIONS, PROFILES, byProfile, type IntegrationCategory } from '@/data/product';
+import { INTEGRATIONS, PROFILES, SYSTEM_SET, byProfile, type IntegrationCategory } from '@/data/product';
 import { APPS, STATUS, displayLabel } from '@/data/directory';
 
 const categories = [...new Set(INTEGRATIONS.map((i) => i.category))] as IntegrationCategory[];
-const count = (c: IntegrationCategory) => INTEGRATIONS.filter((i) => i.category === c).length;
+// Chip counts are app counts, like the "17 apps" line: System is not an app.
+const count = (c: IntegrationCategory) => APPS.filter((i) => i.category === c).length;
 const first = INTEGRATIONS[0]!;
 const firstProfile = byProfile(first.profile);
 const apps = INTEGRATIONS.map((i) => ({ ...i, display: displayLabel(i.name) }));
@@ -29,11 +30,11 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
       <fieldset class="dir__group">
         <legend class="dir__label">Category</legend>
         <div class="chips">
-          <label class="chip"><input type="radio" name="cat" value="" checked /> All <span class="readout">{INTEGRATIONS.length}</span></label>
+          <label class="chip"><input type="radio" name="cat" value="" checked /> All <span class="readout">{APPS.length}</span></label>
           {
             categories.map((c) => (
               <label class="chip">
-                <input type="radio" name="cat" value={c} /> {c} <span class="readout">{count(c)}</span>
+                <input type="radio" name="cat" value={c} /> {c} {count(c) > 0 && <span class="readout">{count(c)}</span>}
               </label>
             ))
           }
@@ -122,7 +123,7 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
     <div class="dir__empty" data-empty hidden>
       <p class="dir__empty-title">Nothing matches that.</p>
       <p>
-        Every app still gets scroll, volume and undo out of the box. <a href="#request">Ask for the one you need</a>, or <a href="#sdk">write it yourself</a>.
+        Every app still gets {SYSTEM_SET} out of the box. <a href="#request">Ask for the one you need</a>, or <a href="#sdk">write it yourself</a>.
       </p>
       <button type="button" class="btn btn--sm" data-reset>Clear filters</button>
     </div>
@@ -216,8 +217,10 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
       background-color var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
   }
-  .chip:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .chip:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .chip input {
     position: absolute;
@@ -356,8 +359,10 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
       border-color var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
   }
-  .app__try:hover {
-    border-color: var(--ink-strong);
+  @media (hover: hover) {
+    .app__try:hover {
+      border-color: var(--ink-strong);
+    }
   }
   .app__try:active {
     transform: translateY(1px);

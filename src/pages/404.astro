@@ -197,8 +197,10 @@ const links = [
     font-stretch: 112%;
     color: var(--ink-strong);
   }
-  .lost__nav a:hover .lost__nav-label {
-    color: var(--accent-text);
+  @media (hover: hover) {
+    .lost__nav a:hover .lost__nav-label {
+      color: var(--accent-text);
+    }
   }
   .lost__nav-line {
     font-size: var(--step--1);

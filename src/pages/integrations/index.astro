@@ -7,7 +7,7 @@ import CodePane from '@/components/info/CodePane.astro';
 import RequestForm from '@/components/info/RequestForm.astro';
 import { SITE } from '@/config/site';
 import { ogPath } from '@/config/og';
-import { INTEGRATIONS, byProfile } from '@/data/product';
+import { SYSTEM_SET, byProfile } from '@/data/product';
 import { APPS, SDK_SAMPLE, appsBy } from '@/data/directory';
 import { specValue } from '@/data/engineering';
 import { absoluteUrl } from '@/lib/url';
@@ -24,8 +24,9 @@ const listLd = {
   '@type': 'ItemList',
   name: `${SITE.product} integrations`,
   url: absoluteUrl('/integrations/', Astro.site),
-  numberOfItems: INTEGRATIONS.length,
-  itemListElement: INTEGRATIONS.map((i, n) => ({
+  description: `Apps with their own ${SITE.product} profile. Every other app gets the system set: ${SYSTEM_SET}.`,
+  numberOfItems: APPS.length,
+  itemListElement: APPS.map((i, n) => ({
     '@type': 'ListItem',
     position: n + 1,
     name: `${SITE.product} in ${i.name}`,
@@ -46,7 +47,7 @@ const listLd = {
     title="It knows which app you’re in."
     sheet="Integrations"
     fact={`${appsBy('native')} native · ${appsBy('plugin')} plugin · ${appsBy('community')} community`}
-    lede="Detent Studio watches which window is in front and swaps the feel in about a millisecond. Pick an app and feel its profile on the dial. Anything not listed still gets scroll, volume and undo."
+    lede={`Detent Studio watches which window is in front and swaps the feel in about a millisecond. Pick an app and feel its profile on the dial. Anything not listed still gets the system set: ${SYSTEM_SET}.`}
   />
 
   <section class="container dir-section" aria-labelledby="dir-h">
@@ -119,6 +120,10 @@ const listLd = {
   .sdk__facts dd {
     font-weight: 600;
     color: var(--ink-strong);
+  }
+  /* A standalone link, so a 44px target like every other control. */
+  .sdk__side .link-arrow {
+    min-block-size: 2.75rem;
   }
   .sdk__code {
     display: grid;

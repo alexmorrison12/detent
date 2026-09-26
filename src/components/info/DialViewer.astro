@@ -148,8 +148,10 @@ const first = VIEWS[0];
       background-color var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
   }
-  .seg__btn:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .seg__btn:hover {
+      color: var(--ink-strong);
+    }
   }
   .seg__btn[aria-pressed='true'] {
     background: var(--ink-strong);

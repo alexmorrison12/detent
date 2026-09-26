@@ -4,13 +4,18 @@
  * Trial length and warranty years always come from PAYMENT.
  */
 import { PAYMENT } from './product';
+import { LAUNCH } from '@/config/launch';
+import { serialRange } from '@/scripts/launch/format';
+
+const editionNumbers = serialRange(LAUNCH.foundersRun);
 
 export const CONTACT = {
   hours: 'Monday to Friday, 09:00 to 17:00 Pacific',
   firstReply: 'one working day',
   /** What to put in the email so the first reply can already fix it. */
   include: [
-    'The serial number: engraved on the base, and shown in Detent Studio under Device',
+    // Every unit has a serial. Only the Founders Edition also has an edition number.
+    `The serial number: in Detent Studio under Device, and engraved on the base. On a Founders Edition, not the ${editionNumbers} edition number beside it`,
     'Your firmware version, from the same screen',
     'The app you were in and what the dial did instead of what you expected',
   ],
