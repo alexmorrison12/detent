@@ -1,0 +1,303 @@
+---
+/**
+ * The spec sheet for whatever is on the dial: name, who made it, how it
+ * feels, every physics value as a readout, the plain JSON file, and the
+ * sharing actions. When the page is opened from a Feel Link, the "received"
+ * block adds Feel this / Remix / the phase CTA.
+ */
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import type { Phase } from '@/config/launch';
+import type { LibraryEntry } from '@/data/community-profiles';
+import { readouts } from '@/scripts/feel/model';
+import { highlightJson, profileJson } from '@/scripts/feel/json';
+
+interface Props {
+  initial: LibraryEntry;
+}
+const { initial } = Astro.props;
+
+const json = profileJson({
+  id: initial.id,
+  name: initial.name,
+  author: initial.author,
+  base: initial.base,
+  color: initial.color,
+  physics: initial.physics,
+});
+
+/** The lead-in above the phase CTA, worded for what the CTA actually does. */
+const WANT_ONE: Record<Phase, string> = {
+  tease: 'Want to feel the real one first?',
+  waitlist: 'Get in line for one that feels like this.',
+  reserve: 'Reserve one that feels like this.',
+  launch: 'Order one that feels like this.',
+  live: 'Get one that feels like this.',
+};
+---
+
+<section class="sheet" aria-labelledby="sheet-name" data-sheet>
+  <p class="sheet__kind" data-sheet-kind>
+    <span class="sheet__dot" aria-hidden="true"></span>
+    <span data-sheet-kind-text>Core profile · ships on every Detent</span>
+  </p>
+  <h2 id="sheet-name" class="sheet__name" data-sheet-name>{initial.name}</h2>
+  <p class="sheet__feel" data-sheet-feel>{initial.feel}</p>
+  <p class="sheet__error" data-link-error hidden>
+    That Feel Link didn’t decode, so the dial loaded Ratchet instead. Links are checked and clamped before they reach the
+    motor, and this one didn’t pass.
+  </p>
+
+  <div class="received" data-received hidden>
+    <p class="received__lead">
+      It’s on the dial exactly as it was tuned. Every value was checked against the motor’s limits before the first click.
+    </p>
+    <div class="received__actions">
+      <button class="btn btn--solid" type="button" data-action="feel-this">Feel this</button>
+      <a class="btn" href="#make" data-action="remix">Remix</a>
+    </div>
+    <div class="received__cta">
+      {
+        (Object.keys(WANT_ONE) as Phase[]).map((p) => (
+          <p class="received__want" data-phase-only={p}>
+            {WANT_ONE[p]}
+          </p>
+        ))
+      }
+      <PhaseCTA placement="feel-link" />
+    </div>
+  </div>
+
+  <p class="sheet__use" data-sheet-use>{initial.use ? `For: ${initial.use}` : `Tuned for ${initial.app}.`}</p>
+
+  <dl class="sheet__readouts" data-readouts>
+    {
+      readouts(initial.physics).map((r) => (
+        <div class="sheet__readout" data-key={r.key}>
+          <dt>{r.label}</dt>
+          <dd class="readout">{r.value}</dd>
+        </div>
+      ))
+    }
+  </dl>
+
+  <div class="sheet__actions" data-needs-js>
+    <button class="btn btn--solid" type="button" data-action="copy-link">Copy Feel Link</button>
+    <button class="btn" type="button" data-action="share" hidden>Share</button>
+    <a class="btn btn--quiet" href="#make" data-action="remix">Remix it</a>
+  </div>
+  <p class="sheet__status" role="status" data-status></p>
+
+  <figure class="file">
+    <figcaption class="file__bar">
+      <span class="file__name" data-file-name>{initial.id}.detent.json</span>
+      <span class="file__tools" data-needs-js>
+        <button class="file__btn" type="button" data-action="copy-json">Copy</button>
+        <button class="file__btn" type="button" data-action="download-json">Download</button>
+      </span>
+    </figcaption>
+    <pre class="file__code" tabindex="0" aria-label="Profile JSON"><code data-file-code set:html={highlightJson(json)} /></pre>
+  </figure>
+</section>
+
+<style>
+  @property --turn {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+  }
+  .sheet {
+    display: grid;
+    gap: var(--space-s);
+    min-inline-size: 0;
+    container-type: inline-size;
+  }
+  .sheet__kind {
+    display: flex;
+    align-items: center;
+    gap: 0.55em;
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .sheet__dot {
+    flex: none;
+    inline-size: 0.65rem;
+    block-size: 0.65rem;
+    border-radius: 50%;
+    background: var(--feel);
+  }
+  /* The profile's name is set in the width axis, and the dial drives it:
+     turn away from noon and the name condenses; come back and it opens up. */
+  .sheet__name {
+    --fit: 125%;
+    font-size: var(--step-5);
+    font-weight: 790;
+    font-stretch: max(62%, calc(var(--fit) - 40% * var(--turn)));
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    color: var(--ink-strong);
+    min-block-size: 1em;
+    overflow-wrap: anywhere;
+  }
+  .sheet__feel {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink);
+    max-inline-size: 40ch;
+  }
+  .sheet__use {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .sheet__error {
+    padding: var(--space-s);
+    border-radius: var(--r-m);
+    border: 1px solid var(--tally);
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+
+  /* Opened from a Feel Link. One full border in the feel color. */
+  .received {
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-m);
+    border-radius: var(--r-l);
+    border: 1px solid color-mix(in oklch, var(--feel) 70%, transparent);
+    background: color-mix(in oklch, var(--feel) 7%, var(--bg));
+  }
+  .received__lead {
+    color: var(--ink);
+  }
+  .received__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .received__cta {
+    display: grid;
+    gap: var(--space-xs);
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--line);
+  }
+  .received__want {
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+
+  .sheet__readouts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin-block: var(--space-2xs);
+    border-radius: var(--r-m);
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+  @container (min-width: 34rem) {
+    .sheet__readouts {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .sheet__readout {
+    display: grid;
+    gap: 0.15rem;
+    padding: 0.7rem 0.85rem;
+    background: var(--bg);
+  }
+  .sheet__readout dt {
+    font-size: var(--step--2);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .sheet__readout dd {
+    color: var(--ink-strong);
+    overflow-wrap: anywhere;
+  }
+  .sheet__readout[data-changed] dd {
+    color: var(--feel);
+  }
+
+  .sheet__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .sheet__status {
+    min-block-size: 1.3em;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  /* The profile file, as an editor would show it. */
+  .file {
+    border-radius: var(--r-l);
+    border: 1px solid var(--line);
+    background: var(--bg-raised);
+    overflow: hidden;
+  }
+  .file__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+    padding: 0.35rem 0.4rem 0.35rem 1rem;
+    border-block-end: 1px solid var(--line);
+  }
+  .file__name {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file__tools {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .file__btn {
+    min-block-size: 2.75rem;
+    padding: 0 0.85rem;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .file__btn:hover {
+    background: var(--surface);
+    color: var(--ink-strong);
+  }
+  .file__code {
+    margin: 0;
+    padding: var(--space-s) var(--space-m);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    line-height: 1.75;
+    color: var(--ink-muted);
+    tab-size: 2;
+  }
+  .file__code :global(.j-k) {
+    color: var(--ink);
+  }
+  .file__code :global(.j-s) {
+    color: var(--ink-strong);
+  }
+  .file__code :global(.j-n) {
+    color: var(--feel);
+  }
+  .file__code :global(.j-l) {
+    color: var(--feel);
+    font-style: italic;
+  }
+</style>

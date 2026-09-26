@@ -1,0 +1,208 @@
+---
+/**
+ * /profiles/: the Feel Library. One dial (the feel station), the library of
+ * core and community profiles, a builder, Feel Links and 6-second clips.
+ * ?p=<id> selects a library profile; #v1.<payload> opens a Feel Link.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import FeelStage from '@/components/feel/FeelStage.astro';
+import FeelSheet from '@/components/feel/FeelSheet.astro';
+import FeelLibrary from '@/components/feel/FeelLibrary.astro';
+import FeelBuilder from '@/components/feel/FeelBuilder.astro';
+import FeelLinkAnatomy from '@/components/feel/FeelLinkAnatomy.astro';
+import ClipDialog from '@/components/feel/ClipDialog.astro';
+import { SITE } from '@/config/site';
+import { ogPath } from '@/config/og';
+import { LIBRARY, COMMUNITY_PROFILES } from '@/data/community-profiles';
+import { PROFILES, SPECS } from '@/data/product';
+import { absoluteUrl, url } from '@/lib/url';
+import { encodeFeel } from '@/lib/feel-link';
+
+const initial = LIBRARY[0]!;
+const pageUrl = absoluteUrl('/profiles/', Astro.site);
+const pagePart = pageUrl.replace(/^https?:\/\//, '');
+const initialPayload = await encodeFeel({ name: initial.name, base: initial.base, physics: initial.physics });
+
+const onDevice = parseInt(SPECS.flatMap((g) => g.rows).find((r) => /profiles on device/i.test(r.label))?.value ?? '', 10);
+const ctaLede = `Detent One plays every profile on this page through a real motor and switches between them per app${
+  Number.isFinite(onDevice) ? `, with ${onDevice} of them stored on the dial itself` : ''
+}.`;
+const title = 'Feel library: every Detent profile, and a builder for yours';
+const description = `Turn ${LIBRARY.length} haptic profiles on a live dial, from the ${PROFILES.length} that ship on Detent One to ${COMMUNITY_PROFILES.length} community feels. Tune your own torque curve and send it as a link.`;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: 'Detent feel library',
+  description,
+  url: pageUrl,
+  isPartOf: { '@type': 'WebSite', name: SITE.name, url: absoluteUrl('/', Astro.site) },
+  about: { '@type': 'Product', name: SITE.product },
+  mainEntity: {
+    '@type': 'ItemList',
+    numberOfItems: LIBRARY.length,
+    itemListElement: LIBRARY.map((e, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `${pageUrl}?p=${e.id}`,
+      item: {
+        '@type': 'CreativeWork',
+        name: e.name,
+        description: e.feel,
+        genre: e.kind === 'core' ? 'Core haptic profile' : `Haptic profile for ${e.app}`,
+        author: e.kind === 'core' ? { '@type': 'Organization', name: SITE.legalName } : { '@type': 'Person', name: e.author },
+        encodingFormat: 'application/json',
+      },
+    })),
+  },
+};
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  ogImage={ogPath('profiles')}
+  ogImageAlt="Detent feel library: every feel has a name"
+  jsonLd={jsonLd}
+>
+  <div class="feel" data-feel data-world="night" style={`--feel: var(--feel-${initial.base})`}>
+    <div class="container feel__grid">
+      <header class="feel__intro">
+        <h1 class="feel__h1">Every feel has a name.</h1>
+        <p class="feel__received" data-intro-received hidden></p>
+        <p class="feel__lede" data-intro-lede>
+          Pick a profile and turn the dial. The ring shows where it clicks, the curve shows how hard it pushes back, and the file is
+          the whole definition. Change one number and you’ve made a new feel.
+        </p>
+      </header>
+
+      <FeelStage initial={initial} />
+      <FeelSheet initial={initial} />
+      <FeelLibrary initial={initial} />
+      <FeelBuilder initial={initial} />
+    </div>
+
+    <FeelLinkAnatomy pagePart={pagePart} payload={initialPayload} />
+
+    <section class="feel-cta" aria-labelledby="feel-cta-title">
+      <div class="container feel-cta__inner">
+        <h2 id="feel-cta-title" class="display display--l">{LIBRARY.length} feels on a screen. One knob on your desk.</h2>
+        <div class="feel-cta__side">
+          <p class="lede">{ctaLede}</p>
+          <PhaseCTA placement="profiles-footer" size="lg" showSecondary />
+          <p class="feel-cta__more">
+            <a class="link-arrow" href={url('/integrations/')}>See which feel each app gets</a>
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <ClipDialog />
+
+  <script>
+    import '@/scripts/feel/station';
+  </script>
+</BaseLayout>
+
+<style>
+  @property --feel {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: oklch(0.636 0.218 355.3);
+  }
+  .feel {
+    transition: --feel var(--dur-3) var(--ease-out);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feel {
+      transition-duration: var(--dur-1);
+    }
+  }
+  :global(:root:not([data-js]) [data-needs-js]) {
+    display: none !important;
+  }
+
+  .feel__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xl);
+    padding-block: var(--space-xl) var(--section-y);
+  }
+  .feel__intro {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .feel__h1 {
+    font-size: var(--step-4);
+    font-weight: 790;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    max-inline-size: 14ch;
+  }
+  .feel__lede {
+    color: var(--ink-muted);
+    max-inline-size: 50ch;
+  }
+  .feel__received {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink);
+    max-inline-size: 40ch;
+  }
+  .feel__received :global(strong) {
+    color: var(--ink-strong);
+    font-weight: 700;
+  }
+
+  @media (min-width: 64rem) {
+    .feel__grid {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      column-gap: clamp(2.5rem, 5vw, 6rem);
+      row-gap: var(--space-2xl);
+      align-items: start;
+      padding-block-start: 0;
+    }
+    .feel__grid > :global(.stage) {
+      grid-column: 1;
+      grid-row: 1 / span 4;
+      position: sticky;
+      inset-block-start: var(--header-h);
+    }
+    .feel__grid > :not(:global(.stage)) {
+      grid-column: 2;
+    }
+    .feel__intro {
+      padding-block-start: var(--space-2xl);
+    }
+  }
+
+  .feel-cta {
+    padding-block: var(--section-y);
+    border-block-start: 1px solid var(--line);
+  }
+  .feel-cta__inner {
+    display: grid;
+    gap: var(--space-xl);
+    align-items: end;
+  }
+  .feel-cta__side {
+    display: grid;
+    gap: var(--space-l);
+    justify-items: start;
+  }
+  .feel-cta h2 {
+    max-inline-size: 14ch;
+  }
+  @media (min-width: 64rem) {
+    .feel-cta__inner {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+      column-gap: clamp(2.5rem, 5vw, 6rem);
+    }
+  }
+  .feel-cta__more {
+    font-size: var(--step--1);
+  }
+</style>

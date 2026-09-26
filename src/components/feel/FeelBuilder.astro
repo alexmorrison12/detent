@@ -1,0 +1,444 @@
+---
+/**
+ * "Make your own": a live editor for whatever is on the station dial. Every
+ * control writes the dial's physics override and redraws the torque curve.
+ * Needs JS (it is an instrument); without JS a note explains and the library
+ * above still reads in full.
+ */
+import TorqueCurve from './TorqueCurve.astro';
+import { PROFILES } from '@/data/product';
+import { FEEL_LIMITS } from '@/lib/feel-link';
+import type { LibraryEntry } from '@/data/community-profiles';
+import { PEAK_TORQUE } from '@/scripts/feel/model';
+
+interface Props {
+  initial: LibraryEntry;
+}
+const { initial } = Astro.props;
+const p = initial.physics;
+const [dMin, dMax] = FEEL_LIMITS.detents;
+const [sMin, sMax] = FEEL_LIMITS.stop;
+---
+
+<section class="builder" id="make" aria-labelledby="make-title">
+  <div class="builder__head">
+    <h2 id="make-title" class="builder__title">Make your own.</h2>
+    <p class="builder__intro">
+      Seven numbers make a feel. Drag any of them and the dial, the ring and the curve change with you. Up to {PEAK_TORQUE} mN·m, which is
+      everything the motor has.
+    </p>
+  </div>
+
+  <noscript>
+    <p class="builder__noscript">The builder runs in your browser and needs JavaScript. Every profile above is still here in full.</p>
+  </noscript>
+
+  <div class="builder__monitor" data-needs-js>
+    <TorqueCurve id="curve-builder" physics={p} name={initial.name} compact legend={false} />
+  </div>
+
+  <form class="builder__form" data-builder data-needs-js novalidate>
+    <div class="builder__identity">
+      <div class="field">
+        <label for="b-name">Name it</label>
+        <input
+          id="b-name"
+          class="input"
+          name="name"
+          type="text"
+          maxlength={FEEL_LIMITS.nameLength}
+          autocomplete="off"
+          spellcheck="false"
+          value={initial.name}
+          data-b="name"
+        />
+      </div>
+      <fieldset class="swatches">
+        <legend>Color</legend>
+        <div class="swatches__row">
+          {
+            PROFILES.map((prof) => (
+              <label class="swatch" style={`--s: var(--feel-${prof.id})`} title={`${prof.name} color`}>
+                <input type="radio" name="base" value={prof.id} checked={prof.id === initial.base} data-b="base" />
+                <span class="visually-hidden">{prof.name} color</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+    </div>
+
+    <fieldset class="group">
+      <legend>Clicks</legend>
+      <div class="ctl">
+        <label for="b-detents">Detents per turn</label>
+        <output for="b-detents" class="readout" data-out="detents"></output>
+        <input id="b-detents" type="range" min={dMin} max={dMax} step="1" value={p.detents} data-b="detents" />
+      </div>
+      <div class="ctl">
+        <label for="b-strength">Click strength</label>
+        <output for="b-strength" class="readout" data-out="strength"></output>
+        <input id="b-strength" type="range" min="0" max="100" step="1" value={Math.round(p.strength * 100)} data-b="strength" />
+      </div>
+      <label class="toggle">
+        <input type="checkbox" data-b="accent" checked={(p.accents ?? []).includes(0)} />
+        <span class="toggle__track" aria-hidden="true"></span>
+        <span>Heavier click at noon</span>
+      </label>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Weight</legend>
+      <div class="ctl">
+        <label for="b-damping">Damping</label>
+        <output for="b-damping" class="readout" data-out="damping"></output>
+        <input id="b-damping" type="range" min="0" max="100" step="1" value={Math.round(p.damping * 100)} data-b="damping" />
+      </div>
+      <div class="ctl">
+        <label for="b-spring">Spring back to noon</label>
+        <output for="b-spring" class="readout" data-out="spring"></output>
+        <input id="b-spring" type="range" min="0" max="100" step="1" value={Math.round(p.spring * 100)} data-b="spring" />
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Limits</legend>
+      <label class="toggle">
+        <input type="checkbox" data-b="stopsOn" checked={!!p.stops} />
+        <span class="toggle__track" aria-hidden="true"></span>
+        <span>End stops</span>
+      </label>
+      <div class="ctl">
+        <label for="b-stops">Stops at</label>
+        <output for="b-stops" class="readout" data-out="stops"></output>
+        <input
+          id="b-stops"
+          type="range"
+          min={sMin}
+          max={sMax}
+          step="5"
+          value={p.stops ? p.stops[1] : 135}
+          disabled={!p.stops}
+          data-b="stops"
+        />
+      </div>
+    </fieldset>
+
+    <fieldset class="group">
+      <legend>Magnet</legend>
+      <div class="ctl">
+        <label for="b-snaps">Snap points</label>
+        <output for="b-snaps" class="readout" data-out="snaps"></output>
+        <input id="b-snaps" type="range" min="0" max="12" step="1" value={(p.snaps ?? []).length} data-b="snaps" />
+      </div>
+    </fieldset>
+
+    <div class="builder__export">
+      <div class="builder__buttons">
+        <button class="btn btn--solid" type="button" data-action="copy-link">Copy Feel Link</button>
+        <button class="btn" type="button" data-action="share" hidden>Share</button>
+        <button class="btn btn--quiet" type="button" data-action="download-json">Download JSON</button>
+        <button class="btn btn--quiet" type="button" data-action="copy-json">Copy JSON</button>
+      </div>
+      <p class="builder__status" role="status" data-status></p>
+      <p class="concept-note">
+        Your profile lives in the link and in the file you download. Nothing is uploaded, and there is no account to save it to.
+      </p>
+    </div>
+  </form>
+</section>
+
+<style>
+  .builder {
+    display: grid;
+    gap: var(--space-m);
+    min-inline-size: 0;
+    scroll-margin-top: calc(var(--header-h) + var(--space-s));
+  }
+  .builder__head {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .builder__title {
+    font-size: var(--step-4);
+    font-weight: 790;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .builder__intro {
+    color: var(--ink-muted);
+    max-inline-size: 52ch;
+  }
+  .builder__noscript {
+    padding: var(--space-s);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-m);
+  }
+  :root:not([data-js]) [data-needs-js] {
+    display: none;
+  }
+
+  /* On small screens the dial is far above, so the curve rides along. */
+  .builder__monitor {
+    position: sticky;
+    inset-block-start: var(--header-h);
+    z-index: var(--z-raised);
+    padding-block: var(--space-2xs) var(--space-xs);
+    background: var(--bg);
+    border-block-end: 1px solid var(--line);
+  }
+  @media (min-width: 64rem) {
+    .builder__monitor {
+      display: none;
+    }
+  }
+
+  .builder__form {
+    display: grid;
+    gap: var(--space-l);
+  }
+  .builder__identity {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--space-m);
+  }
+  .swatches {
+    border: 0;
+    padding: 0;
+    min-inline-size: 0;
+  }
+  .swatches legend,
+  .group legend {
+    padding: 0;
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .swatches legend {
+    margin-block-end: var(--space-2xs);
+  }
+  .swatches__row {
+    display: flex;
+    gap: 0.15rem;
+  }
+  .swatch {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .swatch::before {
+    content: '';
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    border-radius: 50%;
+    background: var(--s);
+    box-shadow: 0 0 0 3px var(--bg);
+    transition: box-shadow var(--dur-2) var(--ease-out);
+  }
+  .swatch:has(input:checked)::before {
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 0 5px var(--ink-strong);
+  }
+  .swatch input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .swatch:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 0;
+  }
+
+  .group {
+    display: grid;
+    gap: var(--space-s);
+    margin: 0;
+    padding: var(--space-m) 0 0;
+    border: 0;
+    border-block-start: 1px solid var(--line);
+    min-inline-size: 0;
+  }
+  .group legend {
+    float: left;
+    inline-size: 100%;
+    margin-block-end: var(--space-2xs);
+    font-size: var(--step-0);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .group legend + * {
+    clear: both;
+  }
+
+  .ctl {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.2rem var(--space-s);
+  }
+  .ctl label {
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--ink);
+  }
+  .ctl output {
+    color: var(--ink-strong);
+    text-align: end;
+  }
+  .ctl input[type='range'] {
+    grid-column: 1 / -1;
+  }
+  .ctl:has(input:disabled) label,
+  .ctl:has(input:disabled) output {
+    color: var(--ink-muted);
+  }
+  .ctl input:disabled {
+    opacity: 0.4;
+  }
+
+  /* Range: a machined track with the feel color filled up to the thumb. */
+  input[type='range'] {
+    --fill: 50%;
+    appearance: none;
+    inline-size: 100%;
+    block-size: 2.75rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type='range']:disabled {
+    cursor: not-allowed;
+  }
+  input[type='range']::-webkit-slider-runnable-track {
+    block-size: 4px;
+    border-radius: var(--r-pill);
+    background: linear-gradient(to right, var(--feel) var(--fill), var(--line-strong) var(--fill));
+  }
+  input[type='range']::-moz-range-track {
+    block-size: 4px;
+    border-radius: var(--r-pill);
+    background: linear-gradient(to right, var(--feel) var(--fill), var(--line-strong) var(--fill));
+  }
+  input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    inline-size: 1.4rem;
+    block-size: 1.4rem;
+    margin-block-start: calc(2px - 0.7rem);
+    border-radius: 50%;
+    background: var(--ink-strong);
+    border: 0;
+    box-shadow: inset 0 0 0 2px var(--bg), var(--shadow-1);
+    transition: transform var(--dur-1) var(--ease-out);
+  }
+  input[type='range']::-moz-range-thumb {
+    inline-size: 1.4rem;
+    block-size: 1.4rem;
+    border-radius: 50%;
+    background: var(--ink-strong);
+    border: 0;
+    box-shadow: inset 0 0 0 2px var(--bg), var(--shadow-1);
+  }
+  input[type='range']:active::-webkit-slider-thumb {
+    transform: scale(1.12);
+  }
+  input[type='range']:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: var(--r-s);
+  }
+
+  /* Toggle switch on a real checkbox. */
+  .toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--ink);
+    cursor: pointer;
+    justify-self: start;
+  }
+  .toggle input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .toggle__track {
+    position: relative;
+    flex: none;
+    inline-size: 2.5rem;
+    block-size: 1.4rem;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .toggle__track::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 0.2rem;
+    inset-inline-start: 0.2rem;
+    inline-size: 1rem;
+    block-size: 1rem;
+    border-radius: 50%;
+    background: var(--ink-muted);
+    transition:
+      translate var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .toggle input:checked + .toggle__track {
+    background: var(--feel);
+    box-shadow: none;
+  }
+  .toggle input:checked + .toggle__track::after {
+    translate: 1.1rem 0;
+    background: var(--graphite-950);
+  }
+  .toggle input:focus-visible + .toggle__track {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .toggle__track::after,
+    input[type='range']::-webkit-slider-thumb {
+      transition: none;
+    }
+  }
+
+  .builder__export {
+    display: grid;
+    gap: var(--space-xs);
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--line);
+  }
+  .builder__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .builder__status {
+    min-block-size: 1.3em;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 30rem) {
+    .builder__identity {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

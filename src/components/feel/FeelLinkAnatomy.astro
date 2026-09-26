@@ -1,0 +1,181 @@
+---
+/**
+ * "A feel fits in a link": the live Feel Link for whatever is on the dial,
+ * taken apart. Day world: this is the reading part of the page.
+ */
+import { FEEL_LIMITS } from '@/lib/feel-link';
+import { PEAK_TORQUE } from '@/scripts/feel/model';
+
+interface Props {
+  /** Page part of the URL, e.g. "example.github.io/detent/profiles/". */
+  pagePart: string;
+  /** Initial payload, e.g. "v1.zq1Y…". */
+  payload: string;
+}
+const { pagePart, payload } = Astro.props;
+const [version, ...rest] = payload.split('.');
+const body = rest.join('.');
+const [, dMax] = FEEL_LIMITS.detents;
+---
+
+<section class="anatomy" data-world="day" aria-labelledby="anatomy-title">
+  <div class="container anatomy__inner">
+    <div class="anatomy__head">
+      <h2 id="anatomy-title" class="display display--m">A feel fits in a link.</h2>
+      <p class="lede">
+        This is the link for what’s on the dial right now. Change a number above and watch it change. The profile is the link:
+        there’s no database behind it, so it can’t expire and nobody can take it down.
+      </p>
+    </div>
+
+    <figure class="anatomy__figure">
+      <p class="anatomy__url" data-anatomy-url>
+        <span class="anatomy__page">{pagePart}</span><span class="anatomy__hash">#</span><span class="anatomy__ver" data-anatomy-ver>{version}.</span><span class="anatomy__body" data-anatomy-body>{body}</span>
+      </p>
+      <figcaption>
+        <dl class="anatomy__parts">
+          <div>
+            <dt><span class="anatomy__swatch anatomy__swatch--page" aria-hidden="true"></span>Before the #</dt>
+            <dd>The page. It’s the only part your browser sends to a server when you open the link.</dd>
+          </div>
+          <div>
+            <dt><span class="anatomy__swatch anatomy__swatch--ver" aria-hidden="true"></span>#v1.</dt>
+            <dd>The format version. Links made today will still open when the format grows.</dd>
+          </div>
+          <div>
+            <dt><span class="anatomy__swatch anatomy__swatch--body" aria-hidden="true"></span>The rest</dt>
+            <dd>
+              The profile itself: <span class="readout" data-anatomy-bytes>{body.length - 1}</span> characters of compact JSON,
+              <span data-anatomy-mode>{body.startsWith('z') ? 'deflated, then base64url-encoded' : 'base64url-encoded (too short to be worth deflating)'}</span>.
+            </dd>
+          </div>
+        </dl>
+      </figcaption>
+    </figure>
+
+    <dl class="anatomy__facts">
+      <div>
+        <dt>Private by construction</dt>
+        <dd>Browsers never send the part after # anywhere. Nobody logs which feel you opened, including us.</dd>
+      </div>
+      <div>
+        <dt>Clamped on arrival</dt>
+        <dd>
+          Every number is forced into the motor’s envelope before the dial plays a click: 0 to {dMax} detents, {PEAK_TORQUE} mN·m at most, stops no
+          tighter than ±{FEEL_LIMITS.stop[0]}°. A hostile link can’t make it buzz, shriek or spin.
+        </dd>
+      </div>
+      <div>
+        <dt>Plain JSON underneath</dt>
+        <dd>
+          Download gives you the same file the open SDK and the companion app read. Put it in a repo, diff it, send it to a friend
+          with a Detent.
+        </dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<style>
+  .anatomy {
+    padding-block: var(--section-y);
+  }
+  .anatomy__inner {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  .anatomy__head {
+    display: grid;
+    gap: var(--space-m);
+    align-items: end;
+  }
+  .anatomy__head .lede {
+    max-inline-size: 46ch;
+  }
+  @media (min-width: 64rem) {
+    .anatomy__head {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      column-gap: clamp(2.5rem, 5vw, 6rem);
+    }
+  }
+  .anatomy__figure {
+    display: grid;
+    gap: var(--space-l);
+  }
+  .anatomy__url {
+    font-family: var(--font-mono);
+    font-size: clamp(0.95rem, 0.7rem + 1.2vw, 1.6rem);
+    line-height: 1.5;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+    padding-block: var(--space-m);
+    border-block: 1px solid var(--line-strong);
+  }
+  .anatomy__page {
+    color: var(--ink-muted);
+  }
+  .anatomy__hash,
+  .anatomy__ver {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .anatomy__body {
+    color: var(--ink-strong);
+    text-decoration: underline;
+    text-decoration-color: var(--feel);
+    text-decoration-thickness: 3px;
+    text-underline-offset: 0.3em;
+  }
+  .anatomy__parts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: var(--space-l);
+  }
+  .anatomy__parts dt {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .anatomy__parts dd {
+    margin-block-start: var(--space-2xs);
+    color: var(--ink-muted);
+    max-inline-size: 36ch;
+  }
+  .anatomy__swatch {
+    inline-size: 1.4rem;
+    block-size: 0.35rem;
+    border-radius: var(--r-pill);
+  }
+  .anatomy__swatch--page {
+    background: var(--ink-faint);
+  }
+  .anatomy__swatch--ver {
+    background: var(--accent);
+  }
+  .anatomy__swatch--body {
+    background: var(--feel);
+  }
+
+  .anatomy__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--space-xl) var(--space-l);
+    padding-block-start: var(--space-xl);
+    border-block-start: 1px solid var(--line);
+  }
+  .anatomy__facts dt {
+    font-size: var(--step-1);
+    font-weight: 740;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: var(--leading-snug);
+  }
+  .anatomy__facts dd {
+    margin-block-start: var(--space-xs);
+    color: var(--ink-muted);
+    max-inline-size: 40ch;
+  }
+</style>

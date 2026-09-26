@@ -1,0 +1,171 @@
+---
+/**
+ * Torque vs angle for a feel profile. Server-rendered at a nominal size so it
+ * reads without JS; the feel station redraws it at its real pixel size and
+ * moves the cursor with the dial.
+ */
+import { describeCurve, torqueCurveMarkup, PEAK_TORQUE, type FeelPhysics } from '@/scripts/feel/model';
+
+interface Props {
+  id: string;
+  physics: FeelPhysics;
+  name: string;
+  compact?: boolean;
+  /** Show the legend under the plot. */
+  legend?: boolean;
+  class?: string;
+}
+const { id, physics, name, compact = false, legend = true, class: className } = Astro.props;
+const W = compact ? 360 : 720;
+const H = compact ? 120 : 190;
+const markup = torqueCurveMarkup(physics, { width: W, height: H, compact });
+---
+
+<figure class:list={['curve', className]} data-curve={id} data-compact={compact ? '' : undefined}>
+  <div class="curve__plot">
+    <svg class="curve__svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-title ${id}-desc`} set:html={markup} />
+    <div class="curve__cursor" data-curve-cursor aria-hidden="true" hidden><span class="curve__dot" data-curve-dot></span></div>
+  </div>
+  <figcaption class="curve__cap">
+    <span id={`${id}-title`} class="curve__title">Torque vs angle <span class="curve__unit">mN·m, peak {PEAK_TORQUE}</span></span>
+    {
+      legend && (
+        <span class="curve__legend" aria-hidden="true">
+          <span class="curve__key curve__key--rest">rest point</span>
+          <span class="curve__key curve__key--drag">drag at 1 turn/s</span>
+          <span class="curve__key curve__key--stop">past the stop</span>
+        </span>
+      )
+    }
+    <span id={`${id}-desc`} class="visually-hidden" data-curve-desc>{describeCurve(physics, name)}</span>
+  </figcaption>
+</figure>
+
+<style>
+  .curve {
+    display: grid;
+    gap: var(--space-2xs);
+    min-inline-size: 0;
+  }
+  .curve__plot {
+    position: relative;
+  }
+  /* Live cursor: its own layer, moved with transforms, so the plot never repaints mid-turn. */
+  .curve__cursor {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: 1px;
+    background: color-mix(in oklch, var(--ink-strong) 55%, transparent);
+    pointer-events: none;
+    will-change: transform;
+  }
+  .curve__dot {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: -4.5px;
+    inline-size: 10px;
+    block-size: 10px;
+    margin-block-start: -5px;
+    border-radius: 50%;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 2px var(--feel);
+    will-change: transform;
+  }
+  .curve__svg {
+    inline-size: 100%;
+    block-size: var(--curve-h, 11rem);
+    overflow: visible;
+    font-family: var(--font-mono);
+  }
+  [data-compact] .curve__svg {
+    --curve-h: 7.5rem;
+  }
+  .curve__cap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2xs) var(--space-m);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .curve__title {
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+  }
+  .curve__unit {
+    font-weight: 400;
+    color: var(--ink-muted);
+    margin-inline-start: 0.4em;
+  }
+  .curve__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-s);
+  }
+  .curve__key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+  }
+  .curve__key::before {
+    content: '';
+    display: inline-block;
+    inline-size: 0.8em;
+    block-size: 0.8em;
+  }
+  .curve__key--rest::before {
+    border-radius: 50%;
+    background: var(--ink-strong);
+    inline-size: 0.5em;
+    block-size: 0.5em;
+  }
+  .curve__key--drag::before {
+    background: color-mix(in oklch, var(--feel) 22%, transparent);
+    block-size: 0.55em;
+  }
+  .curve__key--stop::before {
+    background: color-mix(in oklch, var(--ink) 12%, transparent);
+    outline: 1px solid var(--line-strong);
+    outline-offset: -1px;
+  }
+
+  /* Plot parts (injected markup, so :global inside the figure). */
+  .curve :global(.tc-grid) {
+    fill: none;
+    stroke: var(--line);
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+  }
+  .curve :global(.tc-zero) {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .curve :global(.tc-stop) {
+    fill: color-mix(in oklch, var(--ink) 7%, transparent);
+  }
+  .curve :global(.tc-drag) {
+    fill: color-mix(in oklch, var(--feel) 16%, transparent);
+  }
+  .curve :global(.tc-area) {
+    fill: color-mix(in oklch, var(--feel) 14%, transparent);
+  }
+  .curve :global(.tc-line) {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 1.75;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .curve :global(.tc-rest circle) {
+    fill: var(--ink-strong);
+  }
+  .curve :global(.tc-label) {
+    fill: var(--ink-muted);
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+</style>

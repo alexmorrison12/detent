@@ -1,0 +1,282 @@
+---
+/**
+ * The feel library: every profile as a row in a preset browser, with a
+ * torque sparkline as its signature. Filter chips by app category, plus
+ * search. Rows are buttons that load the profile onto the station dial; the
+ * whole list is readable without JS.
+ */
+import { LIBRARY, LIBRARY_CATEGORIES, COMMUNITY_PROFILES, type LibraryEntry } from '@/data/community-profiles';
+import { PROFILES } from '@/data/product';
+import { keyFigure, sparkPath } from '@/scripts/feel/model';
+
+interface Props {
+  initial: LibraryEntry;
+}
+const { initial } = Astro.props;
+const searchText = (e: LibraryEntry) => [e.name, e.author, e.app, e.category, e.feel, e.use ?? ''].join(' ').toLowerCase();
+---
+
+<section class="library" id="library" aria-labelledby="library-title">
+  <div class="library__head">
+    <h2 id="library-title" class="library__title">The library</h2>
+    <p class="library__intro">
+      {PROFILES.length} profiles ship on every Detent. The other {COMMUNITY_PROFILES.length} were tuned for one app each by a community
+      that, like this product, is a concept: the creators are fictional. The physics are real and load onto the dial exactly as
+      written.
+    </p>
+  </div>
+
+  <div class="library__tools" data-needs-js>
+    <div class="library__chips" role="group" aria-label="Filter by app category">
+      <button type="button" class="chip" data-filter="All" aria-pressed="true">All</button>
+      {
+        LIBRARY_CATEGORIES.map((c) => (
+          <button type="button" class="chip" data-filter={c} aria-pressed="false">
+            {c}
+          </button>
+        ))
+      }
+    </div>
+    <div class="library__search">
+      <label for="feel-search" class="visually-hidden">Search profiles</label>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+        <path d="M15 15l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
+      <input
+        id="feel-search"
+        class="input library__input"
+        type="search"
+        placeholder="Name, app or @handle"
+        autocomplete="off"
+        spellcheck="false"
+        data-search
+      />
+    </div>
+  </div>
+  <p class="library__count" aria-live="polite" data-count>{LIBRARY.length} profiles</p>
+
+  <ul class="library__list" role="list" data-list>
+    {
+      LIBRARY.map((e) => (
+        <li data-id={e.id} data-category={e.category} data-search={searchText(e)}>
+          <button
+            type="button"
+            class="row"
+            data-select={e.id}
+            style={`--row-feel: var(--feel-${e.base})`}
+            aria-current={e.id === initial.id ? 'true' : undefined}
+          >
+            <svg class="row__spark" viewBox="0 0 96 28" aria-hidden="true">
+              <path class="row__zero" d="M2 14H94" />
+              <path class="row__line" d={sparkPath(e.physics)} />
+            </svg>
+            <span class="row__main">
+              <span class="row__name">{e.name}</span>
+              <span class="row__meta">
+                {e.kind === 'core' ? 'Core · every app' : `${e.author} · ${e.app}`}
+              </span>
+              <span class="row__feel">{e.feel}</span>
+            </span>
+            <span class="row__fig readout">{keyFigure(e.physics)}</span>
+          </button>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="library__empty" data-empty hidden>
+    Nothing matches that. Try an app name like “Resolve”, or build it yourself below.
+  </p>
+</section>
+
+<style>
+  .library {
+    display: grid;
+    gap: var(--space-s);
+    min-inline-size: 0;
+  }
+  .library__head {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .library__title {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .library__intro {
+    color: var(--ink-muted);
+    max-inline-size: 58ch;
+  }
+
+  .library__tools {
+    display: grid;
+    gap: var(--space-xs);
+    margin-block-start: var(--space-2xs);
+  }
+  .library__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs);
+  }
+  .chip {
+    min-block-size: 2.75rem;
+    padding: 0.4em 0.8em;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    transition:
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .chip:hover {
+    color: var(--ink-strong);
+    border-color: var(--line-strong);
+  }
+  .chip[aria-pressed='true'] {
+    color: var(--bg);
+    background: var(--ink-strong);
+    border-color: var(--ink-strong);
+  }
+  .library__search {
+    position: relative;
+    display: grid;
+    align-items: center;
+  }
+  .library__search svg {
+    position: absolute;
+    inset-inline-start: 0.9rem;
+    color: var(--ink-muted);
+    pointer-events: none;
+  }
+  .library__input {
+    inline-size: 100%;
+    padding-inline-start: 2.6rem;
+    border-radius: var(--r-pill);
+  }
+  .library__count {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  :root:not([data-js]) .library__count {
+    display: none;
+  }
+
+  .library__list {
+    display: grid;
+    border-block-start: 1px solid var(--line);
+  }
+  .library__list > li {
+    border-block-end: 1px solid var(--line);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-s);
+    inline-size: 100%;
+    padding: var(--space-s) var(--space-xs);
+    text-align: start;
+    border-radius: var(--r-m);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .row:hover {
+    background: color-mix(in oklch, var(--surface) 70%, transparent);
+  }
+  .row[aria-current='true'] {
+    background: var(--surface);
+  }
+  .row__spark {
+    inline-size: 6rem;
+    block-size: 1.75rem;
+    overflow: visible;
+  }
+  .row__zero {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+    fill: none;
+  }
+  .row__line {
+    fill: none;
+    stroke: var(--row-feel);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    opacity: 0.8;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .row:hover .row__line,
+  .row[aria-current='true'] .row__line {
+    opacity: 1;
+  }
+  .row__main {
+    display: grid;
+    gap: 0.1rem;
+    min-inline-size: 0;
+  }
+  .row__name {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.25;
+  }
+  .row[aria-current='true'] .row__name::after {
+    content: '';
+    display: inline-block;
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    margin-inline-start: 0.5rem;
+    border-radius: 50%;
+    background: var(--row-feel);
+    vertical-align: 0.1em;
+  }
+  .row__meta {
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .row__feel {
+    margin-block-start: 0.2rem;
+    font-size: var(--step--1);
+    line-height: 1.5;
+    color: var(--ink-muted);
+  }
+  .row__fig {
+    align-self: start;
+    padding-block-start: 0.15rem;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .library__empty {
+    padding: var(--space-m) var(--space-xs);
+    color: var(--ink-muted);
+  }
+
+  /* Phones: name, maker and key figure only. The description arrives in the
+     sheet the moment a row is picked, and the list stays scannable. */
+  @media (max-width: 30rem) {
+    .row {
+      grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+      gap: var(--space-xs);
+      padding: var(--space-xs) var(--space-3xs);
+    }
+    .row__spark {
+      inline-size: 4.5rem;
+    }
+    .row__feel {
+      display: none;
+    }
+    .row__fig {
+      align-self: center;
+      padding: 0;
+    }
+  }
+</style>

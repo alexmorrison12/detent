@@ -1,0 +1,416 @@
+---
+/**
+ * The feel station's instrument: one interactive dial inside an engraved
+ * feel map (detents, accents, snaps, stops, spring), live angle/torque
+ * readouts, quick keys for the six core profiles, the torque curve, and the
+ * sound + record controls. Everything else on /profiles/ drives this.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import TorqueCurve from './TorqueCurve.astro';
+import { PROFILES } from '@/data/product';
+import type { LibraryEntry } from '@/data/community-profiles';
+import { needleMarkup, ringFeelMarkup, ringScaleMarkup, RING } from '@/scripts/feel/model';
+
+interface Props {
+  initial: LibraryEntry;
+}
+const { initial } = Astro.props;
+---
+
+<div class="stage" data-stage>
+  <dl class="stage__live" aria-hidden="true">
+    <div class="stage__live-item">
+      <dt>Angle</dt>
+      <dd class="readout" data-live-angle>0.0°</dd>
+    </div>
+    <div class="stage__live-item stage__live-item--end">
+      <dt>Torque</dt>
+      <dd class="readout" data-live-torque>0.0 mN·m</dd>
+    </div>
+  </dl>
+
+  <div class="stage__frame" data-stage-frame>
+    <div class="stage__halo" aria-hidden="true"></div>
+    <svg class="stage__ring" viewBox="-200 -200 400 400" aria-hidden="true" data-ring>
+      <g set:html={ringScaleMarkup()} />
+      <g data-ring-feel set:html={ringFeelMarkup(initial.physics)} />
+    </svg>
+    <svg class="stage__active" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-active>
+      <path d={`M0 ${-RING.accentOuter - 2}V${-RING.detentInner + 3}`}></path>
+    </svg>
+    <svg class="stage__needle" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-needle set:html={needleMarkup()} />
+    <div class="stage__dialbox">
+      <DialStage
+        id="feel-dial"
+        class="stage__dial"
+        interactive
+        camera="top"
+        finish="graphite"
+        profile={initial.base}
+        label="Feel station dial"
+        priority
+      />
+    </div>
+
+    <p class="stage__onair" aria-hidden="true">Rec</p>
+  </div>
+
+  <div class="stage__keys" role="group" aria-label="Core profiles" data-needs-js>
+    {
+      PROFILES.map((p) => (
+        <button
+          type="button"
+          class="stage__key"
+          data-select={p.id}
+          style={`--k: var(--feel-${p.id})`}
+          aria-current={p.id === initial.id ? 'true' : undefined}
+        >
+          <span class="stage__key-dot" aria-hidden="true" />
+          {p.name}
+        </button>
+      ))
+    }
+  </div>
+
+  <TorqueCurve id="curve-stage" physics={initial.physics} name={initial.name} class="stage__curve" />
+  <div class="stage__tools" data-needs-js>
+    <button class="stage__tool" type="button" data-sound aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path>
+        <path class="stage__wave" d="M15.2 9.2a4 4 0 0 1 0 5.6M17.8 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
+      <span data-sound-label>Sound off</span>
+    </button>
+    <button class="stage__tool stage__tool--play" type="button" data-action="play">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path d="M5 12a7 7 0 1 1 2.05 4.95" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        <path d="M4 20.5v-4.8h4.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      Turn it for me
+    </button>
+    <button class="stage__tool stage__tool--rec" type="button" data-record hidden>
+      <span class="stage__rec-dot" aria-hidden="true"></span>
+      <span data-record-label>Record a 6-second clip</span>
+    </button>
+  </div>
+  <p class="visually-hidden" aria-live="polite" data-announce></p>
+</div>
+
+<style>
+  .stage {
+    display: grid;
+    align-content: center;
+    gap: var(--space-m);
+    min-inline-size: 0;
+  }
+
+  /* ---- The frame: ring + dial, a square that never outgrows the viewport. */
+  .stage__frame {
+    position: relative;
+    inline-size: min(100%, var(--frame-max, 34rem));
+    aspect-ratio: 1;
+    margin-inline: auto;
+    isolation: isolate;
+  }
+  .stage__halo {
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    z-index: -1;
+    /* The 24-LED halo in the base, in the active profile's color. */
+    background: radial-gradient(
+      circle,
+      transparent 56%,
+      color-mix(in oklch, var(--feel) 26%, transparent) 66%,
+      color-mix(in oklch, var(--feel) 6%, transparent) 74%,
+      transparent 80%
+    );
+  }
+  .stage__ring {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  /* The dial sits in its own box (the engine may set inline styles on its
+     element); 81.4% of the frame leaves the ring's bands clear. */
+  .stage__dialbox {
+    position: absolute;
+    inset: 9.3%;
+  }
+  .stage__dialbox :global(.stage__dial:focus-visible) {
+    outline-offset: 6px;
+    border-radius: 50%;
+  }
+
+  /* Ring layers (injected markup). */
+  .stage__ring :global(.fm-minor) {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+    opacity: 0.45;
+  }
+  .stage__ring :global(.fm-major) {
+    stroke: var(--ink-muted);
+    stroke-width: 1.4;
+  }
+  .stage__ring :global(.fm-stop) {
+    fill: color-mix(in oklch, var(--ink) 7%, transparent);
+  }
+  .stage__ring :global(.fm-wall) {
+    stroke: var(--ink-strong);
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+  .stage__ring :global(.fm-spring) {
+    fill: color-mix(in oklch, var(--feel) 38%, transparent);
+  }
+  .stage__ring :global(.fm-detent) {
+    stroke: var(--feel);
+    stroke-width: 2;
+    stroke-linecap: round;
+    transition: opacity var(--dur-1) var(--ease-out);
+  }
+  .stage__ring :global(.fm-accent) {
+    stroke: var(--ink-strong);
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+  .stage__ring :global(.fm-snap) {
+    fill: var(--feel);
+  }
+  /* The needle rotates on its own layer so the engraved ring never repaints mid-turn. */
+  .stage__needle {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    fill: var(--ink-strong);
+    pointer-events: none;
+    will-change: transform;
+  }
+  /* The detent the knob is sitting in, lit. Its own layer; jumps detent to detent. */
+  .stage__active {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    stroke: var(--ink-strong);
+    stroke-width: 5;
+    stroke-linecap: round;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform;
+    filter: drop-shadow(0 0 4px var(--feel));
+  }
+  :root:not([data-js]) .stage__needle,
+  :root:not([data-js]) .stage__active {
+    display: none;
+  }
+  .stage__ring[data-tick] :global(.fm-detent) {
+    opacity: 0.55;
+  }
+
+  /* ---- Live readouts: a row above the dial on phones, the frame's top
+     corners (like a scope) on desktop. */
+  .stage__live {
+    display: flex;
+    justify-content: space-between;
+    margin-block-end: calc(-1 * var(--space-s));
+    pointer-events: none;
+  }
+  .stage__live-item {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .stage__live-item--end {
+    text-align: end;
+  }
+  .stage__live dt {
+    font-size: var(--step--2);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .stage__live dd {
+    font-size: var(--step--1);
+    color: var(--ink-strong);
+  }
+  :root:not([data-js]) .stage__live {
+    display: none;
+  }
+
+  /* ---- Sound + record: a row under the dial; bottom corners on desktop. */
+  .stage__tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .stage__tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-block-size: 2.75rem;
+    padding: 0.5em 0.95em;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .stage__tool:hover {
+    border-color: var(--ink);
+    color: var(--ink-strong);
+  }
+  .stage__tool:active {
+    transform: translateY(1px);
+  }
+  .stage__tool--rec {
+    margin-inline-start: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stage__tool--play {
+      display: none;
+    }
+  }
+  .stage__wave {
+    opacity: 0.25;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  [data-sound][aria-pressed='true'] {
+    color: var(--ink-strong);
+  }
+  [data-sound][aria-pressed='true'] .stage__wave {
+    opacity: 1;
+  }
+  .stage__rec-dot {
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+
+  /* ---- On air: while recording, the frame gets the tally light. */
+  .stage__onair {
+    position: absolute;
+    inset-block-start: 3.2rem;
+    inset-inline-start: 0;
+    display: none;
+    align-items: center;
+    gap: 0.4em;
+    font-size: var(--step--2);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--tally-hot);
+  }
+  .stage__onair::before {
+    content: '';
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  [data-recording] .stage__onair {
+    display: inline-flex;
+  }
+  [data-recording] .stage__tool--rec {
+    border-color: var(--tally);
+    color: var(--ink-strong);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    [data-recording] .stage__onair::before,
+    [data-recording] .stage__rec-dot {
+      animation: onair 1s steps(2, jump-none) infinite;
+    }
+    @keyframes onair {
+      50% {
+        opacity: 0.25;
+      }
+    }
+  }
+
+  /* ---- Core keys. */
+  .stage__keys {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3xs) var(--space-2xs);
+  }
+  .stage__key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-block-size: 2.75rem;
+    padding: 0.4em 0.9em;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    transition:
+      color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .stage__key:hover {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .stage__key-dot {
+    inline-size: 0.7rem;
+    block-size: 0.7rem;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px var(--k);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .stage__key[aria-current='true'] {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .stage__key[aria-current='true'] .stage__key-dot {
+    background: var(--k);
+  }
+
+  @media (min-width: 64rem) {
+    /* The page makes the stage sticky, which also anchors these. */
+    .stage__live {
+      position: absolute;
+      inset: var(--space-xs) 0 auto;
+      margin: 0;
+      z-index: var(--z-raised);
+    }
+    /* Content-sized (never a vh height, which would feed back into the page
+       height); the frame shrinks so the whole instrument fits one screen. */
+    .stage {
+      --frame-max: min(100%, calc(100svh - var(--header-h) - 23.75rem));
+      --curve-h: 8.5rem;
+      padding-block: var(--space-xs);
+      gap: var(--space-s);
+    }
+    .stage__frame {
+      inline-size: max(20rem, var(--frame-max));
+    }
+    .stage__keys {
+      justify-content: center;
+    }
+  }
+  @media (max-width: 30rem) {
+    .stage__tool {
+      padding-inline: 0.8em;
+    }
+    .stage__keys {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .stage__key {
+      justify-content: center;
+      padding-inline: 0.5em;
+    }
+  }
+</style>

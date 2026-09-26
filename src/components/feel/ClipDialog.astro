@@ -1,0 +1,109 @@
+---
+/**
+ * Where a recorded 6-second clip lands: preview, download, share. The video
+ * never leaves the browser unless the visitor shares it themselves.
+ */
+---
+
+<dialog class="clip" aria-labelledby="clip-title" data-clip>
+  <div class="clip__panel">
+    <div class="clip__head">
+      <h2 id="clip-title" class="clip__title">Your six seconds</h2>
+      <button class="clip__close" type="button" data-clip-close aria-label="Close">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+    <video class="clip__video" data-clip-video playsinline loop muted controls width="1080" height="1080"></video>
+    <p class="clip__meta readout" data-clip-meta></p>
+    <div class="clip__actions">
+      <a class="btn btn--solid" data-clip-download href="#" download>Download</a>
+      <button class="btn" type="button" data-clip-share hidden>Share</button>
+    </div>
+    <p class="concept-note">Recorded and encoded in your browser. Nothing was uploaded.</p>
+  </div>
+</dialog>
+
+<style>
+  .clip {
+    margin: auto;
+    inline-size: min(100vw - 2 * var(--gutter), 34rem);
+    max-block-size: calc(100dvh - 2rem);
+    border-radius: var(--r-l);
+    border: 1px solid var(--line-strong);
+    background: var(--bg-raised);
+    color: var(--ink);
+    overflow: auto;
+    opacity: 0;
+    translate: 0 0.75rem;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      translate var(--dur-3) var(--ease-out),
+      overlay var(--dur-3) allow-discrete,
+      display var(--dur-3) allow-discrete;
+  }
+  .clip[open] {
+    opacity: 1;
+    translate: 0 0;
+  }
+  @starting-style {
+    .clip[open] {
+      opacity: 0;
+      translate: 0 0.75rem;
+    }
+  }
+  .clip::backdrop {
+    background: oklch(0.1 0.005 355 / 0.7);
+  }
+  .clip__panel {
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-m);
+  }
+  .clip__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .clip__title {
+    font-size: var(--step-2);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+  }
+  .clip__close {
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    color: var(--ink-muted);
+  }
+  .clip__close:hover {
+    background: var(--surface);
+    color: var(--ink-strong);
+  }
+  .clip__video {
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 1;
+    border-radius: var(--r-m);
+    background: var(--bg);
+  }
+  .clip__meta {
+    color: var(--ink-muted);
+  }
+  .clip__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .clip,
+    .clip[open] {
+      translate: none;
+    }
+  }
+</style>
