@@ -358,4 +358,11 @@ const material = specValue('Body', 'Material').split(',')[0];
       font-size: 4.4px;
     }
   }
+  /* Three columns are ~95px wide at 320: the material breaks mid-word
+     ("alumin/um"). Two keep every value on whole words. */
+  @media (max-width: 24rem) {
+    .drawing__block {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 </style>

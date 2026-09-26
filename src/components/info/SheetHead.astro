@@ -101,9 +101,9 @@ const factParts = (fact ?? '')
   }
 
   /* The nameplate needs a third column: squeezed beside the title it breaks
-     display words, and stacked its display is too small to read. Narrower
-     screens leave it out (hidden, its lazy still is never fetched and the
-     live dial never boots) and the title and lede own the first screen. */
+     display words, and stacked its display is too small to read. It follows
+     PageDial's rule (shown from 64rem up); below that its cell goes too, and
+     the title and lede own the first screen. */
   .sheet-head__dial {
     display: none;
     align-self: center;

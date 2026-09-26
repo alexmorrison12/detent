@@ -8,13 +8,13 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import DialStage from '@/components/dial/DialStage.astro';
 import { ogPath } from '@/config/og';
 import { url } from '@/lib/url';
-import { PROFILES } from '@/data/product';
+import { LIBRARY } from '@/data/community-profiles';
 import { numberWord } from '@/scripts/info/format';
 
 const START = 150;
 const links = [
   { href: '/specs/', label: 'Tech specs', line: 'Every number, and what it can’t do yet.' },
-  { href: '/profiles/', label: 'Feel library', line: `${numberWord(PROFILES.length, true)} feels you can turn in the browser.` },
+  { href: '/profiles/', label: 'Feel library', line: `${numberWord(LIBRARY.length, true)} feels you can turn, and a builder for yours.` },
   { href: '/integrations/', label: 'Integrations', line: 'What the dial does in your apps.' },
   { href: '/support/', label: 'Support', line: 'Answers, warranty, repair.' },
   { href: '/changelog/', label: 'Changelog', line: 'What changed, and when.' },

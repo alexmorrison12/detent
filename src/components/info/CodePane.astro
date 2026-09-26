@@ -3,6 +3,10 @@
  * A highlighted code file with a filename bar. Highlighting happens at build
  * time (Astro's <Code>, Shiki) with a theme built from our tokens: one red
  * for keywords, everything else quiet.
+ *
+ * Shiki's <pre> is the scroller and already a tab stop (tabindex="0"), so it
+ * is also the labelled region: one stop per file, with its focus ring drawn
+ * inside the pane where no overflow can clip it.
  */
 import { Code } from 'astro:components';
 import type { ComponentProps } from 'astro/types';
@@ -41,8 +45,8 @@ const theme: ThemeRegistration = {
     <span class="readout code__file">{file}</span>
     {note && <span class="code__note">{note}</span>}
   </figcaption>
-  <div class="code__body" tabindex="0" role="region" aria-label={`${file}, source code`}>
-    <Code code={code.trimEnd()} lang={lang} theme={theme} />
+  <div class="code__body">
+    <Code code={code.trimEnd()} lang={lang} theme={theme} role="region" aria-label={`${file}, source code`} />
   </div>
 </figure>
 
@@ -82,8 +86,13 @@ const theme: ThemeRegistration = {
     font-size: var(--step--2);
     text-align: end;
   }
+  /* The pre scrolls (Shiki sets overflow-x: auto on it); min-inline-size: 0
+     keeps this grid item from growing to the longest line instead. As a grid
+     the body stretches the pre to the pane's full height, so the focus ring
+     outlines the whole pane even beside a taller one. */
   .code__body {
-    overflow-x: auto;
+    display: grid;
+    min-inline-size: 0;
   }
   .code__body :global(pre) {
     margin: 0;
@@ -98,7 +107,8 @@ const theme: ThemeRegistration = {
     font-family: var(--font-mono);
     font-variant-ligatures: none;
   }
-  .code__body:focus-visible {
+  .code__body :global(pre:focus-visible) {
     outline-offset: -2px;
+    border-radius: 0 0 calc(var(--r-m) - 1px) calc(var(--r-m) - 1px);
   }
 </style>

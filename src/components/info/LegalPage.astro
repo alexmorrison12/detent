@@ -38,7 +38,7 @@ const ld = {
       </p>
       <div class:list={['legal__title', { 'legal__title--dial': dial }]}>
         <h1 class="display display--l">{heading}</h1>
-        {dial && <PageDial {...dial} />}
+        {dial && <div class="legal__dial"><PageDial {...dial} /></div>}
       </div>
       <p class="legal__summary">{summary}</p>
     </header>
@@ -60,6 +60,7 @@ const ld = {
     padding-block: clamp(2rem, 1rem + 4vw, 4.5rem) var(--section-y);
   }
   .legal__head {
+    container: legal-head / inline-size;
     position: sticky;
     top: calc(var(--header-h) + var(--space-l));
     display: grid;
@@ -84,11 +85,26 @@ const ld = {
     font-size: inherit;
     color: var(--ink-strong);
   }
-  .legal__title--dial {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(5rem, 3rem + 5vw, 8.5rem);
-    align-items: end;
-    gap: var(--space-s);
+  /* The nameplate follows PageDial's rule (never below 64rem), and it only
+     takes a column beside the heading when both fit whole: "Privacy.", the
+     longer heading, at display--l next to a 6rem+ dial needs a 31rem head.
+     Narrower, the heading keeps the row and the nameplate is left out (its
+     still is never fetched, the dial never loads). */
+  .legal__dial {
+    display: none;
+  }
+  @media (min-width: 64rem) {
+    @container legal-head (min-width: 31rem) {
+      .legal__title--dial {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) clamp(6rem, 24cqi, 8.5rem);
+        align-items: end;
+        gap: var(--space-s);
+      }
+      .legal__dial {
+        display: block;
+      }
+    }
   }
   .legal__summary {
     font-size: var(--step-1);
