@@ -172,17 +172,10 @@ function drawNeedle(ctx: CanvasRenderingContext2D, angle: number) {
   ctx.fill();
 }
 
-/** Everything that doesn't move: background, halo, ring, name, watermark. */
+/** Everything that doesn't move: background, ring, name, watermark. (The
+ *  halo is the dial's own: its canvas already lights the base's LED ring.) */
 function drawStatic(ctx: CanvasRenderingContext2D, o: ClipOverlay) {
   ctx.fillStyle = SITE.themeColor;
-  ctx.fillRect(0, 0, SIZE, SIZE);
-
-  // Halo in the feel color, like the LED ring in the base.
-  const halo = ctx.createRadialGradient(CX, CY, 150 * K * 0.8, CX, CY, 150 * K * 1.2);
-  halo.addColorStop(0, `${o.color}00`);
-  halo.addColorStop(0.5, `${o.color}38`);
-  halo.addColorStop(1, `${o.color}00`);
-  ctx.fillStyle = halo;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   drawRing(ctx, o);

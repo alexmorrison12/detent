@@ -6,9 +6,10 @@
  *
  * The fragment never reaches a server, so a Feel Link is private by
  * construction. Decoding treats every link as hostile: the payload is size
- * capped, structurally validated, and every number is clamped to what the
- * motor is allowed to do before anything reaches the dial's audio or
- * vibration. Invalid links decode to null; callers fall back to a core
+ * capped, structurally validated, and every number is clamped to the link
+ * format's limits (FEEL_LIMITS, a safe subset of what the motor can do: the
+ * engine takes up to 360 detents, a link carries up to 72) before anything
+ * reaches the dial's audio or vibration. Invalid links decode to null; callers fall back to a core
  * profile.
  *
  * Compact form (positional array, trailing defaults may be omitted):

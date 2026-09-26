@@ -273,9 +273,11 @@ const WANT_ONE: Record<Phase, string> = {
       background-color var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
   }
-  .file__btn:hover {
-    background: var(--surface);
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .file__btn:hover {
+      background: var(--surface);
+      color: var(--ink-strong);
+    }
   }
   .file__code {
     margin: 0;

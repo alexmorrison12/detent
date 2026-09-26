@@ -15,6 +15,17 @@ interface Props {
   initial: LibraryEntry;
 }
 const { initial } = Astro.props;
+
+/*
+ * The still's real rendered width, for its srcset (it's the eager LCP image, so
+ * the browser can't measure it first). The dial box is 81.4% of the frame.
+ * Phones/tablets: frame = min(container, 34rem), container = 95vw - 1rem.
+ * Desktop: frame = max(20rem, min(column, 100svh - header - 23.75rem)), the
+ * column being 1.1/2 of (container - gap) = 49.5vw - 0.55rem, capped ~45rem.
+ * Keep in step with the frame rules below and the grid on /profiles/.
+ */
+const stillSizes =
+  '(min-width: 64rem) max(16.3rem, min(40.3vw - 0.45rem, 37rem, 81.4vh - 22.6rem)), min(77.3vw - 0.8rem, 27.7rem)';
 ---
 
 <div class="stage" data-stage>
@@ -30,7 +41,6 @@ const { initial } = Astro.props;
   </dl>
 
   <div class="stage__frame" data-stage-frame>
-    <div class="stage__halo" aria-hidden="true"></div>
     <svg class="stage__ring" viewBox="-200 -200 400 400" aria-hidden="true" data-ring>
       <g set:html={ringScaleMarkup()} />
       <g data-ring-feel set:html={ringFeelMarkup(initial.physics)} />
@@ -49,6 +59,7 @@ const { initial } = Astro.props;
         profile={initial.base}
         label="Feel station dial"
         priority
+        sizes={stillSizes}
       />
     </div>
 
@@ -104,27 +115,15 @@ const { initial } = Astro.props;
     min-inline-size: 0;
   }
 
-  /* ---- The frame: ring + dial, a square that never outgrows the viewport. */
+  /* ---- The frame: ring + dial, a square that never outgrows the viewport.
+     No glow of its own: the dial already lights its base's LED halo in the
+     feel color, and the ring's detent marks carry that color outward. */
   .stage__frame {
     position: relative;
     inline-size: min(100%, var(--frame-max, 34rem));
     aspect-ratio: 1;
     margin-inline: auto;
     isolation: isolate;
-  }
-  .stage__halo {
-    position: absolute;
-    inset: 12%;
-    border-radius: 50%;
-    z-index: -1;
-    /* The 24-LED halo in the base, in the active profile's color. */
-    background: radial-gradient(
-      circle,
-      transparent 56%,
-      color-mix(in oklch, var(--feel) 26%, transparent) 66%,
-      color-mix(in oklch, var(--feel) 6%, transparent) 74%,
-      transparent 80%
-    );
   }
   .stage__ring {
     position: absolute;
@@ -265,9 +264,11 @@ const { initial } = Astro.props;
       color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .stage__tool:hover {
-    border-color: var(--ink);
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .stage__tool:hover {
+      border-color: var(--ink);
+      color: var(--ink-strong);
+    }
   }
   .stage__tool:active {
     transform: translateY(1px);
@@ -358,9 +359,11 @@ const { initial } = Astro.props;
       color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .stage__key:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .stage__key:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
   }
   .stage__key-dot {
     inline-size: 0.7rem;
