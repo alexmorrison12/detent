@@ -1,0 +1,366 @@
+---
+/**
+ * Craft & materials, in daylight. A finish picker (native radios, previewed
+ * through :has(), no JS) beside the order of operations that makes one.
+ * Evidence, not adjectives: every number comes from @/data/product.
+ */
+import DialStill from '@/components/dial/DialStill.astro';
+import { FINISHES } from '@/data/product';
+import { url } from '@/lib/url';
+import { FACTS, SERIAL_RANGE, spec, specPart } from './data';
+
+const anodized = new Intl.ListFormat('en-US', { type: 'conjunction' }).format(
+  specPart('Body', 'Finish', /\(([^)]+)\)/)
+    .split(',')
+    .map((s) => s.trim()),
+);
+const repair = spec('Care', 'Repair');
+const screws = repair.match(/^[^.]+/)?.[0] ?? repair;
+const parts = repair
+  .replace(/^[^.]+\.\s*/, '')
+  .replace(/\.$/, '')
+  .replace(/ sold as /, ' are sold as ');
+const defaultFinish = 'graphite';
+
+const OPS = [
+  {
+    name: 'Cut',
+    body: `A billet of ${FACTS.material} is sawn to length. Body and knob both start as solid bar.`,
+  },
+  {
+    name: 'Machine',
+    body: 'CNC turning and milling cut the body, the knob and its knurl from that one bar.',
+  },
+  {
+    name: 'Bead-blast',
+    body: 'Glass beads give every surface the same soft, even matte. Raw finishes leave the line here as bare metal.',
+  },
+  {
+    name: 'Anodize',
+    body: `Type II anodize for ${anodized}. The color grows into the aluminum’s surface rather than sitting on top of it.`,
+  },
+  {
+    name: 'Engrave',
+    body: `Your words on the base, free. Founders Edition bases carry a serial, ${SERIAL_RANGE}.`,
+  },
+  {
+    name: 'Assemble',
+    body: `${screws} hold it together, and they are meant to come out. ${parts}.`,
+  },
+];
+---
+
+<section class="craft section" data-world="day" aria-labelledby="craft-title" id="craft">
+  <div class="container craft__grid">
+    <div class="craft__head">
+      <h2 id="craft-title" class="display craft__title">
+        Machined from one billet.
+      </h2>
+      <p class="craft__lede">
+        {FACTS.weight} of {FACTS.material}, cut from solid bar, blasted, anodized and held together
+        by screws you are allowed to undo.
+      </p>
+    </div>
+
+    <div class="craft__show">
+      <div class="craft__stills">
+        {FINISHES.map((f) => (
+          <div class="craft__still" data-still={f.id}>
+            <DialStill finish={f.id} view="hero" />
+          </div>
+        ))}
+      </div>
+      <fieldset class="swatches">
+        <legend class="swatches__legend">Finish</legend>
+        <div class="swatches__row">
+          {FINISHES.map((f) => (
+            <label class="swatch" style={`--body: ${f.body}`}>
+              <input
+                class="swatch__input"
+                type="radio"
+                name="craft-finish"
+                value={f.id}
+                checked={f.id === defaultFinish}
+              />
+              <span class="swatch__chip" aria-hidden="true" />
+              <span class="swatch__name">{f.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {FINISHES.map((f) => (
+        <div class="craft__finish" data-finish-copy={f.id}>
+          <p class="craft__finish-line">
+            {f.line}
+            {f.foundersOnly && <span class="craft__tag">Founders Edition only</span>}
+          </p>
+          <a
+            class="link-arrow"
+            href={url(`/shop/?finish=${f.id}#configure`)}
+            data-track="finish_click"
+            data-track-finish={f.id}
+            data-track-placement="home-craft"
+          >
+            Configure in {f.name}
+          </a>
+        </div>
+      ))}
+    </div>
+
+    <div class="craft__copy">
+      <ol class="ops" role="list">
+        {OPS.map((op) => (
+          <li class="op">
+            <h3 class="op__name">{op.name}</h3>
+            <p class="op__body">{op.body}</p>
+          </li>
+        ))}
+      </ol>
+      <p class="craft__warranty">
+        <strong>{FACTS.warrantyYears}-year warranty,</strong> parts and labor. The {FACTS.trialDays}
+        -day studio trial comes first.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .craft__grid {
+    display: grid;
+    gap: var(--space-xl) clamp(2rem, 6vw, 7rem);
+    align-items: start;
+  }
+  .craft__head {
+    display: grid;
+    gap: var(--space-m);
+  }
+
+  /* ---- Finish showcase ----------------------------------------------- */
+  .craft__show {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .craft__stills {
+    display: grid;
+    aspect-ratio: 1;
+    inline-size: min(100%, 34rem);
+    justify-self: center;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--alu-50), var(--white));
+  }
+  .craft__still {
+    grid-area: 1 / 1;
+    display: none;
+    padding: 6%;
+  }
+  .craft__show:has(.swatch__input[value='raw']:checked) [data-still='raw'],
+  .craft__show:has(.swatch__input[value='graphite']:checked) [data-still='graphite'],
+  .craft__show:has(.swatch__input[value='glacier']:checked) [data-still='glacier'],
+  .craft__show:has(.swatch__input[value='tally']:checked) [data-still='tally'] {
+    display: block;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .craft__still {
+      transition:
+        opacity var(--dur-3) var(--ease-out),
+        display var(--dur-3) allow-discrete;
+    }
+    @starting-style {
+      .craft__still {
+        opacity: 0;
+      }
+    }
+  }
+
+  .swatches {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: var(--space-2xs);
+    justify-items: center;
+  }
+  .swatches__legend {
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    margin-inline: auto;
+    padding: 0;
+  }
+  .swatches__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-xs) var(--space-m);
+  }
+  .swatch {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    min-inline-size: 4rem;
+    cursor: pointer;
+  }
+  .swatch__input {
+    position: absolute;
+    opacity: 0;
+    inline-size: 1px;
+    block-size: 1px;
+  }
+  .swatch__chip {
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at 35% 30%,
+      color-mix(in oklch, var(--body) 70%, var(--white)),
+      var(--body) 62%
+    );
+    box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.14);
+    outline: 2px solid transparent;
+    outline-offset: 3px;
+    transition:
+      outline-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .swatch:hover .swatch__chip {
+    outline-color: var(--line-strong);
+  }
+  .swatch:active .swatch__chip {
+    transform: translateY(1px);
+  }
+  .swatch:has(.swatch__input:checked) .swatch__chip {
+    outline-color: var(--ink-strong);
+  }
+  .swatch:has(.swatch__input:focus-visible) .swatch__chip {
+    outline-color: var(--focus);
+  }
+  .swatch__name {
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .swatch:has(.swatch__input:checked) .swatch__name {
+    color: var(--ink-strong);
+  }
+
+  .craft__finish {
+    display: none;
+    gap: var(--space-2xs);
+    justify-items: center;
+    text-align: center;
+  }
+  .craft__show:has(.swatch__input[value='raw']:checked) [data-finish-copy='raw'],
+  .craft__show:has(.swatch__input[value='graphite']:checked) [data-finish-copy='graphite'],
+  .craft__show:has(.swatch__input[value='glacier']:checked) [data-finish-copy='glacier'],
+  .craft__show:has(.swatch__input[value='tally']:checked) [data-finish-copy='tally'] {
+    display: grid;
+  }
+  .craft__finish-line {
+    max-inline-size: 38ch;
+    color: var(--ink-muted);
+  }
+  .craft__tag {
+    display: block;
+    margin-block-start: 0.2rem;
+    font-size: var(--step--1);
+    font-weight: 650;
+    color: var(--accent-text);
+  }
+
+  /* ---- Order of operations ------------------------------------------- */
+  .craft__copy {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .craft__title {
+    font-size: var(--step-5);
+    max-inline-size: 11ch;
+  }
+  .craft__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 40ch;
+  }
+  .ops {
+    padding: 0;
+    margin: 0;
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .op {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.5rem 8.5rem minmax(0, 1fr);
+    gap: var(--space-2xs) var(--space-s);
+    align-items: baseline;
+    padding-block: var(--space-s);
+    border-block-end: 1px solid var(--line);
+  }
+  /* A traveler: one line runs through every operation, a stop at each. */
+  .op::before {
+    content: '';
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-muted);
+    background: var(--bg);
+    z-index: 1;
+  }
+  .op::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: calc(0.3rem - 0.5px);
+    border-inline-start: 1px solid var(--line-strong);
+  }
+  .op:first-child::after {
+    inset-block-start: 50%;
+  }
+  .op:last-child::after {
+    inset-block-end: 50%;
+  }
+  .op:last-child::before {
+    background: var(--ink-strong);
+    border-color: var(--ink-strong);
+  }
+  .op__name {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .op__body {
+    color: var(--ink-muted);
+  }
+  .craft__warranty {
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 40rem) {
+    .op {
+      grid-template-columns: 1.25rem minmax(0, 1fr);
+    }
+    .op__body {
+      grid-column: 2;
+    }
+  }
+  @media (min-width: 64rem) {
+    .craft__grid {
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
+      row-gap: var(--space-l);
+    }
+    .craft__head,
+    .craft__copy {
+      grid-column: 2;
+    }
+    .craft__show {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      position: sticky;
+      inset-block-start: calc(var(--header-h) + var(--space-l));
+    }
+  }
+</style>

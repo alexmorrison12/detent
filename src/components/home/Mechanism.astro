@@ -1,0 +1,189 @@
+---
+/**
+ * Mechanism: scroll takes the stage dial apart (dial.explode 0 → 1 → 0).
+ * The part list is the exploded drawing's callouts, in stack order, top to
+ * bottom, so the numbers are a real sequence. The knob's round display names
+ * the part in focus. Reduced motion: a static exploded view.
+ */
+import { url } from '@/lib/url';
+import { SPECS } from '@/data/product';
+import { FACTS, PARTS } from './data';
+
+const specCount = SPECS.reduce((n, g) => n + g.rows.length, 0);
+
+/** Silhouette widths of the six layers, top to bottom: a tiny locator of the stack. */
+const STACK = [15, 22, 18, 16, 20, 28];
+
+/** "Ø 58 mm" → { pre: 'Ø', num: '58', unit: 'mm' }; keeps the readout tight. */
+const split = (figure: string) => {
+  const m = figure.match(/^(Ø\s?)?([\d.,]+)\s?(.*)$/);
+  return m
+    ? { pre: (m[1] ?? '').trim(), num: m[2]!, unit: m[3]!.trim() }
+    : { pre: '', num: figure, unit: '' };
+};
+---
+
+<section class="mech" data-scene-id="mech" aria-labelledby="mech-title" id="inside">
+  <div class="mech__intro">
+    <h2 id="mech-title" class="display mech__title">
+      What’s inside {FACTS.height}.
+    </h2>
+    <p class="mech__lede">
+      Keep scrolling and it comes apart. Six parts, stacked the way they are assembled, each with
+      the number that matters.
+    </p>
+  </div>
+
+  <ol class="parts" role="list">
+    {PARTS.map((p, i) => (
+      <li
+        class="part"
+        data-part={p.id}
+        data-display={p.display}
+        data-active={i === 0 ? '' : undefined}
+      >
+        <svg class="part__stack" viewBox="0 0 28 40" aria-hidden="true" focusable="false">
+          {STACK.map((b, j) => (
+            <rect
+              class:list={['part__layer', { 'part__layer--on': j === i }]}
+              x={(28 - b) / 2}
+              y={3 + j * 6.2}
+              width={b}
+              height="4"
+              rx="1"
+            />
+          ))}
+        </svg>
+        <div class="part__text">
+          <h3 class="part__name">{p.name}</h3>
+          <p class="part__figure">
+            <span class="readout part__value">
+              {split(p.figure).pre && <span class="part__sym">{split(p.figure).pre}</span>}
+              {split(p.figure).num}
+              {split(p.figure).unit && <span class="part__sym">{split(p.figure).unit}</span>}
+            </span>
+            {p.unit && <span class="part__unit">{p.unit}</span>}
+          </p>
+          <p class="part__body">{p.body}</p>
+        </div>
+      </li>
+    ))}
+  </ol>
+
+  <p class="mech__outro">
+    <a class="link-arrow" href={url('/specs/')}>
+      All {specCount} specs on one page
+    </a>
+  </p>
+</section>
+
+<style>
+  .mech {
+    padding-block: var(--section-y) calc(var(--section-y) * 0.6);
+  }
+  .mech__intro {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-end: var(--space-2xl);
+  }
+  .mech__title {
+    font-size: var(--step-5);
+    max-inline-size: 12ch;
+  }
+  .mech__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 40ch;
+  }
+
+  .parts {
+    padding: 0;
+    margin: 0;
+    display: grid;
+  }
+  .part {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    align-content: center;
+    gap: var(--space-s);
+    min-block-size: 46svh;
+    padding-block: var(--space-l);
+    border-block-start: 1px solid var(--line);
+  }
+  .part__stack {
+    inline-size: 1.75rem;
+    block-size: 2.5rem;
+    margin-block-start: 0.15rem;
+  }
+  .part__layer {
+    fill: var(--graphite-700);
+    transition: fill var(--dur-3) var(--ease-out);
+  }
+  .part__layer--on {
+    fill: var(--ink-muted);
+  }
+  .part[data-active] .part__layer--on {
+    fill: var(--accent);
+  }
+  .part__text {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .part__name {
+    font-size: var(--step-1);
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    transition: color var(--dur-3) var(--ease-out);
+  }
+  .part__figure {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2em 0.9em;
+  }
+  .part__value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.12em;
+    font-size: var(--step-4);
+    font-weight: 380;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    color: var(--ink);
+    transition: color var(--dur-3) var(--ease-out);
+  }
+  .part__sym {
+    font-size: 0.45em;
+    letter-spacing: 0;
+    color: var(--ink-muted);
+  }
+  .part__unit {
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .part__body {
+    max-inline-size: 46ch;
+    color: var(--ink-muted);
+  }
+  .part[data-active] .part__name {
+    color: var(--ink-strong);
+  }
+  .part[data-active] .part__value {
+    color: var(--ink-strong);
+  }
+  .mech__outro {
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--line);
+  }
+
+  @media (max-width: 63.99rem) {
+    .part {
+      min-block-size: 34svh;
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+    }
+  }
+</style>

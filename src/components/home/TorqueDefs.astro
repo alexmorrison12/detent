@@ -1,0 +1,33 @@
+---
+/**
+ * One hidden <svg> holding each profile's torque curve as a <path id>.
+ * Every glyph and plot on the page draws them with <use href="#tq-…">, so the
+ * curves ship once. Coordinates: 720 × 220, angle −180…180°, torque −1…1.
+ */
+import { PROFILES } from '@/data/product';
+import { TQ_BOX, torquePath } from '@/scripts/home/torque';
+---
+
+<svg class="tq-defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    {PROFILES.map((p) => (
+      <path
+        id={`tq-${p.id}`}
+        d={torquePath(p.physics, { ...TQ_BOX, step: 1 })}
+        fill="none"
+        vector-effect="non-scaling-stroke"
+        stroke-linejoin="round"
+        stroke-linecap="round"
+      />
+    ))}
+  </defs>
+</svg>
+
+<style>
+  .tq-defs {
+    position: absolute;
+    inline-size: 0;
+    block-size: 0;
+    overflow: hidden;
+  }
+</style>

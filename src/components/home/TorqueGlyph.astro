@@ -1,0 +1,35 @@
+---
+/** A profile's torque curve as a small inline signature. Needs <TorqueDefs/> on the page. */
+import type { ProfileId } from '@/data/product';
+
+interface Props {
+  profile: ProfileId;
+  /** 'day' deepens the feel color so the curve holds up on white. */
+  tone?: 'night' | 'day';
+  class?: string;
+}
+const { profile, tone = 'night', class: className } = Astro.props;
+---
+
+<svg
+  class:list={['tq-glyph', `tq-glyph--${tone}`, className]}
+  viewBox="0 0 720 220"
+  preserveAspectRatio="none"
+  aria-hidden="true"
+  focusable="false"
+  style={`--tq-c: var(--feel-${profile})`}
+>
+  <use href={`#tq-${profile}`}></use>
+</svg>
+
+<style>
+  .tq-glyph {
+    display: block;
+    overflow: visible;
+    stroke: var(--tq-c);
+    stroke-width: 1.5;
+  }
+  .tq-glyph--day {
+    stroke: color-mix(in oklch, var(--tq-c) 70%, var(--graphite-950));
+  }
+</style>

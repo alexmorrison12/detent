@@ -1,0 +1,143 @@
+---
+/**
+ * Integrations strip: every app from @/data/product with the feel it uses,
+ * set like a patch list (name, leader, feel). System controls get the last word.
+ */
+import { INTEGRATIONS, byProfile } from '@/data/product';
+import { url } from '@/lib/url';
+
+const apps = INTEGRATIONS.filter((i) => i.category !== 'System');
+const system = INTEGRATIONS.find((i) => i.category === 'System');
+const words = [
+  'Zero',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+  'Twenty',
+];
+const count = words[apps.length] ?? String(apps.length);
+---
+
+<section class="integ section" data-world="day" aria-labelledby="integ-title" id="integrations">
+  <div class="container">
+    <div class="integ__head">
+      <h2 id="integ-title" class="display integ__title">
+        {count} apps know it by&nbsp;name.
+      </h2>
+      <p class="integ__lede">
+        Each one gets its own feel, chosen for what you do there.
+        {system && (
+          <>
+            Everything else gets the system set:{' '}
+            {system.does.charAt(0).toLowerCase() + system.does.slice(1)}
+          </>
+        )}
+      </p>
+    </div>
+    <ul class="patch" role="list">
+      {apps.map((a) => (
+        <li class="patch__row" style={`--c: var(--feel-${a.profile})`}>
+          <span class="patch__app">{a.name}</span>
+          <span class="patch__leader" aria-hidden="true" />
+          <span class="patch__feel">
+            <span class="patch__dot" aria-hidden="true" />
+            <span class="visually-hidden">feel: </span>
+            {byProfile(a.profile).name}
+          </span>
+        </li>
+      ))}
+    </ul>
+    <p class="integ__more">
+      <a class="link-arrow" href={url('/integrations/')}>
+        What the knob does in each app
+      </a>
+    </p>
+  </div>
+</section>
+
+<style>
+  .integ {
+    border-block-start: 1px solid var(--line);
+  }
+  .integ__head {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-end: var(--space-xl);
+  }
+  .integ__title {
+    font-size: var(--step-4);
+    max-inline-size: 16ch;
+  }
+  .integ__lede {
+    color: var(--ink-muted);
+    max-inline-size: 52ch;
+    font-size: var(--step-0);
+  }
+  .patch {
+    padding: 0;
+    margin: 0;
+    columns: 3 17rem;
+    column-gap: clamp(1.5rem, 4vw, 4rem);
+  }
+  .patch__row {
+    break-inside: avoid;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2xs);
+    padding-block: 0.6rem;
+    border-block-end: 1px solid var(--line);
+  }
+  .patch__app {
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+  .patch__leader {
+    flex: 1;
+    min-inline-size: 1rem;
+    border-block-end: 1px dotted var(--line-strong);
+    translate: 0 -0.25em;
+  }
+  .patch__feel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .patch__dot {
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.12);
+  }
+  .integ__more {
+    margin-block-start: var(--space-l);
+  }
+  @media (min-width: 64rem) {
+    .integ__head {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: end;
+    }
+  }
+</style>
