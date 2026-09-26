@@ -4,6 +4,7 @@
  * summary that is the whole policy for most readers, then the detail.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import PageDial, { type PageDialProps } from './PageDial.astro';
 import { ogPath } from '@/config/og';
 import { LEGAL_UPDATED } from '@/data/legal';
 import { formatDate } from '@/scripts/info/format';
@@ -15,8 +16,10 @@ interface Props {
   description: string;
   summary: string;
   other: { label: string; href: string };
+  /** The nameplate dial beside the heading: what its display reads. */
+  dial?: PageDialProps;
 }
-const { title, heading, description, summary, other } = Astro.props;
+const { title, heading, description, summary, other, dial } = Astro.props;
 const ld = {
   '@context': 'https://schema.org',
   '@type': 'WebPage',
@@ -31,9 +34,12 @@ const ld = {
     <header class="legal__head">
       <p class="legal__rule">
         <span>Legal</span>
-        <span class="readout">Updated <time datetime={LEGAL_UPDATED}>{formatDate(LEGAL_UPDATED)}</time></span>
+        <span class="legal__updated">Updated <time class="readout" datetime={LEGAL_UPDATED}>{formatDate(LEGAL_UPDATED)}</time></span>
       </p>
-      <h1 class="display display--l">{heading}</h1>
+      <div class:list={['legal__title', { 'legal__title--dial': dial }]}>
+        <h1 class="display display--l">{heading}</h1>
+        {dial && <PageDial {...dial} />}
+      </div>
       <p class="legal__summary">{summary}</p>
     </header>
     <div class="legal__body">
@@ -70,9 +76,19 @@ const ld = {
     font-stretch: var(--stretch-ui);
     color: var(--ink-strong);
   }
-  .legal__rule .readout {
+  .legal__updated {
     font-weight: 400;
     color: var(--ink-muted);
+  }
+  .legal__updated .readout {
+    font-size: inherit;
+    color: var(--ink-strong);
+  }
+  .legal__title--dial {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(5rem, 3rem + 5vw, 8.5rem);
+    align-items: end;
+    gap: var(--space-s);
   }
   .legal__summary {
     font-size: var(--step-1);

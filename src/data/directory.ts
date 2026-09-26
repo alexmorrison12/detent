@@ -4,7 +4,15 @@
  * themselves (name, category, behavior, profile, status) live in
  * INTEGRATIONS in product.ts.
  */
-import type { Integration } from './product';
+import { INTEGRATIONS, type Integration } from './product';
+
+/**
+ * The apps with their own profile. INTEGRATIONS also lists "System" (volume,
+ * brightness, media), which is not an app: count and describe APPS whenever
+ * copy says "N apps", so every page gives the same number.
+ */
+export const APPS = INTEGRATIONS.filter((i) => i.category !== 'System');
+export const appsBy = (status: Integration['status']) => APPS.filter((i) => i.status === status).length;
 
 export const STATUS: Record<Integration['status'], { label: string; line: string }> = {
   native: { label: 'Native', line: 'Built into Detent Studio. Works the moment you plug in.' },

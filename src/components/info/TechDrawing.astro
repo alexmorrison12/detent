@@ -19,7 +19,7 @@ const r = D.knobDia / 2;
 const rd = D.displayDia / 2;
 const H = D.height;
 const B = D.baseHeight;
-const gapTop = B + D.haloGap;
+const gapTop = B + D.knobGap;
 const c = D.topChamfer;
 const f = (n: number) => Number(n.toFixed(2));
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -72,14 +72,15 @@ const material = specValue('Body', 'Material').split(',')[0];
       <svg viewBox="-52 -62 114 80" role="img" aria-labelledby="dwg-front-t dwg-front-d" class="dwg">
         <title id="dwg-front-t">Front view of Detent One</title>
         <desc id="dwg-front-d">
-          Base {D.baseDia} millimeters across and {B} tall, knob {D.knobDia} millimeters across, {H} millimeters tall overall.
+          Base {D.baseDia} millimeters across and {B} tall, with the halo ring’s light slot just above the foot; knob {D.knobDia} millimeters across; {H} millimeters tall overall.
         </desc>
         <!-- center line -->
         <line class="dwg-center" x1="0" y1="-58" x2="0" y2="4"></line>
         <!-- foot, base, knob -->
         <rect class="dwg-thin" x={-R + 4} y="-0.8" width={D.baseDia - 8} height="0.8"></rect>
         <path class="dwg-solid" pathLength="1" d={`M${-R + 0.6} -0.8L${-R} -1.4L${-R} ${-B + 0.6}L${-R + 0.6} ${-B}L${R - 0.6} ${-B}L${R} ${-B + 0.6}L${R} -1.4L${R - 0.6} -0.8Z`}></path>
-        <line class="dwg-halo" x1={-r + 1} y1={-(B + D.haloGap / 2)} x2={r - 1} y2={-(B + D.haloGap / 2)}></line>
+        <!-- halo slot, low on the base -->
+        <rect class="dwg-halo" x={-R + 0.6} y={-D.haloTo} width={D.baseDia - 1.2} height={f(D.haloTo - D.haloFrom)}></rect>
         <path class="dwg-solid" pathLength="1" d={`M${-r} ${-gapTop}L${-r} ${-H + c}L${-r + c} ${-H}L${r - c} ${-H}L${r} ${-H + c}L${r} ${-gapTop}Z`}></path>
         <line class="dwg-thin" x1={-r} y1={-D.knurlFrom} x2={r} y2={-D.knurlFrom}></line>
         <line class="dwg-thin" x1={-r} y1={-D.knurlTo} x2={r} y2={-D.knurlTo}></line>
@@ -110,7 +111,7 @@ const material = specValue('Body', 'Material').split(',')[0];
           <text x={-R - 11} y={-B / 2} text-anchor="middle" transform={`rotate(-90 ${-R - 11} ${-B / 2})`}>{B}</text>
         </g>
       </svg>
-      <p class="drawing__label"><span>Front</span> <span class="readout">halo gap {D.haloGap} mm</span></p>
+      <p class="drawing__label"><span>Front</span> <span class="readout">halo slot {fmt(D.haloTo - D.haloFrom)} mm</span></p>
     </div>
 
     <div class="drawing__view">
@@ -264,9 +265,11 @@ const material = specValue('Body', 'Material').split(',')[0];
     stroke: currentColor;
     stroke-width: 0.8;
   }
+  /* The light slot: a groove drawn by its two edges, with a faint fill. */
   .dwg-halo {
+    fill: var(--line);
     stroke: var(--ink-muted);
-    stroke-width: 1;
+    stroke-width: 0.75;
   }
   .dwg-indicator {
     stroke: var(--tally);

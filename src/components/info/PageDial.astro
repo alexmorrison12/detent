@@ -1,0 +1,44 @@
+---
+/**
+ * The info pages' nameplate: Detent One seen from above, its round display
+ * showing what the page is ("FAQ", the latest firmware, "0 BYTES"). The knob
+ * display says the page, the way the 404 says 404. Decorative (the h1 says
+ * it in words), muted, and a product still until the live dial takes over.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import type { FinishId, ProfileId } from '@/data/product';
+
+export interface PageDialProps {
+  /** What the knob's display reads. The dial contract allows 10 characters. */
+  text: string;
+  finish?: FinishId;
+  /** Tints the display ring with this profile's feel color. */
+  profile?: ProfileId;
+}
+type Props = PageDialProps;
+const { text, finish = 'graphite', profile = 'ratchet' } = Astro.props;
+if (text.length > 10) throw new Error(`PageDial: "${text}" is longer than the knob display's 10 characters.`);
+---
+
+<div class="page-dial" aria-hidden="true">
+  <DialStage finish={finish} profile={profile} camera="top" display={text} muted sizes="10rem" />
+</div>
+
+<style>
+  /* The top-view frame leaves room for the halo and explode, so the knob is
+     about 55% of its square. Grow the stage by half and pull the extra back
+     in with negative margins, so the knob fills most of the column. The clip
+     keeps the oversized frame from widening the page; the round mask fades
+     the halo glow out before the clip edge, so no square edge ever shows. */
+  .page-dial {
+    display: flow-root;
+    inline-size: 100%;
+    overflow: clip;
+    pointer-events: none;
+  }
+  .page-dial > :global(.dial-stage) {
+    inline-size: 150%;
+    margin: -25%;
+    mask-image: radial-gradient(closest-side, #000 55%, transparent 66%);
+  }
+</style>

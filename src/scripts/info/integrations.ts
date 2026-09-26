@@ -15,6 +15,7 @@ export function initDirectory(root: HTMLElement): void {
   const form = root.querySelector<HTMLFormElement>('[data-filters]');
   const items = [...root.querySelectorAll<HTMLLIElement>('[data-list] > li')];
   const countEl = root.querySelector<HTMLElement>('[data-count]');
+  const status = root.querySelector<HTMLElement>('[data-count-status]');
   const empty = root.querySelector<HTMLElement>('[data-empty]');
   const total = Number(root.dataset.total);
   const profiles = JSON.parse(root.dataset.profiles ?? '{}') as Record<ProfileId, { name: string; feel: string }>;
@@ -53,9 +54,20 @@ export function initDirectory(root: HTMLElement): void {
     }
   }
 
+  // The visible count follows every keystroke; screen readers hear it once
+  // typing pauses, not once per letter.
+  let announceTimer = 0;
+  function announce(text: string) {
+    if (!status) return;
+    clearTimeout(announceTimer);
+    announceTimer = window.setTimeout(() => (status.textContent = text), 500);
+  }
+
   function apply(f: Filters, pushUrl: boolean) {
     const terms = f.q.toLowerCase().split(/\s+/).filter(Boolean);
-    let shown = 0;
+    // "System" is listed but is not an app: it is what every other app gets.
+    let apps = 0;
+    let system = false;
     for (const li of items) {
       const ok =
         (!f.cat || li.dataset.cat === f.cat) &&
@@ -63,14 +75,21 @@ export function initDirectory(root: HTMLElement): void {
         (!f.status || li.dataset.status === f.status) &&
         terms.every((t) => (li.dataset.text ?? '').includes(t));
       li.hidden = !ok;
-      if (ok) shown++;
+      if (ok && li.dataset.cat === 'System') system = true;
+      else if (ok) apps++;
     }
-    countEl!.innerHTML =
-      shown === total
-        ? `<span class="readout">${total}</span> apps`
-        : `<span class="readout">${shown}</span> of ${total} apps`;
-    if (empty) empty.hidden = shown > 0;
+    const n = (v: number) => `<span class="readout">${v}</span>`;
+    const html =
+      apps === total && system
+        ? `${n(total)} apps, plus system controls everywhere`
+        : !apps && system
+          ? 'System controls, in every app'
+          : `${n(apps)} of ${total} apps${system ? ', plus system controls' : ''}`;
+    countEl!.innerHTML = html;
+    if (empty) empty.hidden = apps > 0 || system;
+    // pushUrl is false only for the initial render, which is not news.
     if (pushUrl) {
+      announce(countEl!.textContent ?? '');
       const url = new URL(location.href);
       for (const k of KEYS) {
         if (f[k]) url.searchParams.set(k, f[k]);
@@ -152,6 +171,8 @@ export function initDirectory(root: HTMLElement): void {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   let touring = !reduce.matches;
   let visible = false;
+  /** A pointer is resting on the card: hold the current app until it leaves. */
+  let hovering = false;
   let timer = 0;
 
   function next() {
@@ -162,17 +183,16 @@ export function initDirectory(root: HTMLElement): void {
   }
   function schedule() {
     clearInterval(timer);
-    if (touring && visible && !document.hidden) timer = window.setInterval(next, TOUR_MS);
+    if (touring && visible && !hovering && !document.hidden) timer = window.setInterval(next, TOUR_MS);
   }
   function stopTour() {
     touring = false;
     schedule();
     syncCycle();
   }
+  // A plain action button: its name says what pressing it does next.
   function syncCycle() {
-    if (!cycleBtn) return;
-    cycleBtn.setAttribute('aria-pressed', String(!touring));
-    cycleBtn.textContent = touring ? 'Pause tour' : 'Play tour';
+    if (cycleBtn) cycleBtn.textContent = touring ? 'Pause tour' : 'Play tour';
   }
 
   cycleBtn?.addEventListener('click', () => {
@@ -181,12 +201,22 @@ export function initDirectory(root: HTMLElement): void {
     schedule();
     syncCycle();
   });
-  // Any hands-on use of the dial holds the current app.
+  // Any hands-on use of the dial holds the current app, including keyboard
+  // focus: the dial's name and feel must not change under a screen reader.
   tester.addEventListener('pointerdown', (e) => {
     if (!(e.target as Element).closest('[data-cycle]')) stopTour();
   });
-  tester.addEventListener('keydown', (e) => {
+  tester.addEventListener('focusin', (e) => {
     if ((e.target as Element).closest('detent-dial')) stopTour();
+  });
+  tester.addEventListener('pointerenter', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    hovering = true;
+    schedule();
+  });
+  tester.addEventListener('pointerleave', () => {
+    hovering = false;
+    schedule();
   });
   reduce.addEventListener('change', () => {
     if (reduce.matches) stopTour();

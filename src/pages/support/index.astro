@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
 import SheetHead from '@/components/info/SheetHead.astro';
 import FaqSearch from '@/components/info/FaqSearch.astro';
 import RepairDrawing from '@/components/info/RepairDrawing.astro';
@@ -11,7 +12,7 @@ import { url } from '@/lib/url';
 import { numberWord } from '@/scripts/info/format';
 
 const answers = FAQS.length + CARE_FAQS.length;
-const description = `Detent One support: answers on reservations, shipping, the ${PAYMENT.trialDays}-day studio trial, the ${PAYMENT.warrantyYears}-year warranty, firmware and repair. A person replies within ${CONTACT.firstReply}.`;
+const description = `Detent One support, in plain answers: reservations, shipping, the ${PAYMENT.trialDays}-day studio trial, the ${PAYMENT.warrantyYears}-year warranty, firmware and repair. A concept demo.`;
 const repair = POLICIES.find((p) => p.id === 'repair')!;
 const policies = POLICIES.filter((p) => p.id !== 'repair');
 
@@ -30,8 +31,9 @@ const faqLd = {
   <SheetHead
     title="Answers, not adjectives."
     sheet="Support"
-    fact={`${answers} answers · first reply within ${CONTACT.firstReply}`}
-    lede="Search first. If the answer is not here, write to us and a person who helped build the thing will reply."
+    fact={`${answers} answers · ${POLICIES.length} policies`}
+    dial={{ text: 'FAQ', finish: 'graphite', profile: 'clock' }}
+    lede="Search first: the answer is probably here. In a live store, a person who helped build the thing would answer your email. Detent is a concept, so that inbox is a placeholder."
   />
 
   <section class="container faq-section" aria-label="Frequently asked questions">
@@ -104,7 +106,7 @@ const faqLd = {
       <h2 id="contact-h" class="display display--m">Still stuck? Write to a person.</h2>
       <a class="contact__email" href={`mailto:${SITE.email}`} data-track="support_email">{SITE.email}</a>
       <dl class="contact__facts">
-        <div><dt>First reply</dt><dd>Within {CONTACT.firstReply}</dd></div>
+        <div><dt>First reply</dt><dd>Within {CONTACT.firstReply}, in a live launch</dd></div>
         <div><dt>Hours</dt><dd>{CONTACT.hours}</dd></div>
         <div><dt>Press</dt><dd><a href={url('/press/')}>Press kit and press contact</a></dd></div>
       </dl>
@@ -118,6 +120,16 @@ const faqLd = {
         {CONTACT.include.map((i) => <li>{i}</li>)}
       </ul>
     </div>
+  </section>
+
+  <section class="container closing" aria-labelledby="support-closing-h">
+    <div class="closing__copy">
+      <h2 id="support-closing-h" class="display display--s">The fine print is the pitch.</h2>
+      <p class="closing__terms">
+        {PAYMENT.trialDays}-day studio trial · {PAYMENT.warrantyYears}-year warranty · four screws to open it
+      </p>
+    </div>
+    <PhaseCTA placement="support-footer" size="lg" showSecondary />
   </section>
 </BaseLayout>
 
@@ -304,6 +316,23 @@ const faqLd = {
   }
   .contact__include .repair__sub {
     margin-block-start: 0;
+  }
+
+  .closing {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-l);
+    padding-block: var(--space-2xl) var(--section-y);
+    border-top: 1px solid var(--line-strong);
+  }
+  .closing__copy {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .closing__terms {
+    color: var(--ink-muted);
   }
 
   @media (max-width: 64rem) {

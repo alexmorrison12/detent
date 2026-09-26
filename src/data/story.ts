@@ -4,7 +4,7 @@
  * page says so. The one real credit is Scott Bezek's open-source SmartKnob.
  */
 import { LAUNCH } from '@/config/launch';
-import { INTEGRATIONS } from './product';
+import { APPS } from './directory';
 
 export const SMARTKNOB = {
   name: 'SmartKnob',
@@ -147,7 +147,7 @@ export interface RoadmapItem {
   state: 'now' | 'next' | 'later';
 }
 
-const nativeOrPlugin = INTEGRATIONS.filter((i) => i.status !== 'community').length;
+const nativeOrPlugin = APPS.filter((i) => i.status !== 'community').length;
 
 export const ROADMAP: RoadmapItem[] = [
   {
@@ -159,7 +159,7 @@ export const ROADMAP: RoadmapItem[] = [
   {
     when: 'December 2026',
     title: 'Firmware 1.0 and Studio 1.0',
-    body: `Launch software, with ${nativeOrPlugin} native and plugin integrations and every community profile that passes review.`,
+    body: `Launch software: profiles for ${nativeOrPlugin} apps built in or by plugin, every community profile that passes review, and system controls everywhere else.`,
     state: 'next',
   },
   {

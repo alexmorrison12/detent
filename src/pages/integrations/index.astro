@@ -8,21 +8,16 @@ import RequestForm from '@/components/info/RequestForm.astro';
 import { SITE } from '@/config/site';
 import { ogPath } from '@/config/og';
 import { INTEGRATIONS, byProfile } from '@/data/product';
-import { SDK_SAMPLE } from '@/data/directory';
+import { APPS, SDK_SAMPLE, appsBy } from '@/data/directory';
 import { specValue } from '@/data/engineering';
 import { absoluteUrl } from '@/lib/url';
 
-const by = (s: string) => INTEGRATIONS.filter((i) => i.status === s).length;
 const jsonBytes = new TextEncoder().encode(SDK_SAMPLE.json.replace(/\s+/g, '')).length;
 const sdk = specValue('Software', 'SDK');
 const firmware = specValue('Software', 'Firmware');
 const license = firmware.match(/\(([^)]+)\)/)?.[1] ?? 'Apache-2.0';
 
-const examples = [...new Set(INTEGRATIONS.map((i) => i.category))]
-  .filter((c) => c !== 'System')
-  .map((c) => INTEGRATIONS.find((i) => i.category === c)!.name)
-  .slice(0, 5);
-const description = `${SITE.product} works with ${INTEGRATIONS.length} apps out of the box, including ${examples.slice(0, -1).join(', ')} and ${examples.at(-1)}. See exactly what the dial does in each, and which feel it uses.`;
+const description = `${SITE.product} has profiles for ${APPS.length} apps: ${appsBy('native')} built into Detent Studio, ${appsBy('plugin')} through a free plugin, ${appsBy('community')} from the community. Everything else gets system controls.`;
 
 const listLd = {
   '@context': 'https://schema.org',
@@ -50,11 +45,11 @@ const listLd = {
   <SheetHead
     title="It knows which app you’re in."
     sheet="Integrations"
-    fact={`${by('native')} native · ${by('plugin')} plugin · ${by('community')} community`}
+    fact={`${appsBy('native')} native · ${appsBy('plugin')} plugin · ${appsBy('community')} community`}
     lede="Detent Studio watches which window is in front and swaps the feel in about a millisecond. Pick an app and feel its profile on the dial. Anything not listed still gets scroll, volume and undo."
   />
 
-  <section class="container dir-section" aria-label="Integration directory">
+  <section class="container dir-section" aria-labelledby="dir-h">
     <IntegrationDirectory />
   </section>
 

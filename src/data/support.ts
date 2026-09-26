@@ -6,7 +6,7 @@
 import { PAYMENT } from './product';
 
 export const CONTACT = {
-  hours: 'Monday to Friday, 09:00 to 17:00 Central European Time',
+  hours: 'Monday to Friday, 09:00 to 17:00 Pacific',
   firstReply: 'one working day',
   /** What to put in the email so the first reply can already fix it. */
   include: [

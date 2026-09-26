@@ -30,7 +30,7 @@ const aboutLd = {
   <StretchHero
     title="Why a knob?"
     lede="Because turning is the one thing a mouse does badly and a hand does perfectly. We just had to give the hand something worth turning."
-    hint="The headline is set in a typeface with a width axis. The dial is driving it."
+    hint="Turn the dial. The headline narrows and widens with it."
   />
 
   <section class="manifesto container" aria-label="Manifesto">
@@ -588,6 +588,13 @@ const aboutLd = {
     }
   }
   @media (max-width: 40rem) {
+    .stage {
+      grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+      column-gap: var(--space-s);
+    }
+    .stage__figure .readout {
+      font-size: var(--step-1);
+    }
     .founders {
       grid-template-columns: 1fr;
     }
@@ -596,6 +603,21 @@ const aboutLd = {
     }
     .manifesto__line--last {
       font-size: var(--step-4);
+    }
+  }
+  /* Smallest phones: the figure drops under the code instead of squeezing it. */
+  @media (max-width: 23rem) {
+    .stage {
+      grid-template-columns: 1.8rem minmax(0, 1fr);
+      grid-template-areas:
+        'mark code'
+        'mark figure'
+        'mark date'
+        'mark text';
+    }
+    .stage__figure {
+      justify-items: start;
+      text-align: start;
     }
   }
   @media (prefers-reduced-motion: reduce) {

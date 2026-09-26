@@ -7,7 +7,7 @@
 import DialStage from '@/components/dial/DialStage.astro';
 import ProfileTag from './ProfileTag.astro';
 import { INTEGRATIONS, PROFILES, byProfile, type IntegrationCategory } from '@/data/product';
-import { STATUS, displayLabel } from '@/data/directory';
+import { APPS, STATUS, displayLabel } from '@/data/directory';
 
 const categories = [...new Set(INTEGRATIONS.map((i) => i.category))] as IntegrationCategory[];
 const count = (c: IntegrationCategory) => INTEGRATIONS.filter((i) => i.category === c).length;
@@ -17,8 +17,9 @@ const apps = INTEGRATIONS.map((i) => ({ ...i, display: displayLabel(i.name) }));
 const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name, feel: p.feel }]));
 ---
 
-<div class="dir" data-dir data-total={INTEGRATIONS.length} data-profiles={JSON.stringify(profileInfo)}>
+<div class="dir" data-dir data-total={APPS.length} data-profiles={JSON.stringify(profileInfo)}>
   <div class="dir__main">
+    <h2 id="dir-h" class="visually-hidden">All integrations</h2>
     <form class="dir__filters" role="search" aria-label="Filter integrations" data-js-only data-filters>
       <div class="dir__search">
         <label for="dir-q" class="dir__label">Search</label>
@@ -83,9 +84,10 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
       }
     </dl>
 
-    <p class="dir__count" aria-live="polite" aria-atomic="true" data-count>
-      <span class="readout">{INTEGRATIONS.length}</span> apps
+    <p class="dir__count" data-count>
+      <span class="readout">{APPS.length}</span> apps, plus system controls everywhere
     </p>
+    <p class="visually-hidden" role="status" data-count-status></p>
 
     <ul class="dir__list" role="list" data-list>
       {
@@ -141,7 +143,7 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
       <p class="tester__feel" data-t-feel>{firstProfile.feel}</p>
       <div class="tester__foot" data-js-only>
         <span class="readout tester__angle" data-t-angle>0°</span>
-        <button type="button" class="btn btn--sm tester__cycle" data-cycle aria-pressed="false">Pause tour</button>
+        <button type="button" class="btn btn--sm tester__cycle" data-cycle>Pause tour</button>
       </div>
     </div>
   </aside>
@@ -446,19 +448,28 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
 
   @media (max-width: 64rem) {
     .dir {
-      grid-template-columns: 1fr;
+      /* minmax(0): the track is the box's width, not its widest child's. */
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--space-l);
     }
     .dir__tester {
       position: relative;
       top: auto;
       order: -1;
-      grid-template-columns: minmax(8rem, 12rem) 1fr;
+      grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
       align-items: center;
       padding: var(--space-m);
     }
     .tester__stage {
       inline-size: 100%;
+    }
+    /* Here the card sits above the list, so the tour must not change its
+       height: reserve two lines for the name and three for what it does. */
+    .tester__app {
+      min-block-size: calc(2 * 1.02em);
+    }
+    .tester__does {
+      min-block-size: calc(3 * var(--leading-body) * 1em);
     }
     .dir__legend {
       grid-template-columns: 1fr;
@@ -504,14 +515,22 @@ const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name
   }
   @media (max-width: 30rem) {
     .dir__tester {
-      grid-template-columns: 7.5rem 1fr;
+      grid-template-columns: clamp(5.5rem, 26vw, 7.5rem) minmax(0, 1fr);
       gap: var(--space-s);
+      padding: var(--space-s);
     }
     .tester__app {
       font-size: var(--step-2);
+      hyphens: auto;
     }
     .tester__feel {
       display: none;
+    }
+  }
+  @media (max-width: 22.5rem) {
+    /* The copy column is about 150px here: the longest line runs to five. */
+    .tester__does {
+      min-block-size: calc(5 * var(--leading-body) * 1em);
     }
   }
 </style>

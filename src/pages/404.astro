@@ -32,8 +32,9 @@ const links = [
       <p class="lost__path readout" data-path hidden></p>
       <div class="lost__actions">
         <a class="btn btn--primary btn--lg" href={url('/')} data-track="404_home">Take me home</a>
-        <p class="lost__readout readout" aria-live="polite" data-js-only data-readout>{START}° from home</p>
+        <p class="lost__readout readout" data-js-only data-readout>{START}° from home</p>
       </div>
+      <p class="visually-hidden" role="status" data-arrive></p>
     </div>
 
     <div class="lost__dial" data-start={START} data-home={url('/')}>
@@ -65,6 +66,12 @@ const links = [
   const wrap = document.querySelector<HTMLElement>('.lost__dial');
   const dial = document.getElementById('lost-dial') as HTMLElementTagNameMap['detent-dial'] | null;
   const readout = document.querySelector<HTMLElement>('[data-readout]');
+  const arrive = document.querySelector<HTMLElement>('[data-arrive]');
+  /** Degrees from noon, 0 to 180, either way round. */
+  const fromHome = (deg: number) => {
+    const a = ((deg % 360) + 360) % 360;
+    return Math.round(a > 180 ? 360 - a : a);
+  };
   const pathEl = document.querySelector<HTMLElement>('[data-path]');
   const start = Number(wrap?.dataset.start ?? 150);
   const home = wrap?.dataset.home ?? '/';
@@ -81,6 +88,12 @@ const links = [
     dial?.setAngle(start, { instant: true });
   }
   if (dial) {
+    // The slider itself says how far from home it is, so the visible readout
+    // needs no live region (it changes every frame while the dial moves).
+    dial.valueText = (s) => {
+      const off = fromHome(s.angle);
+      return off === 0 ? 'Home' : `${off}° from home`;
+    };
     if (dial.renderer && dial.renderer !== 'none') place();
     dial.addEventListener('detent:ready', place, { once: true });
     customElements.whenDefined('detent-dial').then(place);
@@ -89,11 +102,11 @@ const links = [
     dial.addEventListener('wheel', arm, { passive: true });
 
     dial.addEventListener('detent:change', (e) => {
-      const a = ((e.detail.angle % 360) + 360) % 360;
-      const off = Math.round(a > 180 ? 360 - a : a);
+      const off = fromHome(e.detail.angle);
       if (readout) readout.textContent = off === 0 ? 'Home. Taking you there.' : `${off}° from home`;
       if (!armed || leaving || off > 4) return;
       leaving = true;
+      if (arrive) arrive.textContent = 'Home. Taking you there.';
       track('404_dial_home');
       const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
       window.setTimeout(() => location.assign(home), reduce ? 150 : 650);

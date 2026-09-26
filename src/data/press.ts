@@ -5,28 +5,38 @@
  */
 import { SITE } from '@/config/site';
 import { EDITIONS, FINISHES, PROFILES, formatUsd } from './product';
-import { numberWord } from '@/scripts/info/format';
+import { hexToOklch, numberWord } from '@/scripts/info/format';
 
 const one = EDITIONS.find((e) => e.id === 'one')!;
 
+/** The text journalists paste. Both versions say it is a concept, because the pasted copy travels without the notes above it. */
 export const BOILERPLATE = {
-  short: `${SITE.product} is a machined aluminum desktop dial with software-defined haptics. A brushless motor lets firmware decide how the knob feels in each app: clicks, a fluid glide, a spring back to center, hard end stops, or snaps to markers.`,
-  long: `${SITE.legalName} makes ${SITE.product}, a desktop dial machined from one billet of 6061 aluminum. Instead of a mechanical click, a brushless gimbal motor and a 14-bit magnetic encoder let firmware decide how the knob feels, and change it in about a millisecond when you switch apps: ${numberWord(PROFILES.length)} feel profiles from crisp frame-by-frame clicks to hard end stops at 0 dB. A round AMOLED display in the knob shows what it controls. ${SITE.product} is local-first, needs no account, and ships with open-source firmware and an open SDK. It costs ${formatUsd(one.priceUsd)}.`,
+  short: `${SITE.product} is a machined aluminum desktop dial with software-defined haptics. A brushless motor lets firmware decide how the knob feels in each app: clicks, a fluid glide, a spring back to center, hard end stops, or snaps to markers. ${SITE.product} is a concept product, a design and engineering demonstration that is not for sale.`,
+  long: `${SITE.legalName} makes ${SITE.product}, a desktop dial machined from one billet of 6061 aluminum. Instead of a mechanical click, a brushless gimbal motor and a 14-bit magnetic encoder let firmware decide how the knob feels, and change it in about a millisecond when you switch apps: ${numberWord(PROFILES.length)} feel profiles from crisp frame-by-frame clicks to hard end stops at 0 dB. A round AMOLED display in the knob shows what it controls. ${SITE.product} is local-first, needs no account, and ships with open-source firmware and an open SDK. It is a concept product, priced at ${formatUsd(one.priceUsd)} on paper and not for sale.`,
 } as const;
 
-/** Brand palette, as OKLCH tokens (hex is derived at build time). */
-export const BRAND_COLORS: { name: string; token: string; oklch: [number, number, number]; role: string }[] = [
-  { name: 'Graphite', token: '--graphite-950', oklch: [0.135, 0.006, 355], role: 'Night. The studio at 11 p.m.' },
-  { name: 'Aluminum', token: '--alu-100', oklch: [0.935, 0.002, 355], role: 'Ink on night, surfaces on day.' },
-  { name: 'White', token: '--white', oklch: [1, 0, 0], role: 'Day. Specs, shop and reading.' },
-  { name: 'Tally', token: '--tally', oklch: [0.636, 0.218, 355.3], role: 'The on-air light. One lit thing per view.' },
+const tally = FINISHES.find((f) => f.id === 'tally')!;
+
+/**
+ * Brand palette. `css` paints the chip; OKLCH and hex are printed beside it.
+ * Screen colors are tokens. Tally exists twice on purpose: the pink on-air
+ * light on screens (--tally) and the red anodize of the Founders finish,
+ * which is what the copy means by "Tally red".
+ */
+export const BRAND_COLORS: { name: string; css: string; oklch: [number, number, number]; role: string }[] = [
+  { name: 'Graphite', css: 'var(--graphite-950)', oklch: [0.135, 0.006, 355], role: 'Night. The studio at 11 p.m.' },
+  { name: 'Aluminum', css: 'var(--alu-100)', oklch: [0.935, 0.002, 355], role: 'Ink on night, surfaces on day.' },
+  { name: 'White', css: 'var(--white)', oklch: [1, 0, 0], role: 'Day. Specs, shop and reading.' },
+  { name: 'Tally, screen', css: 'var(--tally)', oklch: [0.636, 0.218, 355.3], role: 'The on-air light on screens. One lit thing per view.' },
+  { name: 'Tally, anodize', css: tally.body, oklch: hexToOklch(tally.body), role: 'Tally red: the Founders Edition finish, on metal.' },
 ];
 
+/** w/h are each SVG's own viewBox proportions, so the <img> reserves the right box. */
 export const LOGOS = [
-  { file: '/brand/detent-logo-graphite.svg', label: 'Logo, graphite', use: 'For light backgrounds', dark: false },
-  { file: '/brand/detent-logo-white.svg', label: 'Logo, white', use: 'For dark backgrounds', dark: true },
-  { file: '/brand/detent-mark-graphite.svg', label: 'Mark, graphite', use: 'Avatars and favicons on light', dark: false },
-  { file: '/brand/detent-mark-white.svg', label: 'Mark, white', use: 'Avatars and favicons on dark', dark: true },
+  { file: '/brand/detent-logo-graphite.svg', label: 'Logo, graphite', use: 'For light backgrounds', dark: false, w: 244, h: 64 },
+  { file: '/brand/detent-logo-white.svg', label: 'Logo, white', use: 'For dark backgrounds', dark: true, w: 244, h: 64 },
+  { file: '/brand/detent-mark-graphite.svg', label: 'Mark, graphite', use: 'Avatars and favicons on light', dark: false, w: 64, h: 64 },
+  { file: '/brand/detent-mark-white.svg', label: 'Mark, white', use: 'Avatars and favicons on dark', dark: true, w: 64, h: 64 },
 ] as const;
 
 /** Product renders, one hero per finish (generated by the render pipeline). */
