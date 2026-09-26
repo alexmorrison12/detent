@@ -1,0 +1,865 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import SafeDial from '@/components/games/SafeDial.astro';
+import Trace from '@/components/games/Trace.astro';
+import { GAMES } from '@/data/games';
+import { byEdition } from '@/data/product';
+import { SITE } from '@/config/site';
+import { ogPath } from '@/config/og';
+import { url, absoluteUrl } from '@/lib/url';
+import { dayFromIso, puzzleNumber, utcDay } from '@/scripts/games/day';
+
+const epochDay = dayFromIso(GAMES.epoch);
+const buildNumber = puzzleNumber(utcDay(), epochDay);
+const engraving = byEdition('one').includes.find((i) => /engraving/i.test(i));
+
+const title = 'Crack the Safe';
+const description =
+  'A daily safecracking game you play by feel. Turn right, left, right on a 100-number dial and listen for the heavier detent. One new combination for everyone at 00:00 UTC.';
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Game',
+    name: 'Crack the Safe',
+    description,
+    url: absoluteUrl('/crack/', Astro.site),
+    isAccessibleForFree: true,
+    inLanguage: SITE.lang,
+    numberOfPlayers: { '@type': 'QuantitativeValue', value: 1 },
+    publisher: { '@type': 'Organization', name: SITE.legalName, url: absoluteUrl('/', Astro.site) },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: SITE.product, item: absoluteUrl('/', Astro.site) },
+      { '@type': 'ListItem', position: 2, name: title, item: absoluteUrl('/crack/', Astro.site) },
+    ],
+  },
+];
+
+const steps = [
+  {
+    dir: 'R',
+    title: 'Right to the first',
+    body: 'Turn clockwise. Wheel one only listens on a right turn, so slow down when a click feels heavier.',
+  },
+  {
+    dir: 'L',
+    title: 'Left to the second',
+    body: 'Reverse. Wheel two ignores everything you do going right. Counterclockwise only.',
+  },
+  {
+    dir: 'R',
+    title: 'Right to the third',
+    body: 'Clockwise again. Set the last number and the bolt draws back.',
+  },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  ogImage={ogPath('crack')}
+  ogImageAlt="Crack the safe: a daily challenge by feel"
+  jsonLd={jsonLd}
+>
+  <safe-game data-epoch-day={epochDay} data-base-strength={GAMES.safe.baseStrength}>
+    <section class="crack container" aria-labelledby="crack-title">
+      <header class="crack__intro">
+        <p class="crack__no readout">
+          Safe <span data-safe-no>#{buildNumber}</span> · new at 00:00 UTC
+        </p>
+        <h1 id="crack-title" class="display display--l">
+          Crack the safe.
+        </h1>
+        <p class="crack__lede">
+          Three numbers. A hundred detents. The right one clicks a little heavier.
+        </p>
+        <noscript>
+          <p class="crack__noscript">
+            The safe needs JavaScript to turn. The rules below read fine without it.
+          </p>
+        </noscript>
+      </header>
+
+      <p class="crack__dir">
+        <span data-dir-lead>Turn </span>
+        <strong class="crack__dir-word" data-dir-word>
+          right
+        </strong>
+        <span data-dir-rest> to the first number.</span>
+      </p>
+
+      <div class="crack__stage">
+        <SafeDial />
+      </div>
+
+      <div class="crack__controls">
+        <button class="btn btn--solid btn--lg crack__set" type="button" data-set>
+          Set{' '}
+          <span class="readout crack__set-n" data-set-n>
+            00
+          </span>
+        </button>
+        <button class="btn crack__sound" type="button" data-sound aria-pressed="false">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path>
+            <path
+              class="crack__wave"
+              d="M15.2 9.2a4 4 0 0 1 0 5.6M17.8 6.6a7.6 7.6 0 0 1 0 10.8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            ></path>
+          </svg>
+          Sound{' '}
+          <span class="readout sound-state" aria-hidden="true" data-sound-state>
+            off
+          </span>
+        </button>
+        <p class="crack__feedback" role="status" data-feedback></p>
+      </div>
+
+      <Trace
+        class="crack__trace"
+        label="Stethoscope"
+        caption="Taller is heavier. Only the wheel you’re on is listening."
+      />
+
+      <ol class="crack__wheels" role="list" aria-label="Wheels">
+        {['Right', 'Left', 'Right'].map((d, i) => (
+          <li class="wheel" data-wheel={i} data-status={i === 0 ? 'active' : 'waiting'}>
+            <span class="wheel__label">
+              Wheel {i + 1} <span class="wheel__dir">· {d}</span>
+            </span>
+            <span class="wheel__value readout" data-wheel-value>
+              --
+            </span>
+            <span class="wheel__note" data-wheel-misses />
+          </li>
+        ))}
+      </ol>
+
+      <div class="crack__meters">
+        <dl>
+          <div>
+            <dt>Time</dt>
+            <dd class="readout" data-time role="timer">
+              0:00
+            </dd>
+          </div>
+          <div>
+            <dt>Sets</dt>
+            <dd class="readout" data-sets>
+              0
+            </dd>
+          </div>
+        </dl>
+        <p class="crack__keys">
+          Keyboard: focus the dial. <kbd>←</kbd> <kbd>→</kbd> turn one number, <kbd>Page Up</kbd>{' '}
+          <kbd>Page Down</kbd> turn four,
+          <kbd>Enter</kbd> sets.
+        </p>
+      </div>
+
+      <div class="crack__done" data-done>
+        <h2 class="display display--xl crack__open" tabindex="-1" data-done-heading>
+          Open.
+        </h2>
+        <dl class="crack__result">
+          <div>
+            <dt>Time</dt>
+            <dd class="readout" data-done-time>
+              0:00
+            </dd>
+          </div>
+          <div>
+            <dt>Sets</dt>
+            <dd class="readout" data-done-sets>
+              3
+            </dd>
+          </div>
+          <div>
+            <dt>First-set wheels</dt>
+            <dd class="readout" data-done-clean>
+              3/3
+            </dd>
+          </div>
+        </dl>
+
+        <div class="crack__share" data-daily-only>
+          <pre class="crack__share-text readout" data-share-text></pre>
+          <div class="cluster crack__share-actions">
+            <button class="btn btn--primary" type="button" data-copy>
+              Copy result
+            </button>
+            <button class="btn" type="button" data-share hidden>
+              Share
+            </button>
+            <a class="btn" data-save-card hidden href="#">
+              Save card
+            </a>
+          </div>
+          <p class="crack__status" role="status" data-share-status></p>
+          <p class="crack__next" data-countdown-line>
+            Next safe in{' '}
+            <time class="readout" data-countdown role="timer">
+              --:--:--
+            </time>
+          </p>
+          <p class="crack__next" data-rollover hidden>
+            Midnight UTC came and went. A new safe is waiting.{' '}
+            <button class="link-arrow crack__reload" type="button" data-reload>
+              Load it
+            </button>
+          </p>
+        </div>
+
+        <div class="crack__practice-done" data-practice-only hidden>
+          <p>Practice safe, off the record. Today’s safe and your streak are untouched.</p>
+          <button class="link-arrow crack__reload" type="button" data-today>
+            Back to today’s safe
+          </button>
+        </div>
+
+        <button class="btn crack__practice" type="button" data-practice>
+          Practice on a random safe
+        </button>
+      </div>
+    </section>
+
+    <section class="reward container" data-daily-only aria-labelledby="reward-title">
+      <figure class="reward__card" data-card-wrap hidden>
+        <div class="reward__img" data-card-slot></div>
+        <figcaption>Your share card. Spoiler-free: no numbers on it.</figcaption>
+      </figure>
+      <div class="reward__text">
+        <h2 id="reward-title" class="display display--s">
+          The Safecracker engraving.
+        </h2>
+        <p>
+          Every Detent One comes with{' '}
+          {engraving ? engraving.toLowerCase() : 'engraving on the base'}. Safecrackers get one more
+          option: the safe number and its combination, set around a tiny engraved dial, the way a
+          watchmaker signs a movement.
+        </p>
+        <p class="reward__code">
+          Your code <span class="readout" data-code></span>
+        </p>
+        <p class="concept-note">
+          Detent is a concept product, so there is nothing to redeem this against. The code is a
+          keepsake, not a coupon.
+        </p>
+      </div>
+    </section>
+
+    <section class="how container" aria-labelledby="how-title">
+      <h2 id="how-title" class="display display--m">
+        How to crack it.
+      </h2>
+      <ol class="how__steps" role="list">
+        {steps.map((s) => (
+          <li class="how__step">
+            <span class="how__dir" aria-hidden="true">
+              {s.dir}
+            </span>
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+          </li>
+        ))}
+      </ol>
+      <div class="how__why">
+        <h3 class="display display--s">What you’re feeling.</h3>
+        <div class="how__why-body">
+          <p>
+            Each number is a detent, 3.6° apart. Near the right number the firmware adds torque a
+            few percent at a time. One number on every wheel is a false gate: it gets firm, never
+            heavy. On a Detent One that is a heavier click under your fingertip. Here it is a lower
+            click in your ears and a taller line on the stethoscope.
+          </p>
+          <p>
+            That is software-defined haptics in one sentence: the click isn’t cut into the metal, so
+            it can change per number, per app, per millisecond.
+          </p>
+          <a class="link-arrow" href={url('/profiles/')}>
+            Turn the six feels
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="record container" aria-labelledby="record-title">
+      <div class="record__head">
+        <h2 id="record-title" class="display display--s">
+          Your record.
+        </h2>
+        <button class="btn btn--sm" type="button" data-studio-log-open>
+          Studio log
+        </button>
+      </div>
+      <dl class="record__grid">
+        <div>
+          <dt>Streak</dt>
+          <dd class="readout record__value" data-stat="streak">
+            0
+          </dd>
+          <dd class="record__note" data-stat="freeze">
+            One free freeze a week
+          </dd>
+        </div>
+        <div>
+          <dt>Best time</dt>
+          <dd class="readout record__value" data-stat="best">
+            –
+          </dd>
+        </div>
+        <div>
+          <dt>Safes opened</dt>
+          <dd class="readout record__value" data-stat="cracked">
+            0
+          </dd>
+        </div>
+        <div>
+          <dt>All three on the first set</dt>
+          <dd class="readout record__value" data-stat="clean">
+            0
+          </dd>
+        </div>
+      </dl>
+      <p class="concept-note">
+        Kept in this browser, never sent anywhere. Miss a day and one free freeze a week carries
+        your streak.
+      </p>
+    </section>
+
+    <section class="also container" aria-labelledby="also-title">
+      <div class="also__daily">
+        <h2 id="also-title" class="display display--s">
+          Also today: name that feel.
+        </h2>
+        <p>The Daily Detent hides one of six feels on the dial. You get five tries.</p>
+        <a class="link-arrow" href={url('/daily/')}>
+          Play the Daily Detent
+        </a>
+      </div>
+      <div class="also__cta">
+        <p>A hundred detents is one profile. Detent One stores sixty-four.</p>
+        <PhaseCTA placement="crack" />
+      </div>
+    </section>
+  </safe-game>
+</BaseLayout>
+
+<script>
+  import '@/scripts/games/safe-game';
+  document.addEventListener('click', (e) => {
+    if ((e.target as Element | null)?.closest('[data-reload]')) location.reload();
+  });
+</script>
+
+<style>
+  safe-game {
+    display: block;
+    --w: 0;
+  }
+
+  /* ---- The game grid ------------------------------------------------------- */
+  .crack {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'intro' 'dir' 'stage' 'controls' 'trace' 'wheels' 'meters' 'done';
+    padding-block: var(--space-m) var(--space-2xl);
+  }
+  .crack__intro {
+    grid-area: intro;
+  }
+  .crack__dir {
+    grid-area: dir;
+  }
+  .crack__stage {
+    grid-area: stage;
+  }
+  .crack__controls {
+    grid-area: controls;
+  }
+  .crack :global(.crack__trace) {
+    grid-area: trace;
+  }
+  .crack__wheels {
+    grid-area: wheels;
+  }
+  .crack__meters {
+    grid-area: meters;
+  }
+  .crack__done {
+    grid-area: done;
+  }
+
+  @media (min-width: 60rem) {
+    .crack {
+      grid-template-columns: minmax(0, 1.08fr) minmax(21rem, 0.92fr);
+      grid-template-areas:
+        'stage intro'
+        'stage dir'
+        'stage controls'
+        'stage trace'
+        'stage wheels'
+        'stage meters'
+        'stage done'
+        'stage .';
+      grid-template-rows: repeat(7, auto) 1fr;
+      column-gap: clamp(var(--space-l), 5vw, var(--space-3xl));
+      padding-block: var(--space-xl) var(--space-3xl);
+      align-items: start;
+    }
+    .crack__stage {
+      grid-row: 1 / -1;
+      position: sticky;
+      top: calc(var(--header-h) + var(--space-m));
+    }
+  }
+
+  .crack__no {
+    color: var(--ink-muted);
+  }
+  .crack__intro h1 {
+    margin-block: var(--space-2xs) var(--space-s);
+  }
+  .crack__lede {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink-muted);
+    max-inline-size: 30ch;
+  }
+  .crack__noscript {
+    margin-block-start: var(--space-s);
+    color: var(--ink);
+  }
+
+  .crack__dir {
+    margin-block-start: var(--space-m);
+    font-size: var(--step-2);
+    font-weight: 520;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.15;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .crack__dir-word {
+    display: inline-block;
+    color: var(--ink-strong);
+    font-weight: calc(660 + var(--w) * 220);
+    font-stretch: calc(108% + var(--w) * 17%);
+    transition:
+      font-weight var(--dur-1) var(--ease-out),
+      font-stretch var(--dur-1) var(--ease-out);
+  }
+
+  .crack__stage {
+    margin-block-start: var(--space-m);
+    inline-size: min(100%, 40rem);
+    justify-self: center;
+  }
+  @media (min-width: 60rem) {
+    .crack__stage {
+      margin-block-start: 0;
+      justify-self: stretch;
+    }
+  }
+
+  .crack__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-block-start: var(--space-m);
+  }
+  @media (min-width: 60rem) {
+    .crack__controls {
+      margin-block-start: var(--space-l);
+    }
+  }
+  .crack__set {
+    min-inline-size: 9.5rem;
+  }
+  .crack__set-n {
+    font-size: 0.95em;
+    font-weight: 500;
+  }
+  .crack__sound {
+    color: var(--ink-muted);
+  }
+  .crack__sound[aria-pressed='true'] {
+    color: var(--ink-strong);
+    --btn-line: var(--ink);
+  }
+  .crack__wave {
+    opacity: 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .crack__sound[aria-pressed='true'] .crack__wave {
+    opacity: 1;
+  }
+  .crack__feedback {
+    flex-basis: 100%;
+    min-block-size: 1.6em;
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  :global(safe-game[data-flash='caught']) .crack__feedback {
+    color: var(--accent-text);
+  }
+
+  .crack :global(.crack__trace) {
+    margin-block-start: var(--space-l);
+  }
+
+  .crack__wheels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2xs);
+    margin-block-start: var(--space-l);
+  }
+  .wheel {
+    display: grid;
+    gap: 0.2rem;
+    padding: var(--space-xs) var(--space-s);
+    border: 1px solid var(--line);
+    border-radius: var(--r-m);
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+  .wheel[data-status='active'] {
+    border-color: var(--ink-muted);
+  }
+  .wheel__label {
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+  }
+  .wheel__dir {
+    color: var(--ink-muted);
+    font-weight: 500;
+  }
+  .wheel__value {
+    font-size: var(--step-2);
+    line-height: 1.1;
+    color: var(--ink-faint);
+  }
+  .wheel[data-status='found'] .wheel__value {
+    color: var(--ink-strong);
+  }
+  .wheel[data-status='found'] .wheel__label::after {
+    content: '';
+    display: inline-block;
+    inline-size: 0.5em;
+    block-size: 0.5em;
+    margin-inline-start: 0.4em;
+    border-radius: 50%;
+    background: var(--accent);
+    vertical-align: 0.08em;
+  }
+  .wheel__note {
+    min-block-size: 1.3em;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  .crack__meters {
+    margin-block-start: var(--space-l);
+  }
+  .crack__meters dl,
+  .crack__result {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs) var(--space-xl);
+  }
+  .crack__meters dt,
+  .crack__result dt {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .crack__meters dd {
+    font-size: var(--step-1);
+    color: var(--ink-strong);
+  }
+  .crack__keys {
+    margin-block-start: var(--space-s);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    line-height: 1.9;
+  }
+  .sound-state {
+    min-inline-size: 3ch;
+    text-align: start;
+    font-size: 0.85em;
+  }
+  kbd {
+    padding: 0.05em 0.4em;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-xs);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* ---- Open state ------------------------------------------------------------ */
+  .crack__done,
+  .reward {
+    display: none;
+  }
+  :global(safe-game[data-state='open']) .crack__done {
+    display: block;
+  }
+  :global(safe-game[data-state='open'][data-mode='daily']) .reward {
+    display: grid;
+  }
+  :global(safe-game[data-state='open'])
+    :is(.crack__dir, .crack__controls, .crack__wheels, .crack__meters),
+  :global(safe-game[data-state='open']) :global(.crack__trace) {
+    display: none;
+  }
+  .crack__done {
+    margin-block-start: var(--space-l);
+  }
+  .crack__open {
+    color: var(--ink-strong);
+  }
+  .crack__open:focus {
+    outline: none;
+  }
+  .crack__result {
+    margin-block: var(--space-m) var(--space-l);
+    gap: var(--space-s) var(--space-xl);
+  }
+  .crack__result dd {
+    font-size: var(--step-2);
+    color: var(--ink-strong);
+  }
+  .crack__share-text {
+    margin: 0;
+    padding: var(--space-s);
+    border-radius: var(--r-m);
+    background: var(--surface);
+    color: var(--ink-strong);
+    font-size: var(--step--1);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .crack__share-actions {
+    margin-block-start: var(--space-s);
+    --cluster-gap: var(--space-xs);
+  }
+  .crack__status {
+    min-block-size: 1.5em;
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .crack__next {
+    margin-block-start: var(--space-s);
+    color: var(--ink);
+  }
+  .crack__next time {
+    color: var(--ink-strong);
+    font-size: var(--step-0);
+  }
+  .crack__reload {
+    font-size: inherit;
+    min-block-size: 2.75rem;
+  }
+  .crack__practice-done p {
+    color: var(--ink-muted);
+  }
+  .crack__practice {
+    margin-block-start: var(--space-l);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(safe-game[data-state='open']) .crack__open {
+      animation: seat var(--dur-4) var(--ease-out) both;
+    }
+    @keyframes seat {
+      from {
+        opacity: 0;
+        font-stretch: 80%;
+      }
+      to {
+        opacity: 1;
+        font-stretch: 125%;
+      }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .crack__dir-word {
+      transition: none;
+    }
+  }
+
+  /* ---- Reward --------------------------------------------------------------- */
+  .reward {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-l);
+    align-items: center;
+    padding-block: var(--space-2xl);
+    border-block-start: 1px solid var(--line);
+  }
+  @media (min-width: 60rem) {
+    .reward {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: var(--space-2xl);
+    }
+  }
+  .reward__img {
+    aspect-ratio: 1200 / 630;
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+    overflow: hidden;
+  }
+  .reward__img :global(img) {
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .reward__card figcaption {
+    margin-block-start: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .reward__text {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 36rem;
+  }
+  .reward__text p {
+    color: var(--ink);
+  }
+  .reward__code {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-xs);
+    font-weight: 600;
+  }
+  .reward__code .readout {
+    padding: 0.3em 0.7em;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r-s);
+    font-size: var(--step-0);
+    color: var(--ink-strong);
+    letter-spacing: 0.08em;
+  }
+
+  /* ---- How ------------------------------------------------------------------ */
+  .how {
+    padding-block: var(--section-y) var(--space-2xl);
+    border-block-start: 1px solid var(--line);
+  }
+  .how__steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: var(--space-xl) var(--space-l);
+    margin-block: var(--space-xl) var(--space-2xl);
+  }
+  .how__dir {
+    display: grid;
+    place-items: center;
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+    margin-block-end: var(--space-s);
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-strong);
+    font-size: var(--step-1);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    color: var(--ink-strong);
+  }
+  .how__step h3 {
+    font-size: var(--step-1);
+    font-stretch: var(--stretch-ui);
+    margin-block-end: var(--space-2xs);
+  }
+  .how__step p {
+    color: var(--ink-muted);
+    max-inline-size: 34ch;
+  }
+  .how__why {
+    display: grid;
+    gap: var(--space-m);
+    padding-block-start: var(--space-xl);
+    border-block-start: 1px solid var(--line);
+  }
+  @media (min-width: 60rem) {
+    .how__why {
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: var(--space-2xl);
+    }
+  }
+  .how__why-body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: var(--measure);
+    justify-items: start;
+  }
+
+  /* ---- Record ---------------------------------------------------------------- */
+  .record {
+    padding-block: var(--space-2xl);
+    border-block-start: 1px solid var(--line);
+  }
+  .record__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+  }
+  .record__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    margin-block: var(--space-l) var(--space-s);
+    border-block: 1px solid var(--line);
+  }
+  .record__grid > div {
+    padding: var(--space-s) var(--space-s) var(--space-s) 0;
+  }
+  .record__grid dt {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .record__value {
+    font-size: var(--step-2);
+    color: var(--ink-strong);
+  }
+  .record__note {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  /* ---- Also ------------------------------------------------------------------ */
+  .also {
+    display: grid;
+    gap: var(--space-xl);
+    padding-block: var(--space-2xl) var(--section-y);
+    border-block-start: 1px solid var(--line);
+  }
+  @media (min-width: 60rem) {
+    .also {
+      grid-template-columns: 1fr 1fr;
+      align-items: end;
+    }
+  }
+  .also__daily,
+  .also__cta {
+    display: grid;
+    gap: var(--space-s);
+    justify-items: start;
+  }
+  .also p {
+    color: var(--ink-muted);
+    max-inline-size: 40ch;
+  }
+</style>

@@ -1,0 +1,267 @@
+---
+/**
+ * The safe: a Detent One set into an engraved 0–99 bezel. The bezel turns
+ * with the knob (driven by <safe-game>); the index wedge at noon is fixed.
+ * Numbers increase counterclockwise around the face, so a right (clockwise)
+ * turn brings higher numbers to the index. Drag the bezel or the knob.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+
+interface Props {
+  id?: string;
+}
+const { id = 'safe-dial' } = Astro.props;
+
+const N = 100;
+const STEP = 360 / N;
+const ticks = Array.from({ length: N }, (_, k) => ({
+  rot: -k * STEP,
+  len: k % 10 === 0 ? 30 : k % 5 === 0 ? 20 : 11,
+  cls:
+    k % 10 === 0
+      ? 'safe__tick safe__tick--ten'
+      : k % 5 === 0
+        ? 'safe__tick safe__tick--five'
+        : 'safe__tick',
+}));
+const labels = Array.from({ length: 10 }, (_, i) => ({ n: i * 10, rot: -i * 10 * STEP }));
+// Machined rings on the fixed door.
+const rings = [298, 294.5, 291, 287.5, 284, 280.5, 277];
+
+// Direction arrows on the door, either side of the index.
+const R = 286;
+const pt = (deg: number, r = R) => {
+  const a = (deg * Math.PI) / 180;
+  return [+(r * Math.sin(a)).toFixed(2), +(-r * Math.cos(a)).toFixed(2)] as const;
+};
+function arrow(from: number, to: number) {
+  const [x0, y0] = pt(from);
+  const [x1, y1] = pt(to);
+  const sweep = to > from ? 1 : 0;
+  const a = (to * Math.PI) / 180;
+  const dir = to > from ? 1 : -1;
+  // Tangent (direction of travel) and normal at the tip.
+  const tx = Math.cos(a) * dir;
+  const ty = Math.sin(a) * dir;
+  const nx = Math.sin(a);
+  const ny = -Math.cos(a);
+  const tip = [x1 + tx * 10, y1 + ty * 10];
+  const head = `M${tip[0]!.toFixed(1)} ${tip[1]!.toFixed(1)} L${(x1 + nx * 7).toFixed(1)} ${(y1 + ny * 7).toFixed(1)} L${(x1 - nx * 7).toFixed(1)} ${(y1 - ny * 7).toFixed(1)} Z`;
+  return { arc: `M${x0} ${y0} A${R} ${R} 0 0 ${sweep} ${x1} ${y1}`, head };
+}
+const right = arrow(14, 42);
+const left = arrow(-14, -42);
+const [rx, ry] = pt(52);
+const [lx, ly] = pt(-52);
+---
+
+<div class="safe" data-safe>
+  <svg class="safe__face" viewBox="-300 -300 600 600" aria-hidden="true">
+    <circle r="299" class="safe__door"></circle>
+    {rings.map((r) => (
+      <circle r={r} class="safe__ring" />
+    ))}
+
+    <g class="safe__bezel" data-safe-bezel>
+      <circle r="231" class="safe__band"></circle>
+      <circle r="270" class="safe__edge"></circle>
+      <circle r="192" class="safe__edge"></circle>
+      {ticks.map((t) => (
+        <line
+          class={t.cls}
+          x1="0"
+          y1="-268"
+          x2="0"
+          y2={-268 + t.len}
+          transform={`rotate(${t.rot})`}
+        />
+      ))}
+      {labels.map((l) => (
+        <text
+          class="safe__num"
+          transform={`rotate(${l.rot}) translate(0 -214)`}
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          {l.n}
+        </text>
+      ))}
+      <g data-safe-marks></g>
+    </g>
+
+    <g class="safe__dir safe__dir--right">
+      <path class="safe__arc" d={right.arc}></path>
+      <path class="safe__head" d={right.head}></path>
+      <text class="safe__dir-label" x={rx} y={ry} text-anchor="middle" dominant-baseline="central">
+        R
+      </text>
+    </g>
+    <g class="safe__dir safe__dir--left">
+      <path class="safe__arc" d={left.arc}></path>
+      <path class="safe__head" d={left.head}></path>
+      <text class="safe__dir-label" x={lx} y={ly} text-anchor="middle" dominant-baseline="central">
+        L
+      </text>
+    </g>
+
+    <path class="safe__index" d="M0 -266 L-11 -291 L11 -291 Z"></path>
+    <circle r="296" class="safe__open" pathLength="1" transform="rotate(-90)"></circle>
+  </svg>
+
+  <div class="safe__grip" data-safe-grip></div>
+
+  <div class="safe__knob" data-feel-custom>
+    <DialStage
+      id={id}
+      interactive
+      camera="top"
+      finish="graphite"
+      profile="ratchet"
+      label="Safe dial"
+      display="00"
+    />
+  </div>
+</div>
+
+<style>
+  .safe {
+    --w: 0;
+    position: relative;
+    inline-size: 100%;
+    aspect-ratio: 1;
+    container-type: inline-size;
+  }
+  .safe__face {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .safe__door {
+    fill: var(--bg-raised);
+  }
+  .safe__ring {
+    fill: none;
+    stroke: var(--line);
+    stroke-width: 0.8;
+  }
+  .safe__band {
+    fill: none;
+    stroke: var(--surface);
+    stroke-width: 78;
+  }
+  .safe__edge {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 1.2;
+  }
+  .safe__tick {
+    stroke: var(--ink-muted);
+    stroke-width: 1.6;
+  }
+  .safe__tick--five {
+    stroke: var(--ink);
+    stroke-width: 2.2;
+  }
+  .safe__tick--ten {
+    stroke: var(--ink-strong);
+    stroke-width: 3.2;
+  }
+  .safe__num {
+    fill: var(--ink-strong);
+    font-family: var(--font-sans);
+    font-stretch: 125%;
+    font-weight: 720;
+    font-size: 27px;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .safe__arc {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+  .safe__head {
+    fill: currentColor;
+  }
+  .safe__dir-label {
+    fill: currentColor;
+    font-family: var(--font-sans);
+    font-stretch: 125%;
+    font-weight: 760;
+    font-size: 20px;
+  }
+  .safe__dir {
+    color: var(--ink-faint);
+    opacity: 0.45;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      color var(--dur-3) var(--ease-out);
+  }
+  :global(safe-game[data-dir='right']) .safe__dir--right,
+  :global(safe-game[data-dir='left']) .safe__dir--left {
+    color: var(--ink-strong);
+    opacity: 1;
+  }
+  .safe__index {
+    fill: var(--accent);
+    filter: drop-shadow(0 0 calc(var(--w) * 9px) var(--accent));
+    transition: filter var(--dur-1) var(--ease-out);
+  }
+  .safe__open {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 4;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  :global(safe-game[data-state='open']) .safe__open {
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transition:
+      stroke-dashoffset 1.1s var(--ease-out),
+      opacity var(--dur-2) var(--ease-out);
+  }
+  :global(.safe__pin) {
+    fill: var(--accent);
+  }
+
+  .safe__grip {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    touch-action: none;
+    cursor: grab;
+  }
+  :global(safe-game[data-grabbing]) .safe__grip {
+    cursor: grabbing;
+  }
+  .safe__knob {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    inline-size: 62%;
+    block-size: 62%;
+  }
+  .safe__knob :global(detent-dial) {
+    border-radius: 50%;
+  }
+  .safe__knob :global(detent-dial:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(safe-game[data-state='open']) .safe__open {
+      stroke-dashoffset: 0;
+      transition: opacity var(--dur-3) linear;
+    }
+    .safe__index {
+      transition: none;
+    }
+  }
+</style>

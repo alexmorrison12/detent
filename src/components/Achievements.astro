@@ -1,0 +1,740 @@
+---
+/**
+ * Site-wide achievements: a quiet toast on each find, a small halo dock that
+ * appears after the first one, and the Studio log (a popover) listing what's
+ * found and hints for what isn't. Logic lives in @/lib/achievements.
+ * Nothing renders visibly until something is found; nothing blocks content.
+ */
+import { ACHIEVEMENTS } from '@/lib/achievements';
+
+const total = ACHIEVEMENTS.length;
+// Seven ticks around the halo, like the LED ring in the base.
+const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }));
+---
+
+<div class="ach" data-achievements>
+  <p class="visually-hidden" role="status" aria-live="polite" data-ach-announce></p>
+
+  <button
+    class="ach-dock"
+    type="button"
+    popovertarget="studio-log"
+    data-ach-dock
+    hidden
+    aria-label={`Studio log, 0 of ${total} found`}
+  >
+    <svg viewBox="-24 -24 48 48" width="44" height="44" aria-hidden="true">
+      <circle r="11" class="ach-dock__knob"></circle>
+      {ticks.map((t) => (
+        <line data-ach-tick={t.id} x1="0" y1="-20" x2="0" y2="-15" transform={`rotate(${t.rot})`} />
+      ))}
+    </svg>
+  </button>
+
+  <div class="ach-toast" data-ach-toast hidden>
+    <svg class="ach-toast__halo" viewBox="-24 -24 48 48" width="40" height="40" aria-hidden="true">
+      <circle r="11" class="ach-dock__knob"></circle>
+      {ticks.map((t) => (
+        <line data-ach-tick={t.id} x1="0" y1="-20" x2="0" y2="-15" transform={`rotate(${t.rot})`} />
+      ))}
+    </svg>
+    <div class="ach-toast__text">
+      <p class="ach-toast__title">
+        <span class="ach-toast__label">Found</span> <strong data-ach-toast-name></strong>
+      </p>
+      <p class="ach-toast__line" data-ach-toast-line></p>
+      <button class="ach-toast__log" type="button" popovertarget="studio-log">
+        Open the Studio log
+      </button>
+    </div>
+    <button class="ach-toast__close" type="button" data-ach-toast-close aria-label="Dismiss">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M6 6l12 12M18 6L6 18"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        ></path>
+      </svg>
+    </button>
+  </div>
+
+  <div
+    id="studio-log"
+    class="ach-log"
+    popover
+    data-world="night"
+    role="dialog"
+    aria-labelledby="studio-log-title"
+  >
+    <div class="ach-log__head">
+      <h2 id="studio-log-title" tabindex="-1">
+        Studio log
+      </h2>
+      <p class="readout ach-log__count">
+        <span data-ach-count>0</span> of {total} found
+      </p>
+      <button
+        class="ach-log__close"
+        type="button"
+        popovertarget="studio-log"
+        popovertargetaction="hide"
+        aria-label="Close the Studio log"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          ></path>
+        </svg>
+      </button>
+    </div>
+
+    <ol class="ach-log__list" role="list">
+      {ACHIEVEMENTS.map((a) => (
+        <li class="ach-item" data-ach-item={a.id} data-found="false">
+          <span class="ach-item__mark" aria-hidden="true" />
+          <div class="ach-item__body">
+            <h3 class="ach-item__name">
+              <span class="ach-item__found-name">{a.name}</span>
+              <span class="ach-item__hidden-name">
+                <span class="visually-hidden">Not found yet. Hint: </span>
+                <span data-ach-hint>{a.hint}</span>
+              </span>
+            </h3>
+            <p class="ach-item__found">
+              {a.found} <time class="readout" data-ach-when />
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    <section class="ach-reward" data-ach-reward hidden aria-labelledby="ach-reward-title">
+      <svg
+        class="ach-reward__face"
+        viewBox="-110 -110 220 220"
+        role="img"
+        aria-label="The Founders display face: a black round screen with a tally hairline at noon, seven lit ticks and the date of your last find."
+      >
+        <circle r="108" class="face__bezel"></circle>
+        <circle r="100" class="face__glass"></circle>
+        {Array.from({ length: 48 }, (_, i) => (
+          <line
+            class:list={['face__tick', i % 4 === 0 && 'face__tick--long']}
+            x1="0"
+            y1="-92"
+            x2="0"
+            y2={i % 4 === 0 ? -82 : -87}
+            transform={`rotate(${i * 7.5})`}
+          />
+        ))}
+        {ticks.map((t) => (
+          <circle class="face__find" r="3.2" cx="0" cy="-70" transform={`rotate(${t.rot})`} />
+        ))}
+        <line class="face__noon" x1="0" y1="-100" x2="0" y2="-58"></line>
+        <text class="face__date" y="10" text-anchor="middle" data-ach-face-date>
+          0926
+        </text>
+        <text class="face__word" y="40" text-anchor="middle">
+          FOUNDERS
+        </text>
+      </svg>
+      <div>
+        <h3 id="ach-reward-title">The Founders display face</h3>
+        <p>
+          All seven, found. This is the face your knob would wear: a tally hairline at noon, one lit
+          tick per find, and the day you finished.
+        </p>
+        <p class="concept-note">
+          Concept reward. Detent is a concept product, so the face lives here, in this log.
+        </p>
+      </div>
+    </section>
+
+    <div class="ach-log__foot">
+      <p class="concept-note">Kept in this browser. Nothing is sent anywhere.</p>
+      <button class="ach-log__reset" type="button" data-ach-reset>
+        Clear log
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  import {
+    ACHIEVEMENTS,
+    ACHIEVEMENT_EVENT,
+    ACHIEVEMENT_TOTAL,
+    foundCount,
+    getAchievements,
+    initAchievementTracking,
+    resetAchievements,
+    type AchievementEventDetail,
+  } from '@/lib/achievements';
+
+  initAchievementTracking();
+
+  const root = document.querySelector<HTMLElement>('[data-achievements]');
+  const log = document.getElementById('studio-log') as HTMLElement | null;
+  const toast = root?.querySelector<HTMLElement>('[data-ach-toast]');
+  const dock = root?.querySelector<HTMLButtonElement>('[data-ach-dock]');
+  const announce = root?.querySelector<HTMLElement>('[data-ach-announce]');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const dateFmt = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  function paint() {
+    if (!root) return;
+    const s = getAchievements();
+    const n = foundCount(s);
+    root.querySelectorAll<SVGLineElement>('[data-ach-tick]').forEach((t) => {
+      t.classList.toggle('is-lit', !!s.found[t.dataset.achTick as keyof typeof s.found]);
+    });
+    root.querySelectorAll<HTMLElement>('[data-ach-item]').forEach((li) => {
+      const id = li.dataset.achItem as keyof typeof s.found;
+      const at = s.found[id];
+      li.dataset.found = String(!!at);
+      const when = li.querySelector<HTMLTimeElement>('[data-ach-when]');
+      if (when) {
+        when.textContent = at ? dateFmt.format(at) : '';
+        if (at) when.dateTime = new Date(at).toISOString();
+      }
+      if (id === 'every-feel' && !at) {
+        const hint = li.querySelector('[data-ach-hint]');
+        const base = ACHIEVEMENTS.find((a) => a.id === 'every-feel')!.hint;
+        if (hint)
+          hint.textContent = s.feels.length ? `${base} ${s.feels.length} of 6 so far.` : base;
+      }
+    });
+    root.querySelectorAll('[data-ach-count]').forEach((c) => (c.textContent = String(n)));
+    if (dock) {
+      dock.hidden = n === 0;
+      dock.setAttribute('aria-label', `Studio log, ${n} of ${ACHIEVEMENT_TOTAL} found`);
+    }
+    const reward = root.querySelector<HTMLElement>('[data-ach-reward]');
+    if (reward) {
+      reward.hidden = n < ACHIEVEMENT_TOTAL;
+      const last = Math.max(0, ...Object.values(s.found).map(Number));
+      const face = reward.querySelector('[data-ach-face-date]');
+      if (face && last) {
+        const d = new Date(last);
+        face.textContent = `${String(d.getMonth() + 1).padStart(2, '0')}·${String(d.getDate()).padStart(2, '0')}`;
+      }
+    }
+  }
+
+  /* ---- Toasts: one at a time, ~6 s each, paused while hovered/focused ---- */
+  const queue: AchievementEventDetail[] = [];
+  let showing = false;
+  let timer = 0;
+
+  function next() {
+    if (!toast || showing) return;
+    const item = queue.shift();
+    if (!item) return;
+    showing = true;
+    const name = toast.querySelector('[data-ach-toast-name]');
+    const line = toast.querySelector('[data-ach-toast-line]');
+    if (name) name.textContent = item.achievement.name;
+    if (line) {
+      line.textContent = item.complete
+        ? `${item.achievement.found} That's all seven. The Founders display face is in your log.`
+        : item.achievement.found;
+    }
+    toast.querySelectorAll<SVGLineElement>('[data-ach-tick]').forEach((t) => {
+      t.classList.toggle('is-new', t.dataset.achTick === item.id);
+    });
+    if (announce)
+      announce.textContent = `Found: ${item.achievement.name}. ${item.found} of ${item.total}.`;
+    if (dock) dock.dataset.hidden = 'true';
+    toast.hidden = false;
+    toast.dataset.state = 'in';
+    arm(matchMedia('(max-width: 40rem)').matches ? 4500 : 6500);
+  }
+
+  function arm(ms = 6500) {
+    clearTimeout(timer);
+    timer = window.setTimeout(hide, ms);
+  }
+
+  function hide() {
+    if (!toast || toast.hidden) return;
+    clearTimeout(timer);
+    toast.dataset.state = 'out';
+    const done = () => {
+      toast.hidden = true;
+      showing = false;
+      if (dock) delete dock.dataset.hidden;
+      window.setTimeout(next, 400);
+    };
+    if (reduced.matches) window.setTimeout(done, 200);
+    else window.setTimeout(done, 260);
+  }
+
+  toast?.addEventListener('pointerenter', () => clearTimeout(timer));
+  toast?.addEventListener('pointerleave', () => arm(3000));
+  toast?.addEventListener('focusin', () => clearTimeout(timer));
+  toast?.addEventListener('focusout', (e) => {
+    if (!toast.contains(e.relatedTarget as Node | null)) arm(3000);
+  });
+  toast?.querySelector('[data-ach-toast-close]')?.addEventListener('click', hide);
+  toast?.querySelector('.ach-toast__log')?.addEventListener('click', hide);
+
+  window.addEventListener(ACHIEVEMENT_EVENT, (e) => {
+    paint();
+    const detail = (e as CustomEvent<AchievementEventDetail | null>).detail;
+    if (!detail) return;
+    queue.push(detail);
+    next();
+  });
+
+  /* ---- Studio log -------------------------------------------------------- */
+  document.addEventListener('click', (e) => {
+    const opener = (e.target as Element | null)?.closest('[data-studio-log-open]');
+    if (opener && log && 'showPopover' in log) {
+      e.preventDefault();
+      log.showPopover();
+    }
+  });
+  log?.addEventListener('toggle', (e) => {
+    if ((e as ToggleEvent).newState === 'open') {
+      paint();
+      log.querySelector<HTMLElement>('#studio-log-title')?.focus({ preventScroll: true });
+    }
+  });
+
+  const reset = root?.querySelector<HTMLButtonElement>('[data-ach-reset]');
+  let armed = false;
+  reset?.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      reset.textContent = 'Press again to clear';
+      window.setTimeout(() => {
+        armed = false;
+        reset.textContent = 'Clear log';
+      }, 4000);
+      return;
+    }
+    armed = false;
+    reset.textContent = 'Clear log';
+    resetAchievements();
+    paint();
+  });
+
+  paint();
+  const openFromHash = () => {
+    if (
+      location.hash === '#studio-log' &&
+      log &&
+      'showPopover' in log &&
+      !log.matches(':popover-open')
+    )
+      log.showPopover();
+  };
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+</script>
+
+<style>
+  .ach-dock {
+    position: fixed;
+    inset-inline-start: max(var(--space-s), env(safe-area-inset-left));
+    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom));
+    z-index: var(--z-sticky);
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    background: var(--graphite-900);
+    color: var(--alu-100);
+    box-shadow: var(--shadow-2);
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .ach-dock:not(:hover, :focus-visible) {
+    opacity: 0.82;
+  }
+  .ach-dock[data-hidden] {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ach-dock:hover {
+    transform: rotate(-12deg);
+  }
+  .ach-dock:active {
+    transform: translateY(1px);
+  }
+  .ach-dock__knob {
+    fill: var(--graphite-700);
+  }
+  [data-ach-tick] {
+    stroke: oklch(1 0 0 / 0.28);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    transition: stroke var(--dur-3) var(--ease-out);
+  }
+  [data-ach-tick].is-lit {
+    stroke: var(--tally-hot);
+  }
+
+  /* ---- Toast ---------------------------------------------------------------- */
+  .ach-toast {
+    position: fixed;
+    inset-inline-start: max(var(--space-s), env(safe-area-inset-left));
+    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom));
+    z-index: var(--z-toast);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-xs);
+    align-items: start;
+    inline-size: min(23rem, 100vw - 2 * var(--space-s));
+    padding: var(--space-xs) var(--space-2xs) var(--space-xs) var(--space-xs);
+    border-radius: var(--r-l);
+    background: var(--graphite-850);
+    color: var(--alu-100);
+    box-shadow: var(--shadow-2);
+    font-size: var(--step--1);
+    line-height: 1.45;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      translate var(--dur-3) var(--ease-out);
+  }
+  .ach-toast[data-state='out'] {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+  @starting-style {
+    .ach-toast[data-state='in'] {
+      opacity: 0;
+      translate: 0 0.75rem;
+    }
+  }
+  .ach-toast__halo {
+    margin-block-start: 0.1rem;
+  }
+  .ach-toast [data-ach-tick].is-new {
+    stroke: var(--tally-hot);
+    animation: tick-in var(--dur-4) var(--ease-out) both;
+  }
+  @keyframes tick-in {
+    from {
+      stroke: oklch(1 0 0 / 0.28);
+      stroke-width: 2.4;
+    }
+    40% {
+      stroke-width: 4;
+    }
+    to {
+      stroke: var(--tally-hot);
+      stroke-width: 2.4;
+    }
+  }
+  .ach-toast__title {
+    color: var(--white);
+    font-stretch: var(--stretch-ui);
+  }
+  .ach-toast__label {
+    color: var(--tally-hot);
+    font-weight: 600;
+  }
+  .ach-toast__title strong {
+    color: var(--white);
+  }
+  .ach-toast__line {
+    color: oklch(0.8 0.006 355);
+  }
+  .ach-toast__log {
+    margin-block-start: 0.35rem;
+    min-block-size: 2.75rem;
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--white);
+    text-decoration: underline;
+    text-decoration-color: var(--tally-hot);
+    text-underline-offset: 0.25em;
+  }
+  .ach-toast__close {
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    margin-block-start: -0.4rem;
+    border-radius: 50%;
+    color: oklch(0.8 0.006 355);
+  }
+  .ach-toast__close:hover {
+    color: var(--white);
+    background: oklch(1 0 0 / 0.08);
+  }
+
+  /* ---- Studio log ------------------------------------------------------------ */
+  .ach-log {
+    position: fixed;
+    inset: auto auto max(var(--space-s), env(safe-area-inset-bottom))
+      max(var(--space-s), env(safe-area-inset-left));
+    margin: 0;
+    inline-size: min(27rem, 100vw - 2 * var(--space-s));
+    max-block-size: min(44rem, 100dvh - 2 * var(--space-s));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--space-m);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+    color: var(--ink);
+    opacity: 0;
+    translate: 0 0.75rem;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      translate var(--dur-3) var(--ease-out),
+      overlay var(--dur-3) allow-discrete,
+      display var(--dur-3) allow-discrete;
+  }
+  .ach-log:popover-open {
+    opacity: 1;
+    translate: 0 0;
+  }
+  @starting-style {
+    .ach-log:popover-open {
+      opacity: 0;
+      translate: 0 0.75rem;
+    }
+  }
+  .ach-log::backdrop {
+    background: oklch(0.1 0.005 355 / 0.35);
+  }
+  .ach-log__head {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0 var(--space-s);
+    margin-block-end: var(--space-m);
+  }
+  .ach-log__head h2 {
+    font-size: var(--step-2);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+  }
+  .ach-log__head h2:focus {
+    outline: none;
+  }
+  .ach-log__count {
+    grid-row: 2;
+    color: var(--ink-muted);
+    margin-block-start: var(--space-2xs);
+  }
+  .ach-log__close {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    color: var(--ink-muted);
+  }
+  .ach-log__close:hover {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .ach-log__list {
+    display: grid;
+    border-block-start: 1px solid var(--line);
+  }
+  .ach-item {
+    display: grid;
+    grid-template-columns: 1.25rem 1fr;
+    gap: var(--space-xs);
+    padding-block: var(--space-xs);
+    border-block-end: 1px solid var(--line);
+  }
+  .ach-item__mark {
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    margin-block-start: 0.4rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-faint);
+  }
+  .ach-item[data-found='true'] .ach-item__mark {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .ach-item__name {
+    font-size: var(--step-0);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.3;
+  }
+  .ach-item__found {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+  .ach-item__found time {
+    display: block;
+    margin-block-start: 0.15rem;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .ach-item[data-found='false'] .ach-item__found-name,
+  .ach-item[data-found='false'] .ach-item__found,
+  .ach-item[data-found='true'] .ach-item__hidden-name {
+    display: none;
+  }
+  .ach-item[data-found='false'] .ach-item__name {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    font-weight: 450;
+    font-stretch: var(--stretch-body);
+    line-height: 1.5;
+  }
+
+  .ach-reward {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr;
+    gap: var(--space-s);
+    align-items: center;
+    margin-block-start: var(--space-m);
+    padding: var(--space-s);
+    border-radius: var(--r-m);
+    background: var(--surface);
+  }
+  .ach-reward h3 {
+    font-size: var(--step-0);
+    font-stretch: var(--stretch-ui);
+    margin-block-end: 0.25rem;
+  }
+  .ach-reward p {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+  .ach-reward p + p {
+    margin-block-start: 0.4rem;
+  }
+  .face__bezel {
+    fill: var(--graphite-700);
+  }
+  .face__glass {
+    fill: oklch(0.08 0.004 355);
+  }
+  .face__tick {
+    stroke: oklch(1 0 0 / 0.22);
+    stroke-width: 1.4;
+  }
+  .face__tick--long {
+    stroke: oklch(1 0 0 / 0.45);
+  }
+  .face__find {
+    fill: var(--tally-hot);
+  }
+  .face__noon {
+    stroke: var(--tally);
+    stroke-width: 2;
+  }
+  .face__date {
+    fill: var(--white);
+    font-family: var(--font-mono);
+    font-size: 30px;
+    letter-spacing: 0.04em;
+  }
+  .face__word {
+    fill: oklch(0.8 0.006 355);
+    font-family: var(--font-sans);
+    font-stretch: 125%;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+  }
+
+  .ach-log__foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-s);
+    margin-block-start: var(--space-m);
+  }
+  .ach-log__reset {
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+  .ach-log__reset:hover {
+    color: var(--ink-strong);
+  }
+
+  /* Small screens: no resting dock (it would sit on content); toasts become a
+     compact banner at the top, clear of game controls and thumb reach. */
+  @media (max-width: 40rem) {
+    .ach-dock {
+      display: none;
+    }
+    .ach-toast {
+      inset-block: max(var(--space-2xs), env(safe-area-inset-top)) auto;
+      inset-inline: var(--space-2xs);
+      inline-size: auto;
+      align-items: center;
+    }
+    .ach-toast__line {
+      display: none;
+    }
+    .ach-toast__log {
+      margin-block-start: 0;
+      min-block-size: 2.25rem;
+    }
+    .ach-toast[data-state='out'] {
+      translate: 0 -0.5rem;
+    }
+    @starting-style {
+      .ach-toast[data-state='in'] {
+        translate: 0 -0.75rem;
+      }
+    }
+  }
+
+  @media (max-width: 30rem) {
+    .ach-log {
+      inset-inline: var(--space-2xs);
+      inset-block-end: max(var(--space-2xs), env(safe-area-inset-bottom));
+      inline-size: auto;
+    }
+    .ach-reward {
+      grid-template-columns: 5.5rem 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ach-toast,
+    .ach-toast[data-state='out'],
+    .ach-log,
+    .ach-log:popover-open {
+      translate: none;
+    }
+    @starting-style {
+      .ach-toast[data-state='in'],
+      .ach-log:popover-open {
+        translate: none;
+      }
+    }
+    .ach-toast [data-ach-tick].is-new {
+      animation: none;
+    }
+    .ach-dock:hover {
+      transform: none;
+    }
+  }
+</style>
