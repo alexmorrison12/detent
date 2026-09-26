@@ -80,9 +80,16 @@ import { fmtDot } from '@/data/launch-plan';
       color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .tuner__list a:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .tuner__list a:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
+  }
+  @media (pointer: coarse) {
+    .tuner__list a {
+      min-block-size: 2.75rem;
+    }
   }
   .tuner__list a[aria-current='true'] {
     color: var(--ink-strong);
@@ -135,6 +142,15 @@ import { fmtDot } from '@/data/launch-plan';
     .tuner__list a {
       padding-inline: 0.55em;
       gap: 0.35em;
+    }
+  }
+  /* Phones: all five phases stay on the bar. The names narrow on Archivo's width
+     axis instead of scrolling the last one out of sight. */
+  @media (max-width: 26rem) {
+    .tuner__list a {
+      font-stretch: 78%;
+      padding-inline: 0.4em;
+      gap: 0.3em;
     }
   }
   @media (prefers-reduced-motion: reduce) {

@@ -206,12 +206,15 @@ The site is static on GitHub Pages. Anything that stores data or takes money run
 
 ### 9.1 Build variables
 
-| Variable                   | Set in               | Default                                       | Effect                                                        |
-| -------------------------- | -------------------- | --------------------------------------------- | ------------------------------------------------------------- |
-| `PUBLIC_LAUNCH_PHASE`      | Repository variable  | `reserve`                                     | The phase every CTA, banner and landing page is built for     |
-| `PUBLIC_SITE_MODE`         | Repository variable  | `demo`                                        | `live` emits `Offer` structured data and treats forms as real |
-| `PUBLIC_WAITLIST_ENDPOINT` | Repository variable  | unset (demo)                                  | Waitlist and reservation forms `POST` here                    |
-| `SITE_URL`, `SITE_BASE`    | Repository variables | `https://alexmorrison12.github.io`, `/detent` | For a custom domain: `https://detent.example` and `/`         |
+The deploy workflow (`.github/workflows/deploy.yml`) reads three repository variables (Settings → Secrets and variables → Actions → Variables) and passes each one to `npm run build` under the `PUBLIC_*` name the code reads. The `PUBLIC_*` names are the build-time environment, not repository variables; for a local build, set them in your shell.
+
+| Repository variable | Build environment          | Default      | Effect                                                        |
+| ------------------- | -------------------------- | ------------ | ------------------------------------------------------------- |
+| `LAUNCH_PHASE`      | `PUBLIC_LAUNCH_PHASE`      | `reserve`    | The phase every CTA, banner and landing page is built for     |
+| `SITE_MODE`         | `PUBLIC_SITE_MODE`         | `demo`       | `live` emits `Offer` structured data and treats forms as real |
+| `WAITLIST_ENDPOINT` | `PUBLIC_WAITLIST_ENDPOINT` | unset (demo) | Waitlist and reservation forms `POST` here                    |
+
+`SITE_URL` and `SITE_BASE` come from the Pages configuration (`actions/configure-pages`), so a custom domain needs no variable. Local builds default to `https://alexmorrison12.github.io` and `/detent`; for a custom domain, build with `SITE_URL=https://detent.example SITE_BASE=/`.
 
 ### 9.2 The waitlist and reservation endpoint
 
@@ -239,7 +242,7 @@ The endpoint must:
 - Rate-limit per IP and per email domain, and store consent with a timestamp. Delete on request within 30 days.
 - Return a queue position only if it maps to a real batch. Otherwise return none; the site shows none.
 
-**What we'd build:** a Cloudflare Worker (or a Supabase Edge Function) with a small database, about 150 lines. Set the endpoint URL as the repository variable, set `PUBLIC_SITE_MODE=live`, redeploy.
+**What we'd build:** a Cloudflare Worker (or a Supabase Edge Function) with a small database, about 150 lines. Set its URL as the `WAITLIST_ENDPOINT` repository variable, set `SITE_MODE` to `live`, redeploy.
 
 ### 9.3 Commerce: deposits and orders
 
@@ -279,7 +282,7 @@ Every quarter also: the experiment backlog keeps running, performance budgets ar
 
 | Area                                | Owner                                | Source of truth                                             |
 | ----------------------------------- | ------------------------------------ | ----------------------------------------------------------- |
-| Launch phase, dates, CTA copy       | Founder with the growth lead         | `src/config/launch.ts`, `PUBLIC_LAUNCH_PHASE`               |
+| Launch phase, dates, CTA copy       | Founder with the growth lead         | `src/config/launch.ts`, the `LAUNCH_PHASE` variable         |
 | Plan numbers, funnel targets, tests | Growth lead                          | `src/data/launch-plan.ts`, [LAUNCH_PLAN.md](LAUNCH_PLAN.md) |
 | Product facts, prices, FAQ          | Ops lead (facts), support lead (FAQ) | `src/data/product.ts`                                       |
 | Feel library and Feel Friday        | Community lead                       | `/profiles/`, profile pull requests                         |

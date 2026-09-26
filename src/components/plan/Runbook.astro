@@ -2,7 +2,9 @@
 /**
  * The operational switch between phases: flip times, the exact commands,
  * and how ?phase= previews work. Code blocks get a copy button when the
- * Clipboard API exists.
+ * Clipboard API exists. Commands wrap (with a hanging indent) instead of
+ * scrolling sideways, so a phone shows all of every command and the blocks
+ * need no keyboard-scrollable region.
  */
 import { BUILD_PHASE, PHASES, PHASE_ORDER } from '@/config/launch';
 import {
@@ -13,6 +15,18 @@ import {
   fmtPacific,
   fmtUtc,
 } from '@/data/launch-plan';
+
+/**
+ * A command, line by line, with every hyphenated token (--body, 'data-phase=…')
+ * marked to stay whole: a wrapped line breaks at a space, never after a hyphen.
+ */
+const commandLines = (code: string) =>
+  code.split('\n').map((line) =>
+    line
+      .split(/(\S*-\S*)/)
+      .filter(Boolean)
+      .map((text) => ({ text, keep: text.includes('-') })),
+  );
 ---
 
 <section class="run" id="runbook" aria-labelledby="run-title">
@@ -23,9 +37,9 @@ import {
           Flipping a phase.
         </h2>
         <p class="run__lede">
-          One repository variable, <code>PUBLIC_LAUNCH_PHASE</code>, and one redeploy. Two people do
-          it together, at the times below. We don’t automate flips: each one is also an
-          announcement, and announcements go out after we have checked.
+          One repository variable, <code>LAUNCH_PHASE</code>, and one redeploy. Two people do it
+          together, at the times below. We don’t automate flips: each one is also an announcement,
+          and announcements go out after we have checked.
         </p>
         <p class="run__build">
           This build: <strong>{PHASES[BUILD_PHASE].name}</strong> <code>{BUILD_PHASE}</code>
@@ -92,8 +106,13 @@ import {
             <p class="step__detail">{s.detail}</p>
             {s.code && (
               <div class="code">
-                <pre tabindex="0" aria-label={`Command: ${s.step}`}><code>{s.code}</code></pre>
-                <button class="code__copy btn btn--sm btn--quiet" type="button" data-copy hidden>
+                <pre><code>{commandLines(s.code).map((line, n, all) => <span class="code__line">{line.map((t) => t.keep ? <span class="code__keep">{t.text}</span> : t.text)}{n < all.length - 1 ? '\n' : ''}</span>)}</code></pre>
+                <button
+                  class="code__copy btn btn--sm btn--quiet"
+                  type="button"
+                  data-copy={s.code}
+                  hidden
+                >
                   <span data-copy-label>Copy</span>
                   <span class="visually-hidden"> command: {s.step}</span>
                 </button>
@@ -114,7 +133,7 @@ import {
       const label = btn.querySelector<HTMLElement>('[data-copy-label]');
       btn.hidden = false;
       btn.addEventListener('click', async () => {
-        const code = btn.parentElement?.querySelector('code')?.textContent ?? '';
+        const code = btn.dataset.copy ?? '';
         let msg = 'Copied';
         try {
           await navigator.clipboard.writeText(code);
@@ -241,16 +260,23 @@ import {
     min-inline-size: 0;
     margin: 0;
     padding: 0.9rem 1rem;
-    overflow-x: auto;
     font-size: var(--step--1);
     line-height: 1.5;
   }
-  .code pre:focus-visible {
-    outline-offset: -3px;
-  }
   .code pre code {
     font-size: 0.86em;
-    white-space: pre;
+    white-space: pre-wrap;
+  }
+  /* A command too long for the box wraps under itself, indented, so a wrapped
+     line never reads as the next command. */
+  .code__line {
+    display: block;
+    padding-inline-start: 2ch;
+    text-indent: -2ch;
+    overflow-wrap: anywhere;
+  }
+  .code__keep {
+    white-space: nowrap;
   }
   .code__copy {
     flex: none;
@@ -258,8 +284,10 @@ import {
     --btn-ink: var(--alu-200);
     min-block-size: 2.25rem;
   }
-  .code__copy:hover {
-    --btn-ink: var(--white);
+  @media (hover: hover) {
+    .code__copy:hover {
+      --btn-ink: var(--white);
+    }
   }
 
   .preview {
@@ -290,6 +318,31 @@ import {
     }
   }
   @media (max-width: 30rem) {
+    /* Phones: the step number stays beside its title, and the detail and the
+       command take the whole row. Copy sits under the command. */
+    .step {
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+      gap: var(--space-2xs) var(--space-xs);
+      align-items: baseline;
+    }
+    .step__body {
+      display: contents;
+    }
+    .step__detail,
+    .code {
+      grid-column: 1 / -1;
+    }
+    .code {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .code pre {
+      padding: 0.8rem 0.85rem 0.25rem;
+    }
+    .code__copy {
+      align-self: flex-end;
+      margin: 0 0.3rem 0.3rem 0;
+    }
     .flips th,
     .flips td {
       padding-inline-end: 0.5rem;
