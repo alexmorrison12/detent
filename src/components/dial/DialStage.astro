@@ -15,7 +15,8 @@
  */
 import type { FinishId, ProfileId } from '@/data/product';
 import type { CameraPreset } from '@/scripts/dial/types';
-import DialStill, { type StillView } from './DialStill.astro';
+import DialStill from './DialStill.astro';
+import { stillFor, type StillView } from './stills';
 
 interface Props {
   finish?: FinishId;
@@ -29,7 +30,12 @@ interface Props {
   displaySub?: string;
   /** Replaces the profile name line on the knob display; '' hides it (games with a hidden feel). */
   displayName?: string;
-  /** Show the still's display as powered off (top camera only), e.g. so a game's hidden feel isn't printed on the still before the live dial takes over. */
+  /**
+   * Show the still's display as powered off (top camera only), e.g. so a game's hidden
+   * feel isn't printed on the still before the live dial takes over. Automatic on a top
+   * camera whenever the still's display can't be the live one (another feel, `display`
+   * or `displayName` set).
+   */
   blankDisplay?: boolean;
   quality?: 'auto' | 'low' | 'high';
   /** Eager-load the still (use for the LCP dial above the fold). */
@@ -72,6 +78,15 @@ const {
 // Every camera has a still framed exactly like the live dial's first frame, so the
 // 3D takeover is a crossfade, never a camera move.
 const stillView: StillView = camera;
+// The stills' display reads Ratchet at 00 (plus a few rendered per feel, see stills.ts).
+// A top-view still that would print another feel's name or number shows its display
+// off instead: without JS nothing wrong is on the knob, and the live display powers on
+// over a dark glass rather than crossfading through a double exposure.
+const stillShowsDisplay =
+  !display &&
+  displayName === undefined &&
+  stillFor(finish, stillView, profile).profile === profile;
+const blank = stillView === 'top' && (blankDisplay || !stillShowsDisplay);
 const dialId = id ?? (steppers ? `dial-${Math.random().toString(36).slice(2, 8)}` : undefined);
 const style = transitionName ? `view-transition-name: ${transitionName}` : undefined;
 ---
@@ -95,8 +110,8 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
       display-sub={displaySub}
       display-name={displayName}
     >
-      <div data-dial-fallback data-camera={stillView} data-blank-display={blankDisplay && stillView === 'top' ? '' : undefined} class="dial-stage__fallback">
-        <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
+      <div data-dial-fallback data-camera={stillView} data-blank-display={blank ? '' : undefined} class="dial-stage__fallback">
+        <DialStill finish={finish} view={stillView} profile={profile} displayOff={blank} priority={priority} sizes={sizes} />
       </div>
     </detent-dial>
     <div class="dial-stage__steppers">
@@ -147,8 +162,8 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
     display-sub={displaySub}
     display-name={displayName}
   >
-    <div data-dial-fallback data-camera={stillView} data-blank-display={blankDisplay && stillView === 'top' ? '' : undefined} class="dial-stage__fallback">
-      <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
+    <div data-dial-fallback data-camera={stillView} data-blank-display={blank ? '' : undefined} class="dial-stage__fallback">
+      <DialStill finish={finish} view={stillView} profile={profile} displayOff={blank} priority={priority} sizes={sizes} />
     </div>
   </detent-dial>
 )}

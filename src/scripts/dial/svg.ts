@@ -70,6 +70,7 @@ export class SvgView implements DialView {
   private finishKey = '';
   private colorKey = '';
   private scaleKey = '';
+  private textKey = '';
   private n: Record<string, SVGElement> = {};
   private stops: Record<string, SVGStopElement[]> = {};
   private seat = 0;
@@ -123,7 +124,7 @@ export class SvgView implements DialView {
     p('baseSide', base, { fill: url('side') });
     p('slotShadow', base, { fill: '#0b0a0b' });
     p('slot', base, {});
-    p('baseChamfer', base, { fill: url('chamfer') });
+    p('baseChamfer', base, { fill: url('chamfer'), 'fill-rule': 'evenodd' });
     e('baseTop', base, { fill: url('side') });
     e('baseWell', base, { fill: '#0c0b0c' });
 
@@ -176,7 +177,7 @@ export class SvgView implements DialView {
     p('knurlDark', knob, { fill: 'none', 'stroke-width': 0.42, 'stroke-linecap': 'butt' });
     p('knurlLight', knob, { fill: 'none', 'stroke-width': 0.28, 'stroke-linecap': 'butt' });
     p('knobUpper', knob, { fill: url('side') });
-    p('knobChamfer', knob, { fill: url('chamfer') });
+    p('knobChamfer', knob, { fill: url('chamfer'), 'fill-rule': 'evenodd' });
     const face = g('face', knob);
     node('circle', { r: MM.knobR - MM.knobChamfer, fill: url('top') }, face);
     for (const [r, o, c] of [
@@ -304,6 +305,7 @@ export class SvgView implements DialView {
       },
       screen,
     );
+    document.fonts?.addEventListener?.('loadingdone', this.fitText);
   }
 
   /** Colors that never change (chamfer, shadow, internals). */
@@ -431,6 +433,19 @@ export class SvgView implements DialView {
     const ry = (c: { ry: number }) => f2(Math.max(0.01, Math.abs(c.ry)));
     return `M${f2(-t.rx)} ${f2(t.cy)}L${f2(-b.rx)} ${f2(b.cy)}A${f2(b.rx)} ${ry(b)} 0 0 ${b.ry >= 0 ? 0 : 1} ${f2(b.rx)} ${f2(b.cy)}L${f2(t.rx)} ${f2(t.cy)}A${f2(t.rx)} ${ry(t)} 0 0 ${t.ry >= 0 ? 1 : 0} ${f2(-t.rx)} ${f2(t.cy)}Z`;
   }
+  /**
+   * A 45° chamfer from radius r at y0 up to rTop at y1. Seen from above its normal (the
+   * camera higher than 45°) it faces the camera all the way round: a full ring (drawn
+   * with fill-rule evenodd), not the front band a lower camera sees.
+   */
+  private chamfer(r: number, y0: number, y1: number, rTop: number): string {
+    if (this.sinE <= Math.SQRT1_2) return this.side(r, y0, y1, rTop);
+    const loop = (c: { cy: number; rx: number; ry: number }) => {
+      const a = `A${f2(c.rx)} ${f2(Math.max(0.01, Math.abs(c.ry)))} 0 0 1`;
+      return `M${f2(-c.rx)} ${f2(c.cy)}${a} ${f2(c.rx)} ${f2(c.cy)}${a} ${f2(-c.rx)} ${f2(c.cy)}Z`;
+    };
+    return loop(this.circ(r, y0)) + loop(this.circ(rTop, y1));
+  }
   /** A top face (ellipse element); hidden when the camera is below it. */
   private ell(name: string, r: number, y: number, pad = 0) {
     const c = this.circ(r, y);
@@ -515,7 +530,7 @@ export class SvgView implements DialView {
     // sliver open, and the halo showed through as a maroon seam).
     const bc = MM.baseChamfer;
     set(this.n.baseChamfer!, {
-      d: this.side(MM.baseR, MM.baseTop - bc, MM.baseTop, MM.baseR - bc + 0.15),
+      d: this.chamfer(MM.baseR, MM.baseTop - bc, MM.baseTop, MM.baseR - bc + 0.15),
     });
     this.ell('baseTop', MM.baseR - bc + 0.2, MM.baseTop);
     this.ell('baseWell', MM.knobR + 0.6, MM.baseTop);
@@ -569,7 +584,7 @@ export class SvgView implements DialView {
       d: this.side(MM.knobR, MM.knurlTop + kl, MM.knobTop - c + 0.2 + kl),
     });
     set(this.n.knobChamfer!, {
-      d: this.side(MM.knobR, MM.knobTop - c + kl, MM.knobTop + kl, MM.knobR - c + 0.1),
+      d: this.chamfer(MM.knobR, MM.knobTop - c + kl, MM.knobTop + kl, MM.knobR - c + 0.1),
     });
 
     // Display hub + glass (stationary; lifts with the display when exploded)
@@ -664,11 +679,38 @@ export class SvgView implements DialView {
       c.setAttribute('fill', i === s.snap ? s.color : '#ffffff'),
     );
     this.n.name!.textContent = s.name.toUpperCase();
-    this.n.text!.textContent = s.text;
-    this.n.text!.setAttribute('font-size', String(readoutSize(s.text)));
+    const size = readoutSize(s.text);
+    const textKey = `${s.text}|${size}`;
+    if (textKey !== this.textKey) {
+      this.textKey = textKey;
+      this.n.text!.textContent = s.text;
+      this.n.text!.setAttribute('font-size', String(size));
+      this.fitText();
+    }
     this.n.sub!.textContent = s.sub;
     this.n.flash!.setAttribute('opacity', f2(s.press));
   }
+
+  /**
+   * Squeeze a readout wider than the tick ring allows, as the canvas renderer does
+   * (fillText's maxWidth), so 'FINE PRINT' never runs onto the bezel. Measured in the
+   * face on screen: again when a web font arrives, and on the next draw while the dial
+   * isn't laid out (a hidden host measures 0).
+   */
+  private fitText = () => {
+    const t = this.n.text as SVGTextElement;
+    t.removeAttribute('textLength');
+    t.removeAttribute('lengthAdjust');
+    if (!t.textContent) return;
+    let w = 0;
+    try {
+      w = t.getComputedTextLength();
+    } catch {
+      w = 0;
+    }
+    if (!w) this.textKey = '';
+    else if (w > TYPE.textW) set(t, { textLength: TYPE.textW, lengthAdjust: 'spacingAndGlyphs' });
+  };
 
   private buildScale(s: ViewState) {
     const p = s.p;
@@ -781,6 +823,7 @@ export class SvgView implements DialView {
   }
 
   dispose(): void {
+    document.fonts?.removeEventListener?.('loadingdone', this.fitText);
     this.el.remove();
   }
 }

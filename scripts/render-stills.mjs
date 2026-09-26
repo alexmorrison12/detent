@@ -12,6 +12,8 @@
  * thumbnail never downloads a hero-sized file.
  * Finishes: raw, graphite, glacier, tally. Views: hero, top, side, front, exploded,
  * config (the shop configurator's camera, so its 3D takeover is a still-matched crossfade).
+ * Each shows the Ratchet feel at 00; PROFILE_STILLS adds {finish}-{view}-{profile} for
+ * dials that start on another feel (src/components/dial/stills.ts picks them).
  *
  * Chromium runs headless with SwiftShader, so this works on GPU-less CI too.
  */
@@ -30,6 +32,8 @@ const BASE = (process.env.SITE_BASE ?? '/detent').replace(/\/+$/, '');
 
 const FINISHES = ['raw', 'graphite', 'glacier', 'tally'];
 const VIEWS = ['hero', 'top', 'side', 'front', 'exploded', 'config'];
+/** Stills with another feel on the display: keep in step with src/components/dial/stills.ts. */
+const PROFILE_STILLS = [{ finish: 'raw', view: 'hero', profile: 'clock' }];
 /** Downscaled widths next to the full SIZE; DialStill's srcset lists the same set. */
 const WIDTHS = [800, 480, 240];
 
@@ -111,9 +115,12 @@ async function cleanAlpha(png) {
 
 await mkdir(OUT, { recursive: true });
 const report = [];
-const jobs = FINISHES.flatMap((finish) =>
-  VIEWS.map((view) => ({ finish, view, name: `${finish}-${view}` })),
-).filter((j) => !only.length || only.includes(j.name));
+const jobs = [
+  ...FINISHES.flatMap((finish) =>
+    VIEWS.map((view) => ({ finish, view, profile: 'ratchet', name: `${finish}-${view}` })),
+  ),
+  ...PROFILE_STILLS.map((j) => ({ ...j, name: `${j.finish}-${j.view}-${j.profile}` })),
+].filter((j) => !only.length || only.includes(j.name));
 
 for (const job of jobs) {
   const page = await browser.newPage({
@@ -123,7 +130,7 @@ for (const job of jobs) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  const q = new URLSearchParams({ finish: job.finish, camera: job.view, profile: 'ratchet' });
+  const q = new URLSearchParams({ finish: job.finish, camera: job.view, profile: job.profile });
   const t0 = Date.now();
   await page.goto(`${origin}${BASE}/render/?${q}`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__renderReady || window.__renderError, null, {

@@ -38,6 +38,8 @@ export const TYPE = {
   nameY: -7.1,
   text: 8.5,
   textY: 3.1,
+  /** Widest the big readout may set: the chord inside the tick ring at its baseline. Longer is squeezed. */
+  textW: 29,
   sub: 1.75,
   subY: 8.7,
 } as const;
