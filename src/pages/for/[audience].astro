@@ -8,7 +8,7 @@
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { AUDIENCES, EDITIONS, byProfile, type Audience } from '@/data/product';
-import { AUDIENCE_PAGES, faqsFor } from '@/data/audience';
+import { AUDIENCE_PAGES, ctaQuery, faqsFor } from '@/data/audience';
 import { SITE } from '@/config/site';
 import { MODE } from '@/config/launch';
 import { ogPath } from '@/config/og';
@@ -123,7 +123,12 @@ const jsonLd = [
     <AudienceFixes page={page} />
     <AudienceApps audience={audience} page={page} />
     <AudienceNote profile={audience.profile} />
-    <AudienceOffer id={audience.id} title={page.offerTitle} line={page.offerLine} />
+    <AudienceOffer
+      id={audience.id}
+      title={page.offerTitle}
+      line={page.offerLine}
+      query={ctaQuery(page, audience.profile)}
+    />
     <AudienceFaq page={page} />
     <AudienceCross current={audience.id} />
   </div>

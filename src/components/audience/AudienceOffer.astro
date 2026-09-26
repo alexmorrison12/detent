@@ -13,8 +13,10 @@ interface Props {
   id: AudienceId;
   title: string;
   line: string;
+  /** PhaseCTA context (segment and feel), from ctaQuery in @/data/audience. */
+  query: string;
 }
-const { id, title, line } = Astro.props;
+const { id, title, line, query } = Astro.props;
 const [one, founders] = EDITIONS as [(typeof EDITIONS)[number], (typeof EDITIONS)[number]];
 const finishesOf = (ids: string[]) => FINISHES.filter((f) => ids.includes(f.id));
 const hasLaunchPrice = one.launchPriceUsd < one.priceUsd;
@@ -87,7 +89,7 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
 
     <div class="offer__close">
       <div class="offer__cta">
-        <PhaseCTA placement={`for-${id}-offer`} size="lg" showSecondary />
+        <PhaseCTA placement={`for-${id}-offer`} size="lg" showSecondary query={query} />
         <p class="concept-note">{SITE.conceptNotice}</p>
       </div>
       <ul class="offer__terms" role="list">

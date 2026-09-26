@@ -3,14 +3,27 @@
  * Pains → the feel that fixes each one → the fix, concretely. Each row shows
  * the profile's real torque curve and, when the hero demo has that mode, a
  * link that switches the demo to it and puts the dial under your hand.
+ * A card with a mode is labelled and drawn from that mode (DEMO_MODES), so
+ * the card, the demo's feel switcher and the knob describe the same thing.
  */
 import type { AudiencePage } from '@/data/audience';
+import { DEMO_MODES } from '@/scripts/demos/modes';
 import FeelCurve from './FeelCurve.astro';
 
 interface Props {
   page: AudiencePage;
 }
 const { page } = Astro.props;
+
+const fixes = page.fixes.map((f) => {
+  if (!f.mode) return { ...f, facts: f.label, physics: undefined };
+  const mode = DEMO_MODES[page.demo].find((m) => m.id === f.mode);
+  if (!mode || mode.profile !== f.profile)
+    throw new Error(
+      `AUDIENCE_PAGES.${page.id}: "${f.pain}" needs a ${page.demo} demo mode in ${f.profile}, not "${f.mode}"`,
+    );
+  return { ...f, facts: f.label ?? mode.hint, physics: mode.physics };
+});
 ---
 
 <section class="fixes section" aria-labelledby="fixes-title">
@@ -19,10 +32,10 @@ const { page } = Astro.props;
       {page.painsTitle}
     </h2>
     <ul class="fixes__list" role="list">
-      {page.fixes.map((f) => (
+      {fixes.map((f) => (
         <li class="fix" style={`--feel: var(--feel-${f.profile})`}>
           <p class="fix__pain">{f.pain}</p>
-          <FeelCurve profile={f.profile} />
+          <FeelCurve profile={f.profile} physics={f.physics} facts={f.facts} />
           <div class="fix__body">
             <p>{f.fix}</p>
             <p class="fix__meta">
@@ -66,8 +79,9 @@ const { page } = Astro.props;
 </script>
 
 <style>
+  /* Headline measures are in em: ch is measured in whichever font is on screen. */
   .fixes__title {
-    max-inline-size: 16ch;
+    max-inline-size: 12.5em;
     margin-block-end: var(--space-xl);
   }
   .fixes__list {

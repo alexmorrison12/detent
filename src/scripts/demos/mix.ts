@@ -242,10 +242,6 @@ const mount: Mount = (ctx) => {
   let lastP = dbToP(gain[sel]!);
 
   return {
-    physics(m) {
-      return m === 'fader' ? { accents: [UNITY_ANGLE] } : null;
-    },
-
     enter(next) {
       mode = next;
       if (mode === 'fader') {

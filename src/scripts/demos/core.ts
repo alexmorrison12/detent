@@ -13,7 +13,6 @@ import type {
   DetentPressDetail,
   DetentTickDetail,
 } from '@/scripts/dial/types';
-import type { FeelPhysics } from '@/scripts/dial/types';
 import type { DemoApp } from './modes';
 
 export interface DemoContext {
@@ -40,8 +39,6 @@ export interface DemoController {
   change(detail: DetentChangeDetail): void;
   tick?(detail: DetentTickDetail): void;
   press?(detail: DetentPressDetail): void;
-  /** Physics override for a mode (null = the named profile's physics). */
-  physics?(mode: string): Partial<FeelPhysics> | null;
   /** On/off screen, for pausing loops. */
   visibility?(on: boolean): void;
 }

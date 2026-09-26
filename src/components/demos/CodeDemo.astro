@@ -34,9 +34,16 @@ const spoken = { add: 'Added', del: 'Removed', ctx: '' } as const;
       </svg>
       {FILE}
     </span>
-    <span class="cd__stats readout" aria-label={`${STATS.add} lines added, ${STATS.del} removed`}>
-      <span class="cd__plus">+{STATS.add}</span>
-      <span class="cd__minus">−{STATS.del}</span>
+    <span class="cd__stats readout">
+      <span class="cd__plus" aria-hidden="true">
+        +{STATS.add}
+      </span>
+      <span class="cd__minus" aria-hidden="true">
+        −{STATS.del}
+      </span>
+      <span class="visually-hidden">
+        {STATS.add} lines added, {STATS.del} removed
+      </span>
     </span>
     <span class="cd__viewed readout" data-ref="viewed">
       0 / {HUNKS.length} viewed

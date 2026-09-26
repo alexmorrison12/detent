@@ -4,7 +4,8 @@
  * app demo front and center, so the "aha" happens in the first viewport.
  */
 import type { Audience } from '@/data/product';
-import type { AudiencePage } from '@/data/audience';
+import { ctaQuery, type AudiencePage } from '@/data/audience';
+import { modeForProfile } from '@/scripts/demos/modes';
 import AppDemo from '@/components/demos/AppDemo.astro';
 import PhaseCTA from '@/components/PhaseCTA.astro';
 import FeelCurve from './FeelCurve.astro';
@@ -30,6 +31,8 @@ const parts =
 const short = h.length <= 20;
 // "Designers & 3D artists" -> "designers & 3D artists" (keep acronyms).
 const who = audience.label.replace(/^./, (c) => c.toLowerCase());
+// The trace draws the feel the demo opens in (the mixer's Wall has its bump at unity).
+const opening = modeForProfile(page.demo, audience.profile);
 ---
 
 <section class="hero" aria-labelledby="hero-title">
@@ -43,7 +46,11 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
     <h1 id="hero-title" class:list={['display', 'hero__title', short && 'hero__title--short']}>{parts[0]}{parts[1] && <span class="hero__accent" data-hero-accent data-word={parts[1]}>{parts[1]}</span>}{parts[2]}</h1>
     <div class="hero__sub">
       <p class="lede">{audience.subhead}</p>
-      <PhaseCTA placement={`for-${audience.id}-hero`} size="lg" />
+      <PhaseCTA
+        placement={`for-${audience.id}-hero`}
+        size="lg"
+        query={ctaQuery(page, audience.profile)}
+      />
     </div>
   </div>
 
@@ -52,7 +59,7 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
   </div>
 
   <div class="hero__trace">
-    <FeelCurve profile={audience.profile} variant="trace" span={270} />
+    <FeelCurve profile={audience.profile} physics={opening.physics} variant="trace" span={270} />
   </div>
 </section>
 
@@ -132,13 +139,18 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
     color: var(--ink-muted);
     font-size: var(--step--2);
   }
+  /* Measures in em, not ch: ch is measured in whichever font is on screen, so a
+     10ch headline narrows while the fallback shows and adds a line on the swap. */
   .hero__title {
     font-size: clamp(2.6rem, 1.2rem + 5.2vw, 5.25rem);
-    max-inline-size: 18ch;
+    max-inline-size: 14.1em;
   }
+  /* A poster: always two lines. 7em is under every short headline's full width
+     ("Feel the diff." is 7.24em in Archivo) and over its longest half, in the web
+     font and both fallbacks, so the break never depends on which font is showing. */
   .hero__title--short {
     font-size: clamp(2.8rem, 1.2rem + 6.4vw, 6rem);
-    max-inline-size: 10ch;
+    max-inline-size: 7em;
   }
   /* The accent word sits in a slot as wide as the word at rest, underlined in the
      page's feel color. Turning the hero dial squeezes the visible copy along the
@@ -178,7 +190,7 @@ const who = audience.label.replace(/^./, (c) => c.toLowerCase());
   }
   @media (min-width: 60rem) and (max-width: 74.99rem) {
     .hero__sub {
-      grid-template-columns: minmax(0, 50ch) auto;
+      grid-template-columns: minmax(0, 28.6em) auto;
       justify-content: space-between;
     }
   }
