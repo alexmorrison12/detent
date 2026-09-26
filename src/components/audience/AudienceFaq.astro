@@ -1,0 +1,125 @@
+---
+/**
+ * FAQ subset: this audience's own questions first, then the shared ones
+ * from FAQS. Exclusive <details name> accordion; the reservation question
+ * only shows in the phases where a reservation exists.
+ */
+import { faqsFor, type AudiencePage } from '@/data/audience';
+import { url } from '@/lib/url';
+
+interface Props {
+  page: AudiencePage;
+}
+const { page } = Astro.props;
+const items = faqsFor(page);
+---
+
+<section class="faq section" data-world="day" aria-labelledby="faq-title">
+  <div class="container faq__grid">
+    <div class="faq__head">
+      <h2 id="faq-title" class="display display--s">
+        {page.faqTitle}
+      </h2>
+      <a class="link-arrow" href={url('/support/')}>
+        Every answer, in one place
+      </a>
+    </div>
+    <div class="faq__list">
+      {items.map((f) => (
+        <details name={`faq-${page.id}`} class="faq__item" data-phase-only={f.phases}>
+          <summary>{f.q}</summary>
+          <p>{f.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    padding-block-end: var(--space-2xl);
+    padding-block-start: 0;
+  }
+  .faq__grid {
+    display: grid;
+    gap: var(--space-l) var(--space-2xl);
+    padding-block-start: var(--section-y);
+    border-top: 1px solid var(--line);
+  }
+  @media (min-width: 60rem) {
+    .faq__grid {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    }
+  }
+  .faq__head {
+    display: grid;
+    align-content: start;
+    gap: var(--space-s);
+  }
+  .faq__list {
+    display: grid;
+  }
+  .faq__item {
+    border-bottom: 1px solid var(--line);
+  }
+  .faq__item:first-child {
+    border-top: 1px solid var(--line);
+  }
+  .faq__item summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-m);
+    min-block-size: 3.5rem;
+    padding-block: var(--space-s);
+    font-size: var(--step-1);
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    cursor: pointer;
+    list-style: none;
+  }
+  .faq__item summary::-webkit-details-marker {
+    display: none;
+  }
+  /* A plus that turns 45° into a close mark. */
+  .faq__item summary::after {
+    content: '';
+    flex: none;
+    inline-size: 0.9rem;
+    block-size: 0.9rem;
+    background:
+      linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat,
+      linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat;
+    transition: rotate var(--dur-2) var(--ease-out);
+  }
+  .faq__item[open] summary::after {
+    rotate: 45deg;
+  }
+  .faq__item summary:focus-visible {
+    outline-offset: 4px;
+  }
+  .faq__item p {
+    padding-block-end: var(--space-m);
+    color: var(--ink);
+    max-inline-size: 62ch;
+  }
+  @supports selector(::details-content) {
+    .faq__item::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size var(--dur-3) var(--ease-out),
+        content-visibility var(--dur-3) allow-discrete;
+    }
+    .faq__item[open]::details-content {
+      block-size: auto;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq__item summary::after,
+    .faq__item::details-content {
+      transition: none;
+    }
+  }
+</style>

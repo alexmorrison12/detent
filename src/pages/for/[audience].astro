@@ -1,0 +1,130 @@
+---
+/**
+ * Audience landing pages: /for/editors/, /for/musicians/, /for/designers/,
+ * /for/developers/. Message-match pages for paid and social traffic: minimal
+ * chrome, one demo that proves the point, then pains → fixes, apps, a tester
+ * note, the offer, questions, and quiet links to the other audiences.
+ * Each page lives in its profile's feel color (--feel).
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AUDIENCES, EDITIONS, byProfile, type Audience } from '@/data/product';
+import { AUDIENCE_PAGES, faqsFor } from '@/data/audience';
+import { SITE } from '@/config/site';
+import { MODE } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { absoluteUrl } from '@/lib/url';
+import AudienceHero from '@/components/audience/AudienceHero.astro';
+import AudienceFixes from '@/components/audience/AudienceFixes.astro';
+import AudienceApps from '@/components/audience/AudienceApps.astro';
+import AudienceNote from '@/components/audience/AudienceNote.astro';
+import AudienceOffer from '@/components/audience/AudienceOffer.astro';
+import AudienceFaq from '@/components/audience/AudienceFaq.astro';
+import AudienceCross from '@/components/audience/AudienceCross.astro';
+
+export function getStaticPaths() {
+  return AUDIENCES.map((audience) => ({ params: { audience: audience.id }, props: { audience } }));
+}
+
+interface Props {
+  audience: Audience;
+}
+const { audience } = Astro.props;
+const page = AUDIENCE_PAGES[audience.id];
+const og = ogPath(`for-${audience.id}`);
+const profile = byProfile(audience.profile);
+
+const site = Astro.site;
+const pageUrl = new URL(Astro.url.pathname, site).toString();
+const home = absoluteUrl('/', site);
+const productId = `${home}#product`;
+const [one, founders] = EDITIONS as [(typeof EDITIONS)[number], (typeof EDITIONS)[number]];
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${pageUrl}#webpage`,
+    url: pageUrl,
+    name: page.title,
+    headline: audience.headline,
+    description: page.description,
+    inLanguage: 'en',
+    isPartOf: { '@type': 'WebSite', name: SITE.name, url: home },
+    about: { '@id': productId },
+    mainEntity: { '@id': productId },
+    audience: { '@type': 'Audience', audienceType: audience.label },
+    primaryImageOfPage: absoluteUrl(og, site),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    '@id': productId,
+    name: SITE.product,
+    sku: one.sku,
+    brand: { '@type': 'Brand', name: SITE.name },
+    manufacturer: { '@type': 'Organization', name: SITE.legalName },
+    description: SITE.description,
+    material: '6061-T6 aluminum',
+    url: absoluteUrl('/shop/', site),
+    image: absoluteUrl(og, site),
+    additionalProperty: [
+      {
+        '@type': 'PropertyValue',
+        name: `Default feel for ${audience.label.toLowerCase()}`,
+        value: profile.name,
+      },
+    ],
+    // Demo mode: no Offer objects, so nothing claims a real sale.
+    ...(MODE === 'live'
+      ? {
+          offers: {
+            '@type': 'AggregateOffer',
+            priceCurrency: 'USD',
+            lowPrice: one.priceUsd,
+            highPrice: founders.priceUsd,
+            offerCount: EDITIONS.length,
+            url: absoluteUrl('/shop/', site),
+          },
+        }
+      : {}),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: SITE.product, item: home },
+      { '@type': 'ListItem', position: 2, name: audience.label, item: pageUrl },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqsFor(page)
+      .filter((f) => !f.phases)
+      .map((f) => ({
+        '@type': 'Question',
+        name: f.q,
+        acceptedAnswer: { '@type': 'Answer', text: f.a },
+      })),
+  },
+];
+---
+
+<BaseLayout
+  title={page.title}
+  description={page.description}
+  ogImage={og}
+  ogImageAlt={`${audience.headline} Detent One for ${audience.label.toLowerCase()}.`}
+  chrome="minimal"
+  jsonLd={jsonLd}
+>
+  <div class="aud" data-audience={audience.id} style={`--feel: var(--feel-${audience.profile})`}>
+    <AudienceHero audience={audience} page={page} />
+    <AudienceFixes page={page} />
+    <AudienceApps audience={audience} page={page} />
+    <AudienceNote profile={audience.profile} />
+    <AudienceOffer id={audience.id} title={page.offerTitle} line={page.offerLine} />
+    <AudienceFaq page={page} />
+    <AudienceCross current={audience.id} />
+  </div>
+</BaseLayout>

@@ -1,14 +1,27 @@
 ---
 /**
  * A small, interactive mock of a real app (timeline, mixer, canvas, diff)
- * driven by a Detent dial: the "aha" demo. SCAFFOLD STUB: the audience
- * feature owns src/components/demos/* and replaces this with real demos,
- * keeping these props.
+ * driven by a Detent dial: the "aha" demo.
  *
- * <AppDemo app="edit" /> renders its own DialStage unless dialId is given,
- * in which case it listens to that existing <detent-dial id=…>.
+ *   <AppDemo app="edit" />                    renders its own DialStage
+ *   <AppDemo app="mix" dialId="hero-dial" />  listens to an existing <detent-dial id="hero-dial">
+ *   <AppDemo app="code" profile="ratchet" />  starts in the mode that uses that feel
+ *   <AppDemo app="design" compact />          tighter layout for grids
+ *
+ * The mock UI is server-rendered in a real state, so it reads as a finished
+ * picture without JS. The controller (src/scripts/demos/*) loads when the demo
+ * nears the viewport and switches the dial's feel per mode.
  */
-import type { ProfileId } from '@/data/product';
+import { byProfile, type ProfileId } from '@/data/product';
+import DialStage from '@/components/dial/DialStage.astro';
+import { DEMO_MODES, DEMO_META, modeForProfile } from '@/scripts/demos/modes';
+import { START_FRAME, timecode } from '@/scripts/demos/edit-scene';
+import { CHANNELS, START_CHANNEL, formatDb } from '@/scripts/demos/mix-model';
+import { START_ROTATION, formatDeg } from '@/scripts/demos/design-model';
+import EditDemo from './EditDemo.astro';
+import MixDemo from './MixDemo.astro';
+import DesignDemo from './DesignDemo.astro';
+import CodeDemo from './CodeDemo.astro';
 
 export type DemoApp = 'edit' | 'mix' | 'design' | 'code';
 interface Props {
@@ -20,25 +33,379 @@ interface Props {
   compact?: boolean;
   class?: string;
 }
-const { app, class: className } = Astro.props;
-const labels: Record<DemoApp, string> = {
-  edit: 'Timeline',
-  mix: 'Mixer',
-  design: 'Canvas',
-  code: 'Diff',
+const { app, dialId, profile, compact = false, class: className } = Astro.props;
+
+const modes = DEMO_MODES[app];
+const initial = modeForProfile(app, profile);
+const meta = DEMO_META[app];
+const uid = `${app}-${Math.random().toString(36).slice(2, 8)}`;
+
+// What the knob's round display shows on first paint (≤ 10 chars).
+const firstDisplay: Record<DemoApp, string> = {
+  edit: timecode(START_FRAME).slice(3),
+  mix: `${formatDb(CHANNELS[START_CHANNEL]!.db)} dB`,
+  design: formatDeg(START_ROTATION),
+  code: `HUNK 1/6`,
 };
+const dialLabel = `Detent dial for the ${meta.name.toLowerCase()}: ${byProfile(initial.profile).name}, ${initial.label.toLowerCase()}`;
 ---
 
-<figure class:list={['app-demo', className]} data-app={app}>
-  <div class="app-demo__screen" role="img" aria-label={`${labels[app]} demo`}></div>
-  <figcaption class="muted">{labels[app]} demo</figcaption>
-</figure>
+<app-demo
+  class:list={['app-demo', compact && 'app-demo--compact', dialId && 'app-demo--linked', className]}
+  data-app={app}
+  data-mode={initial.id}
+  data-profile={initial.profile}
+  data-dial-id={dialId}
+>
+  <figure class="app-demo__rig" aria-label={meta.name}>
+    <div class="app-demo__window">
+      <div class="app-demo__bar">
+        <span class="app-demo__doc">{meta.doc}</span>
+        <span class="app-demo__state">
+          <span class="app-demo__led" aria-hidden="true"></span>
+          <span data-ref="profile-name">{byProfile(initial.profile).name}</span>
+          <span class="app-demo__sep" aria-hidden="true">
+            /
+          </span>
+          <span data-ref="mode-label">{initial.label}</span>
+        </span>
+      </div>
+      {app === 'edit' && <EditDemo compact={compact} />}
+      {app === 'mix' && <MixDemo compact={compact} />}
+      {app === 'design' && <DesignDemo compact={compact} />}
+      {app === 'code' && <CodeDemo compact={compact} />}
+    </div>
+
+    <div class="app-demo__pod">
+      {!dialId && (
+        <div class="app-demo__dial">
+          <DialStage
+            interactive
+            camera="top"
+            profile={initial.profile}
+            label={dialLabel}
+            display={firstDisplay[app]}
+          />
+          <span class="app-demo__cue" aria-hidden="true">
+            <svg viewBox="0 0 40 40" width="40" height="40">
+              <path d="M8 22a13 13 0 0 1 21-12" />
+              <path d="M24 6.5l5.4 3.6-4.6 4.4" />
+            </svg>
+            Turn it
+          </span>
+        </div>
+      )}
+      <fieldset class="app-demo__modes">
+        <legend class="app-demo__legend">Feel</legend>
+        {modes.map((m) => (
+          <label class="app-demo__mode" data-profile={m.profile}>
+            <input
+              type="radio"
+              name={`feel-${uid}`}
+              value={m.id}
+              data-mode
+              data-profile={m.profile}
+              checked={m.id === initial.id}
+            />
+            <span class="app-demo__mode-name">{byProfile(m.profile).name}</span>
+            <span class="app-demo__mode-hint">{m.hint}</span>
+          </label>
+        ))}
+      </fieldset>
+      <p class="app-demo__how">
+        {dialId ? 'Turn the dial above. It changes feel with the mode you pick here.' : meta.how}
+      </p>
+    </div>
+
+    <p class="visually-hidden" aria-live="polite" data-ref="live"></p>
+  </figure>
+</app-demo>
+
+<script>
+  import '@/scripts/demos/app-demo';
+</script>
 
 <style>
-  .app-demo__screen {
-    aspect-ratio: 16 / 10;
+  .app-demo {
+    --feel: var(--feel-ratchet);
+    display: block;
+    container: demo / inline-size;
+    color: var(--ink);
+  }
+  .app-demo:has(input[data-profile='fluid']:checked),
+  .app-demo__mode[data-profile='fluid'] {
+    --feel: var(--feel-fluid);
+  }
+  .app-demo:has(input[data-profile='spring']:checked),
+  .app-demo__mode[data-profile='spring'] {
+    --feel: var(--feel-spring);
+  }
+  .app-demo:has(input[data-profile='clock']:checked),
+  .app-demo__mode[data-profile='clock'] {
+    --feel: var(--feel-clock);
+  }
+  .app-demo:has(input[data-profile='wall']:checked),
+  .app-demo__mode[data-profile='wall'] {
+    --feel: var(--feel-wall);
+  }
+  .app-demo:has(input[data-profile='magnet']:checked),
+  .app-demo__mode[data-profile='magnet'] {
+    --feel: var(--feel-magnet);
+  }
+  .app-demo:has(input[data-profile='ratchet']:checked),
+  .app-demo__mode[data-profile='ratchet'] {
+    --feel: var(--feel-ratchet);
+  }
+
+  .app-demo__rig {
+    display: grid;
+    gap: var(--space-m);
+    margin: 0;
+  }
+  @container demo (min-width: 54rem) {
+    .app-demo:not(.app-demo--compact) .app-demo__rig {
+      grid-template-columns: minmax(0, 1fr) 13.5rem;
+      align-items: center;
+      gap: var(--space-l);
+    }
+  }
+
+  /* ---- The app window ------------------------------------------------ */
+  .app-demo__window {
+    min-width: 0;
+    border-radius: var(--r-l);
+    border: 1px solid var(--line-strong);
+    background: var(--bg-raised);
+    overflow: hidden;
+  }
+  .app-demo__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    min-height: 2.4rem;
+    padding: 0.35rem var(--space-xs);
+    border-bottom: 1px solid var(--line);
+    font-size: var(--step--2);
+  }
+  .app-demo__doc {
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .app-demo__state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-inline-start: auto;
+    padding: 0.15rem 0.6rem 0.15rem 0.45rem;
+    border-radius: var(--r-pill);
+    background: color-mix(in oklch, var(--feel) 14%, transparent);
+    color: var(--ink-strong);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .app-demo__led {
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: 50%;
+    background: var(--feel);
+  }
+  .app-demo__sep {
+    color: var(--ink-faint);
+  }
+  @container demo (max-width: 24rem) {
+    .app-demo__sep,
+    .app-demo__state [data-ref='mode-label'] {
+      display: none;
+    }
+  }
+
+  /* ---- The dial pod -------------------------------------------------- */
+  .app-demo__pod {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 10rem) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-s) var(--space-m);
+  }
+  .app-demo--linked .app-demo__pod {
+    grid-template-columns: 1fr;
+  }
+  @container demo (min-width: 54rem) {
+    .app-demo:not(.app-demo--compact) .app-demo__pod {
+      grid-template-columns: 1fr;
+      justify-items: stretch;
+      gap: var(--space-m);
+    }
+  }
+
+  .app-demo__dial {
+    position: relative;
+    inline-size: 100%;
+    max-inline-size: 12.5rem;
+    justify-self: center;
+  }
+  /* The base's halo LED ring, spilling onto the desk in the active feel's color. */
+  .app-demo__dial::before {
+    content: '';
+    position: absolute;
+    inset: 8% -8% -14%;
+    border-radius: 50%;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklch, var(--feel) 26%, transparent),
+      transparent
+    );
+    pointer-events: none;
+  }
+  .app-demo__dial :global(detent-dial) {
+    position: relative;
+  }
+  .app-demo__dial :global(detent-dial:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 50%;
+  }
+
+  .app-demo__cue {
+    position: absolute;
+    inset-block-start: -0.6rem;
+    inset-inline-start: -0.4rem;
+    display: grid;
+    justify-items: start;
+    font-size: var(--step--2);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    pointer-events: none;
+    transition: opacity var(--dur-3) var(--ease-out);
+  }
+  .app-demo__cue svg {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    inline-size: 1.9rem;
+    block-size: 1.9rem;
+  }
+  .app-demo__cue svg {
+    scale: -1 1;
+  }
+  @container demo (min-width: 54rem) {
+    .app-demo:not(.app-demo--compact) .app-demo__cue {
+      inset-inline: auto -0.6rem;
+      justify-items: end;
+    }
+    .app-demo:not(.app-demo--compact) .app-demo__cue svg {
+      scale: 1 1;
+    }
+  }
+  .app-demo[data-touched] .app-demo__cue {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .app-demo[data-ready]:not([data-touched]) .app-demo__cue svg {
+      animation: cue-nudge 1.6s var(--ease-in-out) 0.6s 3;
+    }
+  }
+  @keyframes cue-nudge {
+    50% {
+      rotate: 14deg;
+    }
+  }
+
+  /* ---- Feel switcher --------------------------------------------------- */
+  .app-demo__modes {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .app-demo--linked .app-demo__modes {
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  }
+  .app-demo__legend {
+    padding: 0;
+    margin-block-end: 0.35rem;
+    font-size: var(--step--2);
+    font-weight: 650;
+    color: var(--ink-muted);
+  }
+  .app-demo__mode {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.1rem 1fr;
+    column-gap: 0.6rem;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0.35rem 0.6rem;
     border-radius: var(--r-m);
-    background: var(--surface);
     border: 1px solid var(--line);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .app-demo__mode:hover {
+    border-color: var(--line-strong);
+  }
+  .app-demo__mode:has(input:checked) {
+    border-color: color-mix(in oklch, var(--feel) 70%, transparent);
+    background: color-mix(in oklch, var(--feel) 10%, transparent);
+  }
+  .app-demo__mode:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .app-demo__mode input {
+    grid-row: span 2;
+    appearance: none;
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    margin: 0;
+    border-radius: 50%;
+    border: 2px solid var(--feel);
+    background: transparent;
+    cursor: pointer;
+    transition: box-shadow var(--dur-1) var(--ease-out);
+  }
+  .app-demo__mode input:checked {
+    box-shadow:
+      inset 0 0 0 3px var(--bg),
+      inset 0 0 0 8px var(--feel);
+  }
+  .app-demo__mode input:focus-visible {
+    outline: none;
+  }
+  .app-demo__mode-name {
+    font-size: var(--step--1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.2;
+  }
+  .app-demo__mode-hint {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    line-height: 1.3;
+  }
+  .app-demo__how {
+    grid-column: 1 / -1;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-demo__mode,
+    .app-demo__cue {
+      transition: none;
+    }
   }
 </style>

@@ -1,0 +1,128 @@
+---
+/**
+ * Pains → the feel that fixes each one → the fix, concretely. Each row shows
+ * the profile's real torque curve and, when the hero demo has that mode, a
+ * link that switches the demo to it and puts the dial under your hand.
+ */
+import type { AudiencePage } from '@/data/audience';
+import FeelCurve from './FeelCurve.astro';
+
+interface Props {
+  page: AudiencePage;
+}
+const { page } = Astro.props;
+---
+
+<section class="fixes section" aria-labelledby="fixes-title">
+  <div class="container">
+    <h2 id="fixes-title" class="display display--m fixes__title">
+      {page.painsTitle}
+    </h2>
+    <ul class="fixes__list" role="list">
+      {page.fixes.map((f) => (
+        <li class="fix" style={`--feel: var(--feel-${f.profile})`}>
+          <p class="fix__pain">{f.pain}</p>
+          <FeelCurve profile={f.profile} />
+          <div class="fix__body">
+            <p>{f.fix}</p>
+            <p class="fix__meta">
+              <span class="fix__where">{f.where}</span>
+              {f.mode && (
+                <a
+                  class="link-arrow fix__try"
+                  href="#demo"
+                  data-demo-mode={f.mode}
+                  data-track="demo_try"
+                  data-track-mode={f.mode}
+                >
+                  <span>Try it on the demo</span>
+                </a>
+              )}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<script>
+  // "Try it": switch the hero demo to the matching mode and hand focus to its dial.
+  document.addEventListener('click', (e) => {
+    const link = (e.target as Element | null)?.closest<HTMLAnchorElement>('a[data-demo-mode]');
+    if (!link) return;
+    const demo = document.querySelector('#demo app-demo') as
+      HTMLElementTagNameMap['app-demo'] | null;
+    if (!demo || typeof demo.setMode !== 'function') return;
+    e.preventDefault();
+    demo.setMode(link.dataset.demoMode ?? '');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    demo.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    const dial =
+      demo.querySelector<HTMLElement>('detent-dial[tabindex]') ??
+      document.getElementById(demo.dataset.dialId ?? '');
+    dial?.focus({ preventScroll: true });
+  });
+</script>
+
+<style>
+  .fixes__title {
+    max-inline-size: 16ch;
+    margin-block-end: var(--space-xl);
+  }
+  .fixes__list {
+    display: grid;
+  }
+  .fix {
+    display: grid;
+    gap: var(--space-s) var(--space-xl);
+    padding-block: var(--space-l);
+    border-top: 1px solid var(--line);
+  }
+  .fix:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+  @media (min-width: 60rem) {
+    .fix {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 3.2fr) minmax(0, 5fr);
+      align-items: start;
+      padding-block: var(--space-xl);
+    }
+  }
+  .fix__pain {
+    font-size: var(--step-2);
+    font-weight: 700;
+    font-stretch: 112%;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--ink-strong);
+    text-wrap: balance;
+  }
+  .fix__body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 52ch;
+  }
+  .fix__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-m);
+    font-size: var(--step--1);
+  }
+  .fix__where {
+    color: var(--ink-muted);
+  }
+  .fix__try {
+    min-block-size: 2.75rem;
+    color: var(--ink-strong);
+    text-decoration: none;
+  }
+  /* Underline the words in the row's feel color; the arrow stays clean. */
+  .fix__try span {
+    text-decoration: underline;
+    text-decoration-color: var(--feel);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.3em;
+  }
+</style>

@@ -1,0 +1,98 @@
+---
+/**
+ * Quiet cross-links to the other audience pages, each in its own feel color.
+ */
+import { AUDIENCES, byProfile, type AudienceId } from '@/data/product';
+import { AUDIENCE_PAGES } from '@/data/audience';
+import { url } from '@/lib/url';
+
+interface Props {
+  current: AudienceId;
+}
+const { current } = Astro.props;
+const others = AUDIENCES.filter((a) => a.id !== current);
+---
+
+<nav class="cross" data-world="day" aria-labelledby="cross-title">
+  <div class="container cross__inner">
+    <h2 id="cross-title" class="cross__title">
+      Detent is also made for
+    </h2>
+    <ul class="cross__list" role="list">
+      {others.map((a) => (
+        <li style={`--feel: var(--feel-${a.profile})`}>
+          <a
+            class="cross__link"
+            href={url(`/for/${a.id}/`)}
+            data-track="audience_cross"
+            data-track-to={a.id}
+          >
+            <span class="cross__label">
+              <span class="cross__ring" aria-hidden="true" />
+              {a.label}
+            </span>
+            <span class="cross__line">
+              {AUDIENCE_PAGES[a.id].crossLine} · {byProfile(a.profile).name}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</nav>
+
+<style>
+  .cross {
+    padding-block: var(--space-xl) var(--space-2xl);
+  }
+  .cross__inner {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .cross__title {
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink-muted);
+  }
+  .cross__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-s) var(--space-l);
+  }
+  .cross__link {
+    display: grid;
+    gap: 0.2rem;
+    padding-block: var(--space-s);
+    border-top: 1px solid var(--line-strong);
+    text-decoration: none;
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+  .cross__link:hover {
+    border-top-color: var(--ink-strong);
+  }
+  .cross__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .cross__ring {
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    border-radius: 50%;
+    background: var(--feel);
+    box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.2);
+  }
+  .cross__line {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .cross__link:hover .cross__label {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.25em;
+  }
+</style>

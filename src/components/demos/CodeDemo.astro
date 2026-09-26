@@ -1,0 +1,362 @@
+---
+/**
+ * Mock code review: a unified diff with six hunks and an overview ruler.
+ * Magnet snaps hunk to hunk (and scrolls the pane, never the page); Ratchet
+ * walks lines. Press marks the focused hunk viewed. Controller: code.ts.
+ */
+import { FILE, HUNKS, STATS, highlight } from '@/scripts/demos/code-diff';
+
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+const rows = HUNKS.reduce((n, h) => n + h.lines.length + 1, 0);
+let row = 0;
+const marks = HUNKS.map((h) => {
+  const y = row / rows;
+  row += h.lines.length + 1;
+  return y;
+});
+const signs = { add: '+', del: '−', ctx: ' ' } as const;
+const spoken = { add: 'Added', del: 'Removed', ctx: '' } as const;
+---
+
+<div class:list={['cd', compact && 'cd--compact']} data-ref="code">
+  <div class="cd__head">
+    <span class="cd__file">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path
+          d="M4 1.5h5.2L12.5 5v9.5h-8.5z M9 1.5V5h3.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.2"
+        ></path>
+      </svg>
+      {FILE}
+    </span>
+    <span class="cd__stats readout" aria-label={`${STATS.add} lines added, ${STATS.del} removed`}>
+      <span class="cd__plus">+{STATS.add}</span>
+      <span class="cd__minus">−{STATS.del}</span>
+    </span>
+    <span class="cd__viewed readout" data-ref="viewed">
+      0 / {HUNKS.length} viewed
+    </span>
+  </div>
+
+  <div class="cd__body">
+    <div
+      class="cd__scroll"
+      data-ref="scroll"
+      tabindex="0"
+      role="region"
+      aria-label={`Diff of ${FILE}`}
+    >
+      <div class="cd__sheet">
+        {HUNKS.map((h, hi) => {
+          const add = h.lines.filter((l) => l.kind === 'add').length;
+          const del = h.lines.filter((l) => l.kind === 'del').length;
+          const first = h.lines.find((l) => l.new)?.new ?? 0;
+          return (
+            <section
+              class="cd__hunk"
+              data-ref="hunk"
+              data-i={hi}
+              data-add={add}
+              data-del={del}
+              data-from={first}
+              data-focus={hi === 0 ? '' : undefined}
+              aria-label={`Hunk ${hi + 1} of ${HUNKS.length}`}
+            >
+              <div class="cd__hh">
+                <span class="cd__range">{h.header}</span>
+                {h.section && <span class="cd__section">{h.section}</span>}
+                <span class="cd__check" data-ref="check">
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                    <path
+                      d="M2 6.4l2.6 2.4L10 3.2"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                    />
+                  </svg>
+                  Viewed
+                </span>
+              </div>
+              {h.lines.map((l) => (
+                <div
+                  class="cd__ln"
+                  data-ref="line"
+                  data-kind={l.kind}
+                  data-h={hi}
+                  data-no={l.new ?? l.old}
+                >
+                  <span class="cd__no" aria-hidden="true">
+                    {l.old ?? ''}
+                  </span>
+                  <span class="cd__no" aria-hidden="true">
+                    {l.new ?? ''}
+                  </span>
+                  <span class="cd__sign" aria-hidden="true">
+                    {signs[l.kind]}
+                  </span>
+                  <code class="cd__code" set:html={highlight(l.text, spoken[l.kind])} />
+                </div>
+              ))}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+    <div class="cd__ruler" aria-hidden="true">
+      {marks.map((y, i) => (
+        <span
+          class="cd__mark"
+          data-ref="mark"
+          data-i={i}
+          data-focus={i === 0 ? '' : undefined}
+          style={`--y:${y.toFixed(4)}`}
+        />
+      ))}
+      <span class="cd__thumb" data-ref="thumb" style="--y:0"></span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .cd {
+    --cd-add: oklch(0.62 0.12 150 / 0.16);
+    --cd-del: oklch(0.6 0.14 22 / 0.16);
+    --cd-add-ink: oklch(0.8 0.13 150);
+    --cd-del-ink: oklch(0.76 0.13 22);
+    display: grid;
+    gap: var(--space-2xs);
+    padding: var(--space-xs);
+    container-type: inline-size;
+  }
+  .cd__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem var(--space-s);
+    font-size: var(--step--2);
+  }
+  .cd__file {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    color: var(--ink-strong);
+    min-width: 0;
+  }
+  .cd__stats {
+    display: inline-flex;
+    gap: 0.5rem;
+    font-size: var(--step--2);
+  }
+  .cd__plus {
+    color: var(--cd-add-ink);
+  }
+  .cd__minus {
+    color: var(--cd-del-ink);
+  }
+  .cd__viewed {
+    margin-inline-start: auto;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .cd__viewed[data-done] {
+    color: var(--feel);
+  }
+
+  .cd__body {
+    display: grid;
+    grid-template-columns: 1fr 0.7rem;
+    gap: 0.35rem;
+  }
+  .cd__scroll {
+    position: relative;
+    block-size: 17rem;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-radius: var(--r-s);
+    background: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    line-height: 1.65;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .cd--compact .cd__scroll {
+    block-size: 14rem;
+  }
+  @container (min-width: 40rem) {
+    .cd__scroll {
+      block-size: 20rem;
+      font-size: 0.74rem;
+    }
+  }
+
+  /* Lines never wrap (code keeps its indentation); the pane scrolls sideways
+     on narrow screens and every row shares the widest line's width. */
+  .cd__sheet {
+    inline-size: max-content;
+    min-inline-size: 100%;
+  }
+  .cd__hunk {
+    border: 1px solid transparent;
+    border-radius: var(--r-xs);
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out);
+  }
+  [data-profile='magnet'] .cd__hunk:not([data-focus]) {
+    opacity: 0.5;
+  }
+  .cd__hunk[data-focus] {
+    border-color: color-mix(in oklch, var(--feel) 75%, transparent);
+  }
+  .cd__hunk[data-pulse] {
+    animation: cd-snap var(--dur-3) var(--ease-out);
+  }
+  @keyframes cd-snap {
+    from {
+      background: color-mix(in oklch, var(--feel) 20%, transparent);
+    }
+  }
+
+  .cd__hh {
+    display: flex;
+    align-items: baseline;
+    gap: 0 0.75rem;
+    padding: 0.2rem 0.6rem;
+    background: var(--surface);
+    color: var(--ink-muted);
+  }
+  .cd__hunk[data-focus] .cd__hh {
+    background: color-mix(in oklch, var(--feel) 16%, var(--surface));
+    color: var(--ink);
+  }
+  .cd__range {
+    color: var(--ink);
+  }
+  .cd__section {
+    white-space: pre;
+  }
+  .cd__check {
+    display: none;
+    align-items: center;
+    gap: 0.3rem;
+    margin-inline-start: auto;
+    padding-inline-start: var(--space-s);
+    color: var(--feel);
+    font-family: var(--font-sans);
+    font-weight: 650;
+  }
+  .cd__hunk[data-viewed] .cd__check {
+    display: inline-flex;
+  }
+
+  .cd__ln {
+    display: grid;
+    grid-template-columns: 2ch 2ch 1.5ch minmax(0, 1fr);
+    gap: 0 0.6ch;
+    padding-inline: 0.6rem;
+    color: var(--ink);
+  }
+  .cd__ln[data-kind='add'] {
+    background: var(--cd-add);
+  }
+  .cd__ln[data-kind='del'] {
+    background: var(--cd-del);
+  }
+  .cd__ln[data-cursor] {
+    background: color-mix(in oklch, var(--feel) 26%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--feel) 70%, transparent);
+  }
+  .cd__no {
+    text-align: end;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+  .cd__ln[data-cursor] .cd__no {
+    color: var(--ink-strong);
+  }
+  .cd__sign {
+    color: var(--ink-faint);
+    user-select: none;
+  }
+  .cd__ln[data-kind='add'] .cd__sign {
+    color: var(--cd-add-ink);
+  }
+  .cd__ln[data-kind='del'] .cd__sign {
+    color: var(--cd-del-ink);
+  }
+  .cd__code {
+    font-size: inherit;
+    white-space: pre;
+  }
+  .cd__code :global(.t-kw) {
+    color: oklch(0.8 0.09 300);
+  }
+  .cd__code :global(.t-str) {
+    color: oklch(0.82 0.1 140);
+  }
+  .cd__code :global(.t-num) {
+    color: oklch(0.83 0.11 70);
+  }
+  .cd__code :global(.t-fn) {
+    color: oklch(0.83 0.09 230);
+  }
+  .cd__code :global(.t-ty) {
+    color: oklch(0.84 0.08 195);
+  }
+  .cd__code :global(.t-com) {
+    color: var(--ink-faint);
+  }
+
+  @container (max-width: 26rem) {
+    .cd__ln {
+      grid-template-columns: 0 2ch 1.5ch minmax(0, 1fr);
+      gap: 0 0.5ch;
+      padding-inline: 0.4rem;
+    }
+    .cd__ln .cd__no:first-child {
+      visibility: hidden;
+    }
+  }
+
+  .cd__ruler {
+    position: relative;
+    border-radius: 2px;
+    background: var(--bg);
+  }
+  .cd__mark {
+    position: absolute;
+    inset-inline: 2px;
+    inset-block-start: calc(var(--y) * 100%);
+    block-size: 6px;
+    border-radius: 1px;
+    background: var(--ink-faint);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .cd__mark[data-focus] {
+    background: var(--feel);
+  }
+  .cd__thumb {
+    position: absolute;
+    inset-inline: -2px;
+    inset-block-start: calc(var(--y) * 100%);
+    block-size: 2px;
+    background: var(--ink-strong);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cd__hunk {
+      transition: none;
+    }
+    .cd__hunk[data-pulse] {
+      animation: none;
+    }
+  }
+</style>
