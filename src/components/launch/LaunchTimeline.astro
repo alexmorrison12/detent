@@ -1,0 +1,184 @@
+---
+/**
+ * The launch as an engraved scale: every date from launch.ts, in order.
+ * The current phase's mark lights up (CSS reads <html data-phase>).
+ * Horizontal on wide screens, a vertical rule on phones.
+ */
+import { PHASES, LAUNCH } from '@/config/launch';
+import { EDITIONS, formatUsd } from '@/data/product';
+import { dotDate } from '@/scripts/launch/format';
+
+interface Props {
+  class?: string;
+  /** Visible heading id for aria-labelledby, if a heading sits above. */
+  labelledBy?: string;
+}
+const { class: className, labelledBy } = Astro.props;
+const one = EDITIONS.find((e) => e.id === 'one')!;
+const shortMonth = (s: string) => s.replace(/^(\w{3})\w*/, '$1');
+
+const items = [
+  {
+    phase: 'waitlist',
+    date: dotDate(PHASES.waitlist.starts),
+    label: 'Waitlist opens',
+    detail: `${formatUsd(one.launchPriceUsd)} for everyone on the list.`,
+  },
+  {
+    phase: 'reserve',
+    date: dotDate(PHASES.reserve.starts),
+    label: 'Reservations open',
+    detail: `The list goes first. ${formatUsd(LAUNCH.depositUsd)}, fully refundable.`,
+  },
+  {
+    phase: 'launch',
+    date: dotDate(PHASES.launch.starts),
+    label: 'Launch day',
+    detail: 'Orders open to everyone.',
+  },
+  {
+    phase: 'live',
+    date: dotDate(LAUNCH.launchPriceEnds),
+    label: 'Launch price ends',
+    detail: `${formatUsd(one.priceUsd)} from here on.`,
+  },
+  {
+    phase: 'batch-1',
+    date: shortMonth(LAUNCH.firstShipBatch),
+    label: 'Batch 1 ships',
+    detail: 'Reservations fill in order.',
+  },
+  {
+    phase: 'batch-2',
+    date: shortMonth(LAUNCH.secondShipBatch),
+    label: 'Batch 2 ships',
+    detail: 'Then the store stays open.',
+  },
+];
+---
+
+<ol class:list={['timeline', className]} role="list" aria-labelledby={labelledBy}>
+  {items.map((it) => (
+    <li class="timeline__item" data-mark={it.phase}>
+      <span class="timeline__tick" aria-hidden="true" />
+      <span class="timeline__date readout">{it.date}</span>
+      <span class="timeline__label">{it.label}</span>
+      <span class="timeline__detail">{it.detail}</span>
+    </li>
+  ))}
+</ol>
+
+<style>
+  .timeline {
+    --tick: var(--line-strong);
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-m);
+    padding-block-start: var(--space-l);
+  }
+  /* The scale's rule, with minor graduations between the major marks. */
+  .timeline::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    block-size: 0.6rem;
+    border-top: 1px solid var(--tick);
+    background-image: linear-gradient(to right, var(--tick) 1px, transparent 1px);
+    background-size: calc((100% - 5 * var(--space-m)) / 24 + var(--space-m) / 4) 100%;
+    opacity: 0.6;
+  }
+  .timeline__item {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
+  }
+  .timeline__tick {
+    position: absolute;
+    inset-block-start: calc(-1 * var(--space-l));
+    inset-inline-start: 0;
+    inline-size: 2px;
+    block-size: 1.35rem;
+    background: var(--ink-muted);
+  }
+  .timeline__date {
+    font-size: var(--step-1);
+    color: var(--ink-strong);
+    letter-spacing: 0;
+  }
+  .timeline__label {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.25;
+  }
+  .timeline__detail {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    line-height: 1.45;
+  }
+  /* On-air: the current phase's mark is the lit one. */
+  :global(html[data-phase='waitlist']) [data-mark='waitlist'] .timeline__tick,
+  :global(html[data-phase='reserve']) [data-mark='reserve'] .timeline__tick,
+  :global(html[data-phase='launch']) [data-mark='launch'] .timeline__tick,
+  :global(html[data-phase='live']) [data-mark='live'] .timeline__tick {
+    background: var(--accent);
+    inline-size: 3px;
+    block-size: 1.6rem;
+  }
+  :global(html[data-phase='waitlist']) [data-mark='waitlist'] .timeline__date,
+  :global(html[data-phase='reserve']) [data-mark='reserve'] .timeline__date,
+  :global(html[data-phase='launch']) [data-mark='launch'] .timeline__date,
+  :global(html[data-phase='live']) [data-mark='live'] .timeline__date {
+    color: var(--accent-text);
+  }
+  :global(html[data-phase='waitlist']) [data-mark='waitlist'] .timeline__label::after,
+  :global(html[data-phase='reserve']) [data-mark='reserve'] .timeline__label::after,
+  :global(html[data-phase='launch']) [data-mark='launch'] .timeline__label::after,
+  :global(html[data-phase='live']) [data-mark='live'] .timeline__label::after {
+    content: ' · now';
+    font-weight: 500;
+    color: var(--accent-text);
+  }
+
+  @media (max-width: 56rem) {
+    .timeline {
+      grid-template-columns: 1fr;
+      gap: var(--space-m);
+      padding-block-start: 0;
+      padding-inline-start: var(--space-l);
+    }
+    .timeline::before {
+      inset: 0 auto 0 0;
+      block-size: auto;
+      inline-size: 0.6rem;
+      border-top: 0;
+      border-inline-start: 1px solid var(--tick);
+      background-image: linear-gradient(to bottom, var(--tick) 1px, transparent 1px);
+      background-size: 100% 0.9rem;
+    }
+    .timeline__item {
+      grid-template-columns: 6.5rem 1fr;
+      column-gap: var(--space-s);
+    }
+    .timeline__tick {
+      inset-block-start: 0.7em;
+      inset-inline-start: calc(-1 * var(--space-l));
+      inline-size: 1.35rem;
+      block-size: 2px;
+    }
+    .timeline__date {
+      grid-row: span 2;
+      font-size: var(--step-0);
+      padding-block-start: 0.1em;
+    }
+    :global(html[data-phase='waitlist']) [data-mark='waitlist'] .timeline__tick,
+    :global(html[data-phase='reserve']) [data-mark='reserve'] .timeline__tick,
+    :global(html[data-phase='launch']) [data-mark='launch'] .timeline__tick,
+    :global(html[data-phase='live']) [data-mark='live'] .timeline__tick {
+      inline-size: 1.6rem;
+      block-size: 3px;
+    }
+  }
+</style>

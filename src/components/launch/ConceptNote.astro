@@ -1,0 +1,31 @@
+---
+/**
+ * The honest line under every launch form. In demo mode (no endpoint) it
+ * says plainly that the data stays in this browser.
+ */
+import { IS_DEMO } from '@/lib/waitlist';
+
+interface Props {
+  /** What the form collects, for the sentence: "your email", "your reservation". */
+  subject?: string;
+  /** Extra sentence for live mode (what we will actually send). */
+  live?: string;
+  class?: string;
+}
+const {
+  subject = 'your email',
+  live = 'We write when something real happens. Unsubscribe in one click.',
+  class: className,
+} = Astro.props;
+---
+
+<p class:list={['concept-note', className]}>
+  {IS_DEMO ? (
+    <>
+      Concept demo: Detent isn’t a real product, so {subject} stays in this browser. Nothing is sent
+      and nobody will email you.
+    </>
+  ) : (
+    live
+  )}
+</p>

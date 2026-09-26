@@ -1,0 +1,645 @@
+---
+/**
+ * Launch day: "Detent One is here." The hero states the offer and its real
+ * end date; #film is a 45-second script played live on the dial; then the
+ * editions with prices, tester notes (labelled as personas), a note for
+ * people arriving from launch threads, and the FAQ.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStill from '@/components/dial/DialStill.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import PhaseNotice from '@/components/launch/PhaseNotice.astro';
+import FilmStage from '@/components/launch/FilmStage.astro';
+import Countdown from '@/components/launch/Countdown.astro';
+import LaunchFaq from '@/components/launch/LaunchFaq.astro';
+import StickyCta from '@/components/launch/StickyCta.astro';
+import { eventLd, faqLd, productLd } from '@/components/launch/ld';
+import { PHASES, LAUNCH } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { SITE } from '@/config/site';
+import {
+  EDITIONS,
+  FAQS,
+  FINISHES,
+  PAYMENT,
+  SPECS,
+  TESTER_NOTES,
+  byFinish,
+  byProfile,
+  formatUsd,
+} from '@/data/product';
+import { url } from '@/lib/url';
+import { dotDate, serialRange } from '@/scripts/launch/format';
+
+const one = EDITIONS.find((e) => e.id === 'one')!;
+const founders = EDITIONS.find((e) => e.id === 'founders')!;
+const usd = formatUsd;
+const launchDot = dotDate(LAUNCH.launchDate);
+const endDot = dotDate(LAUNCH.launchPriceEnds);
+const spec = (label: string) =>
+  SPECS.flatMap((g) => g.rows).find((r) => r.label === label)?.value ?? '';
+const faqs = FAQS.filter(
+  (f) => f.topic === 'Launch' || f.topic === 'Buying' || f.topic === 'Shipping',
+);
+const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
+const standardFinishes = FINISHES.filter((f) => !f.foundersOnly);
+
+/** Edition CTAs follow the launch phase like PhaseCTA, but per edition. */
+const editionCtas = (id: 'one' | 'founders') => [
+  {
+    phases: 'launch live',
+    label: `Order ${id === 'one' ? one.name : founders.name}`,
+    href: `/shop/?edition=${id}`,
+  },
+  {
+    phases: 'reserve',
+    label: `Reserve for ${usd(id === 'founders' ? LAUNCH.foundersDepositUsd : LAUNCH.depositUsd)}`,
+    href: '/l/reserve/',
+  },
+  { phases: 'tease waitlist', label: PHASES.waitlist.primary.label, href: '/l/waitlist/' },
+];
+---
+
+<BaseLayout
+  title={`${SITE.product} is here`}
+  description={`${SITE.product} is on sale: a machined aluminum dial whose feel changes with every app. ${usd(one.launchPriceUsd)} until ${dotDate(LAUNCH.launchPriceEnds)}, then ${usd(one.priceUsd)}. Watch the 45-second film, rendered live in your browser.`}
+  ogImage={ogPath('launch')}
+  ogImageAlt="Detent One is here. Launch week pricing."
+  chrome="minimal"
+  jsonLd={[
+    eventLd({
+      name: `${SITE.product} launch week`,
+      description: `${usd(one.launchPriceUsd)} launch pricing on ${SITE.product}.`,
+      start: LAUNCH.launchDate,
+      end: LAUNCH.launchPriceEnds,
+      url: pageUrl,
+      site: Astro.site,
+    }),
+    productLd(Astro.site, pageUrl),
+    faqLd(faqs),
+  ]}
+>
+  <!-- impeccable-disable numbered-section-markers -- MM.DD launch dates (12.01, 12.04) are real dates, not section markers -->
+  <PhaseNotice
+    placement="launch-notice"
+    notices={{
+      tease: `You’re looking at launch day early: it’s ${launchDot}. The reveal comes first, on ${dotDate(PHASES.waitlist.starts)}.`,
+      waitlist: `Launch day is ${launchDot}. Until then, the waitlist gets the ${usd(one.launchPriceUsd)} price.`,
+      reserve: `Launch day is ${launchDot}. Reservations are open now and lock the same ${usd(one.launchPriceUsd)}.`,
+      live: `Launch week is over. ${SITE.product} is in the store at ${usd(one.priceUsd)}.`,
+    }}
+  />
+
+  <section class="lh" aria-labelledby="lh-title">
+    <div class="container lh__grid">
+      <div class="lh__copy">
+        <p class="lh__onair">
+          <span class="lh__dot" aria-hidden="true"></span>
+          <span>
+            Launch day · <time datetime={LAUNCH.launchDate}>{launchDot}</time>
+          </span>
+        </p>
+        <h1 id="lh-title" class="lh__title">
+          {SITE.product} is&nbsp;here.
+        </h1>
+        <p class="lh__lede">
+          A machined aluminum dial whose feel changes with the app you’re in.{' '}
+          {usd(one.launchPriceUsd)} for launch week, then {usd(one.priceUsd)}. Free shipping and a{' '}
+          {PAYMENT.trialDays}-day studio trial.
+        </p>
+        <div id="lh-cta">
+          <PhaseCTA placement="launch-hero" size="lg" showSecondary />
+        </div>
+      </div>
+      <aside class="lh__clock" aria-label="Launch pricing">
+        <p class="lh__price">
+          <span class="readout lh__now">{usd(one.launchPriceUsd)}</span>
+          <s class="readout lh__was">{usd(one.priceUsd)}</s>
+        </p>
+        <Countdown />
+        <ol class="lh__window" role="list" aria-label="Launch week">
+          <li>
+            <span class="readout">{launchDot}</span> Orders open
+          </li>
+          <li>
+            <span class="readout">{endDot}</span> Launch price ends
+          </li>
+          <li>
+            <span class="readout">{LAUNCH.firstShipBatch.replace(/^(\w{3})\w*/, '$1')}</span> Batch
+            1 ships
+          </li>
+        </ol>
+      </aside>
+    </div>
+  </section>
+
+  <FilmStage />
+
+  <section class="eds" data-world="day" aria-labelledby="eds-title">
+    <div class="container">
+      <h2 id="eds-title" class="l-h2">
+        Pick one. Both are the real thing.
+      </h2>
+      <div class="eds__grid">
+        <article class="ed" aria-labelledby="ed-one-title">
+          <div class="ed__stills" aria-hidden="true">
+            {standardFinishes.map((f) => (
+              <div class="ed__still">
+                <DialStill finish={f.id} view="top" />
+              </div>
+            ))}
+          </div>
+          <h3 id="ed-one-title" class="ed__name">
+            {one.name}
+          </h3>
+          <p class="ed__price">
+            <span class="readout ed__now">{usd(one.launchPriceUsd)}</span>
+            <span class="ed__was">
+              <s>{usd(one.priceUsd)}</s> until {endDot}
+            </span>
+          </p>
+          <p class="ed__finishes">{standardFinishes.map((f) => f.name).join(' · ')}</p>
+          <p class="ed__summary">{one.summary}</p>
+          <ul class="ed__list" role="list">
+            {one.includes.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+          <p class="ed__pay">{PAYMENT.installmentLabel(one.launchPriceUsd)}</p>
+          {editionCtas('one').map((c) => (
+            <a
+              class="btn btn--solid ed__cta"
+              href={url(c.href)}
+              data-phase-only={c.phases}
+              data-track="cta_click"
+              data-track-placement="launch-edition-one"
+            >
+              {c.label}
+            </a>
+          ))}
+        </article>
+
+        <article class="ed ed--founders" aria-labelledby="ed-f-title">
+          <div class="ed__stills" aria-hidden="true">
+            <div class="ed__still ed__still--solo">
+              <DialStill finish="tally" view="top" />
+            </div>
+          </div>
+          <h3 id="ed-f-title" class="ed__name">
+            {founders.name}
+          </h3>
+          <p class="ed__price">
+            <span class="readout ed__now">{usd(founders.priceUsd)}</span>
+            <span class="ed__was">numbered {serialRange(LAUNCH.foundersRun)}</span>
+          </p>
+          <p class="ed__finishes">{byFinish('tally').name} only</p>
+          <p class="ed__summary">
+            {founders.summary} A run of {LAUNCH.foundersRun.toLocaleString('en-US')}. When they’re
+            gone, Tally is gone. No countdown: we won’t fake one.
+          </p>
+          <ul class="ed__list" role="list">
+            {founders.includes.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+          <p class="ed__pay">{PAYMENT.installmentLabel(founders.priceUsd)}</p>
+          {editionCtas('founders').map((c) => (
+            <a
+              class="btn btn--primary ed__cta"
+              href={url(c.href)}
+              data-phase-only={c.phases}
+              data-track="cta_click"
+              data-track-placement="launch-edition-founders"
+            >
+              {c.label}
+            </a>
+          ))}
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="notes" data-world="day" aria-labelledby="notes-title">
+    <div class="container">
+      <div class="notes__head">
+        <h2 id="notes-title" class="l-h2">
+          Six weeks on real desks
+        </h2>
+        <p class="notes__label">
+          Illustrative notes from early-tester personas. Detent is a concept, and these people are
+          fictional.
+        </p>
+      </div>
+      <ul class="notes__list" role="list">
+        {TESTER_NOTES.map((n) => {
+          const p = byProfile(n.profile);
+          return (
+            <li class="note" style={`--feel:${p.color}`}>
+              <blockquote>
+                <p>{n.quote}</p>
+              </blockquote>
+              <p class="note__who">
+                <span class="note__name">{n.name}</span>
+                <span class="note__role">{n.role}</span>
+                <span class="note__feel">
+                  <span class="note__dot" aria-hidden="true" />
+                  {p.name}
+                </span>
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  </section>
+
+  <section class="thread" aria-labelledby="thread-title">
+    <div class="container thread__grid">
+      <p class="thread__tag">
+        <span class="lh__dot" aria-hidden="true"></span>We’re launching today
+      </p>
+      <div class="thread__body">
+        <h2 id="thread-title" class="thread__title">
+          Came here from a launch thread? Hello.
+        </h2>
+        <p>
+          The team is in the comments all day and answers everything, the hard questions first. The
+          short answers: firmware is
+          {spec('Firmware').replace(/^Open source/, 'open source')}. The SDK is{' '}
+          {spec('SDK').replace(/^Open SDK/, 'open')}. Account:
+          {spec('Account').replace(/^None/, 'none')}.
+        </p>
+        <p>
+          Prefer to read before you ask? The <a href={url('/specs/')}>spec sheet</a> has every
+          number, <a href={url('/story/')}>the story</a> covers why a knob, and{' '}
+          <a href={url('/changelog/')}>the changelog</a> lists what moved since the reveal.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="l-faq" aria-labelledby="l-faq-title">
+    <div class="container l-faq__grid">
+      <h2 id="l-faq-title" class="l-h2">
+        Launch-day questions
+      </h2>
+      <LaunchFaq faqs={faqs} name="launch-faq" />
+    </div>
+  </section>
+
+  <section class="l-closer" aria-labelledby="l-closer-title">
+    <div class="container l-closer__inner">
+      <h2 id="l-closer-title" class="l-closer__title">
+        {usd(one.launchPriceUsd)} until {endDot}. Then {usd(one.priceUsd)}, and the store stays
+        open.
+      </h2>
+      <PhaseCTA placement="launch-closer" size="lg" />
+    </div>
+  </section>
+
+  <StickyCta watch="#lh-cta" hideOver=".l-closer, .site-footer">
+    <PhaseCTA placement="sticky" size="sm" showNote={false} />
+  </StickyCta>
+</BaseLayout>
+
+<script>
+  import { initLanding } from '@/scripts/launch/common';
+  initLanding();
+</script>
+
+<style>
+  /* ---- Hero -------------------------------------------------------------- */
+  .lh {
+    padding-block: clamp(var(--space-xl), 7svh, var(--space-3xl)) var(--space-xl);
+  }
+  .lh__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+    gap: var(--space-xl) var(--space-3xl);
+    align-items: end;
+  }
+  .lh__copy {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+  }
+  .lh__onair {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink);
+  }
+  .lh__dot {
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--tally);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--tally) 22%, transparent);
+  }
+  .lh__title {
+    font-size: var(--step-6);
+    font-stretch: var(--stretch-display);
+    font-weight: 800;
+    letter-spacing: var(--tracking-display);
+    line-height: 0.95;
+    max-inline-size: 11ch;
+  }
+  .lh__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+  .lh__clock {
+    display: grid;
+    gap: var(--space-m);
+    padding-block-start: var(--space-m);
+    border-top: 1px solid var(--line-strong);
+  }
+  .lh__price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+  }
+  .lh__now {
+    font-size: var(--step-5);
+    line-height: 1;
+    color: var(--ink-strong);
+    letter-spacing: -0.03em;
+  }
+  .lh__was {
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px;
+  }
+  .lh__window {
+    display: grid;
+    gap: 0.3rem;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .lh__window li {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: var(--space-s);
+    padding-block: 0.3rem;
+    border-top: 1px solid var(--line);
+  }
+  .lh__window .readout {
+    color: var(--ink-strong);
+  }
+
+  .l-h2 {
+    font-size: var(--step-4);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    max-inline-size: 20ch;
+  }
+
+  /* ---- Editions (day) ------------------------------------------------------ */
+  .eds,
+  .notes {
+    padding-block: var(--section-y);
+  }
+  .notes {
+    padding-block-start: 0;
+  }
+  .eds__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-l);
+    margin-block-start: var(--space-xl);
+  }
+  .ed {
+    display: grid;
+    align-content: start;
+    gap: var(--space-s);
+    padding: var(--space-l);
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+  }
+  .ed--founders {
+    background: var(--graphite-950);
+    color: var(--alu-100);
+    --ink: var(--alu-100);
+    --ink-strong: var(--white);
+    --ink-muted: oklch(0.76 0.006 355);
+    --line: oklch(1 0 0 / 0.1);
+    --accent-text: var(--tally-hot);
+  }
+  .ed__stills {
+    display: flex;
+    gap: var(--space-s);
+    margin-block-end: var(--space-s);
+  }
+  .ed__still {
+    inline-size: clamp(4.5rem, 9vw, 7rem);
+    aspect-ratio: 1;
+  }
+  .ed__still--solo {
+    inline-size: clamp(6rem, 12vw, 9rem);
+  }
+  .ed__name {
+    font-size: var(--step-2);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+  }
+  .ed__price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3em 0.8em;
+  }
+  .ed__now {
+    font-size: var(--step-3);
+    color: var(--ink-strong);
+    letter-spacing: -0.02em;
+  }
+  .ed__was,
+  .ed__finishes,
+  .ed__pay {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .ed__summary {
+    color: var(--ink-muted);
+    max-inline-size: 46ch;
+  }
+  .ed__list {
+    display: grid;
+    gap: 0.4rem;
+    margin-block: var(--space-2xs) var(--space-2xs);
+    font-size: var(--step--1);
+  }
+  .ed__list li {
+    display: flex;
+    gap: 0.6em;
+    padding-block-end: 0.4rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .ed__list li::before {
+    content: '';
+    flex: none;
+    inline-size: 0.4rem;
+    block-size: 0.4rem;
+    margin-block-start: 0.55em;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .ed__cta {
+    justify-self: start;
+    margin-block-start: var(--space-2xs);
+  }
+
+  /* ---- Tester notes (day) ---------------------------------------------------- */
+  .notes__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-s) var(--space-xl);
+  }
+  .notes__label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 36ch;
+  }
+  .notes__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-xl) var(--space-2xl);
+    margin-block-start: var(--space-xl);
+  }
+  .note {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+    padding-block-start: var(--space-m);
+    border-top: 1px solid var(--line-strong);
+  }
+  .note:nth-child(even) {
+    margin-block-start: var(--space-2xl);
+  }
+  .note blockquote p {
+    font-size: var(--step-2);
+    line-height: 1.3;
+    font-weight: 520;
+    color: var(--ink-strong);
+    text-wrap: pretty;
+  }
+  .note__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3em 0.9em;
+    font-size: var(--step--1);
+  }
+  .note__name {
+    font-weight: 680;
+    color: var(--ink-strong);
+  }
+  .note__role {
+    color: var(--ink-muted);
+  }
+  .note__feel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    color: var(--ink-muted);
+  }
+  .note__dot {
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--feel);
+  }
+
+  /* ---- Launch thread note (night) ------------------------------------------- */
+  .thread {
+    padding-block: var(--section-y) var(--space-2xl);
+  }
+  .thread__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-l) var(--space-xl);
+  }
+  .thread__tag {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    align-self: start;
+    font-weight: 620;
+    font-size: var(--step--1);
+  }
+  .thread__body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 60ch;
+    color: var(--ink-muted);
+  }
+  .thread__title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    margin-block-end: var(--space-2xs);
+  }
+  .thread__body a {
+    color: var(--ink-strong);
+  }
+
+  .l-faq {
+    padding-block: var(--space-2xl) var(--section-y);
+  }
+  .l-faq__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-xl);
+    align-items: start;
+  }
+  .l-closer {
+    padding-block: var(--space-3xl);
+    border-top: 1px solid var(--line);
+  }
+  .l-closer__inner {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-l);
+  }
+  .l-closer__title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    max-inline-size: 24ch;
+  }
+
+  @media (max-width: 60rem) {
+    .lh__grid,
+    .eds__grid,
+    .notes__list,
+    .thread__grid,
+    .l-faq__grid {
+      grid-template-columns: 1fr;
+    }
+    .note:nth-child(even) {
+      margin-block-start: 0;
+    }
+  }
+  @media (max-width: 34rem) {
+    .lh__title {
+      font-size: clamp(2.5rem, 12vw, 3.6rem);
+    }
+    .ed {
+      padding: var(--space-m);
+    }
+  }
+</style>

@@ -1,0 +1,154 @@
+---
+/**
+ * Referral rewards as an instrument scale: 0 to 25 friends on a square-root
+ * scale (like a VU meter, so the early milestones get room), and the four
+ * rewards as rows. There is no needle: in demo mode no counts exist, and we
+ * never invent one.
+ */
+import { LAUNCH } from '@/config/launch';
+import { serialRange } from '@/scripts/launch/format';
+import { IS_DEMO } from '@/lib/waitlist';
+
+interface Props {
+  headingId: string;
+}
+const { headingId } = Astro.props;
+
+const MAX = 25;
+const pos = (n: number) => Math.sqrt(n / MAX) * 100;
+const rewards = [
+  {
+    n: 1,
+    name: 'Referral Ratchet',
+    detail:
+      'A feel profile you can’t get any other way: Ratchet with a heavier click every fifth detent.',
+  },
+  {
+    n: 3,
+    name: 'First-wave priority',
+    detail: 'A private window to reserve before the first wave opens to everyone.',
+  },
+  {
+    n: 10,
+    name: 'Your Founders serial, early',
+    detail: `Pick your number from ${serialRange(LAUNCH.foundersRun)} before the public can.`,
+  },
+  {
+    n: 25,
+    name: 'Engraved knob face',
+    detail: 'Your mark, laser-engraved into the knob’s top ring.',
+  },
+];
+const ticks = Array.from({ length: MAX + 1 }, (_, n) => n);
+---
+
+<div class="ladder">
+  <div class="ladder__scale" aria-hidden="true">
+    {ticks.map((n) => (
+      <span
+        class:list={[
+          'ladder__tick',
+          { 'is-mile': rewards.some((r) => r.n === n), 'is-five': n % 5 === 0 },
+        ]}
+        style={`--x:${pos(n)}%`}
+      />
+    ))}
+    {[0, ...rewards.map((r) => r.n)].map((n) => (
+      <span class="ladder__num readout" style={`--x:${pos(n)}%`}>
+        {n}
+      </span>
+    ))}
+  </div>
+
+  <ol class="ladder__list" role="list" aria-labelledby={headingId}>
+    {rewards.map((r) => (
+      <li class="ladder__row">
+        <span class="ladder__count readout">
+          {r.n} {r.n === 1 ? 'friend' : 'friends'}
+        </span>
+        <span class="ladder__name">{r.name}</span>
+        <span class="ladder__detail">{r.detail}</span>
+      </li>
+    ))}
+  </ol>
+
+  <p class="ladder__rule">
+    A referral counts when your friend confirms their email. Rewards stack.
+    {IS_DEMO &&
+      ' This is a concept demo: nothing is sent, so there are no confirmations and no counts to show.'}
+  </p>
+</div>
+
+<style>
+  .ladder {
+    display: grid;
+    gap: var(--space-l);
+  }
+  .ladder__scale {
+    position: relative;
+    block-size: 3.4rem;
+    margin-inline: 0.5rem 1rem;
+    border-top: 1px solid var(--line-strong);
+  }
+  .ladder__tick {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: var(--x);
+    inline-size: 1px;
+    block-size: 0.55rem;
+    background: var(--ink-faint);
+  }
+  .ladder__tick.is-five {
+    block-size: 0.85rem;
+  }
+  .ladder__tick.is-mile {
+    inline-size: 3px;
+    translate: -1px 0;
+    block-size: 1.35rem;
+    background: var(--accent);
+  }
+  .ladder__num {
+    position: absolute;
+    inset-block-start: 1.7rem;
+    inset-inline-start: var(--x);
+    translate: -50% 0;
+    color: var(--ink-muted);
+  }
+  .ladder__list {
+    display: grid;
+  }
+  .ladder__row {
+    display: grid;
+    grid-template-columns: 8rem minmax(10rem, 16rem) 1fr;
+    gap: var(--space-2xs) var(--space-m);
+    align-items: baseline;
+    padding-block: var(--space-s);
+    border-top: 1px solid var(--line);
+  }
+  .ladder__row:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+  .ladder__count {
+    color: var(--accent-text);
+  }
+  .ladder__name {
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .ladder__detail {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    line-height: 1.5;
+  }
+  .ladder__rule {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 62ch;
+  }
+  @media (max-width: 40rem) {
+    .ladder__row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

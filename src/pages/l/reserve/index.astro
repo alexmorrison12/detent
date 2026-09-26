@@ -1,0 +1,1171 @@
+---
+/**
+ * Reserve: "$20, fully refundable." The hero is the whole form: edition,
+ * finish (the dial previews it), email, and the Turn-to-reserve ritual:
+ * three detents and a virtual end stop arm the button with a tally fill.
+ * The plain button always works on the first click; the ritual is a bonus.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import DialStill from '@/components/dial/DialStill.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import PhaseNotice from '@/components/launch/PhaseNotice.astro';
+import EmailField from '@/components/launch/EmailField.astro';
+import ConceptNote from '@/components/launch/ConceptNote.astro';
+import LaunchTimeline from '@/components/launch/LaunchTimeline.astro';
+import LaunchFaq from '@/components/launch/LaunchFaq.astro';
+import StickyCta from '@/components/launch/StickyCta.astro';
+import { faqLd, productLd } from '@/components/launch/ld';
+import { PHASES, LAUNCH } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { SITE } from '@/config/site';
+import { EDITIONS, FINISHES, FAQS, PAYMENT, SPECS, formatUsd } from '@/data/product';
+import { IS_DEMO } from '@/lib/waitlist';
+import { dotDate, longDate, serialRange } from '@/scripts/launch/format';
+
+const one = EDITIONS.find((e) => e.id === 'one')!;
+const founders = EDITIONS.find((e) => e.id === 'founders')!;
+const deposit = (id: string) => (id === 'founders' ? LAUNCH.foundersDepositUsd : LAUNCH.depositUsd);
+const usd = formatUsd;
+const serials = serialRange(LAUNCH.foundersRun);
+// "Four Torx screws. Battery, foot and knob cap sold as parts" -> the parts sentence.
+const repairParts = (SPECS.flatMap((g) => g.rows).find((r) => r.label === 'Repair')?.value ?? '')
+  .split('. ')
+  .slice(1)
+  .join('. ');
+const faqs = FAQS.filter((f) => f.topic === 'Launch' || f.q.startsWith('What if I do not love it'));
+
+const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
+const reserveLabel = (id: string) => `Reserve for ${usd(deposit(id))}`;
+
+// Ritual arc geometry: 0° to 90° (three 30° detents, then the stop).
+const polar = (deg: number, r: number) => {
+  const a = (deg * Math.PI) / 180;
+  return { x: +(Math.sin(a) * r).toFixed(2), y: +(-Math.cos(a) * r).toFixed(2) };
+};
+const arc0 = polar(0, 124);
+const arc90 = polar(90, 124);
+const detentMarks = [30, 60, 90].map((d, i) => ({
+  n: i + 1,
+  a: polar(d, 116),
+  b: polar(d, 132),
+  label: polar(d, 146),
+}));
+const stopA = polar(96, 110);
+const stopB = polar(96, 138);
+---
+
+<BaseLayout
+  title={`Reserve for ${usd(LAUNCH.depositUsd)}. Fully refundable.`}
+  description={`Hold your place for ${SITE.product} with a ${usd(LAUNCH.depositUsd)} deposit that comes off the price. Locks the ${usd(one.launchPriceUsd)} launch price. Batch 1 ships ${LAUNCH.firstShipBatch}. Cancel any time before it ships for all of it back.`}
+  ogImage={ogPath('reserve')}
+  ogImageAlt={`Reserve Detent One for ${usd(LAUNCH.depositUsd)}. Fully refundable.`}
+  chrome="minimal"
+  jsonLd={[productLd(Astro.site, pageUrl), faqLd(faqs)]}
+>
+  <!-- impeccable-disable numbered-section-markers -- MM.DD launch dates (10.20, 11.10, 12.01) are real dates, not section markers -->
+  <PhaseNotice
+    placement="reserve-notice"
+    notices={{
+      tease: `Reservations open ${dotDate(PHASES.reserve.starts)}. Get the first look now and you’ll hear first.`,
+      waitlist: `Reservations open ${longDate(PHASES.reserve.starts)}, and the list goes first.`,
+      launch: `Orders are open. Skip the deposit and order at ${usd(one.launchPriceUsd)}.`,
+      live: `${SITE.product} is in the store now. Free shipping, ${PAYMENT.trialDays}-day studio trial.`,
+    }}
+  />
+
+  <section class="rv" aria-labelledby="rv-title" data-rv style="--arm: 0">
+    <div class="container rv__grid">
+      <div class="rv__head">
+        <!-- prettier-ignore -->
+        <h1 id="rv-title" class="rv__title">Reserve for <span class="readout rv__amount" data-amount>{usd(LAUNCH.depositUsd)}</span>.<span class="rv__title-2">Fully refundable.</span></h1>
+        <p class="rv__lede">
+          It holds your place in line and locks the {usd(one.launchPriceUsd)} launch price. The
+          deposit comes off the price. Change your mind before it ships and every dollar comes back.
+        </p>
+      </div>
+
+      <form
+        id="reserve-form"
+        class="rv__form"
+        novalidate
+        method="dialog"
+        aria-labelledby="rv-title"
+        data-reserve
+      >
+        <div class="rv__fields">
+          <fieldset class="rv__set">
+            <legend>Edition</legend>
+            <div class="editions">
+              {EDITIONS.map((e) => (
+                <label class="edition">
+                  <input type="radio" name="edition" value={e.id} checked={e.id === 'one'} />
+                  <span class="edition__name">{e.name}</span>
+                  <span class="edition__price readout">
+                    {e.launchPriceUsd < e.priceUsd && <s>{usd(e.priceUsd)}</s>}{' '}
+                    {usd(e.launchPriceUsd)}
+                  </span>
+                  <span class="edition__meta">
+                    {usd(deposit(e.id))} deposit
+                    {e.limited ? ` · numbered ${serialRange(e.limited)}` : ''}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset class="rv__set">
+            <legend>
+              Finish{' '}
+              <span class="rv__finish-name" data-finish-name>
+                Graphite
+              </span>
+            </legend>
+            <div class="finishes">
+              {FINISHES.map((f) => (
+                <label class="finish" title={f.line}>
+                  <input
+                    type="radio"
+                    name="finish"
+                    value={f.id}
+                    checked={f.id === 'graphite'}
+                    data-founders={f.foundersOnly ? '' : undefined}
+                  />
+                  <span class="finish__chip" style={`--swatch:${f.body}`} aria-hidden="true" />
+                  <span class="visually-hidden">
+                    {f.foundersOnly ? `${f.name}, Founders Edition only` : f.name}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p class="rv__finish-line" data-finish-line>
+              {FINISHES.find((f) => f.id === 'graphite')!.line}
+            </p>
+          </fieldset>
+
+          <EmailField id="reserve-email" label="Email for your reservation" />
+        </div>
+
+        <div class="rv__stage">
+          <div class="ritual" data-ritual>
+            <svg class="ritual__arc" viewBox="-170 -170 340 340" aria-hidden="true">
+              <path
+                class="ritual__track"
+                d={`M ${arc0.x} ${arc0.y} A 124 124 0 0 1 ${arc90.x} ${arc90.y}`}
+              ></path>
+              <path
+                class="ritual__fill"
+                d={`M ${arc0.x} ${arc0.y} A 124 124 0 0 1 ${arc90.x} ${arc90.y}`}
+                pathLength="1"
+              ></path>
+              <line
+                class="ritual__zero"
+                x1={polar(0, 116).x}
+                y1={polar(0, 116).y}
+                x2={polar(0, 132).x}
+                y2={polar(0, 132).y}
+              ></line>
+              {detentMarks.map((m) => (
+                <g class="ritual__mark" data-detent={m.n}>
+                  <line x1={m.a.x} y1={m.a.y} x2={m.b.x} y2={m.b.y} />
+                  <text
+                    x={m.label.x}
+                    y={m.label.y}
+                    text-anchor="middle"
+                    dominant-baseline="central"
+                  >
+                    {m.n}
+                  </text>
+                </g>
+              ))}
+              <line class="ritual__stop" x1={stopA.x} y1={stopA.y} x2={stopB.x} y2={stopB.y}></line>
+              <text class="ritual__hint" x="-14" y="-140" text-anchor="end">
+                Turn to reserve
+              </text>
+            </svg>
+            <div class="ritual__dial">
+              <DialStage
+                id="reserve-dial"
+                interactive
+                finish="graphite"
+                profile="ratchet"
+                camera="config"
+                display="TURN"
+                label="Turn to reserve. Optional: the button works without it"
+                priority
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="rv__submit">
+          <button
+            class="btn btn--lg rv__btn"
+            type="submit"
+            id="reserve-submit"
+            data-track="cta_click"
+            data-track-placement="reserve-form"
+          >
+            <span class="rv__btn-fill" aria-hidden="true"></span>
+            <span class="rv__btn-label" data-label>
+              {reserveLabel('one')}
+            </span>
+          </button>
+          <p class="rv__summary" data-summary aria-live="polite">
+            {one.name} · Graphite · {usd(LAUNCH.depositUsd)} today,{' '}
+            {usd(one.launchPriceUsd - LAUNCH.depositUsd)} when your batch ships.
+          </p>
+          <p class="rv__ritual-note">
+            Three clicks on the dial arm it. Or just press it; it works either way.
+          </p>
+          <ConceptNote
+            subject="your reservation"
+            live="No card is charged until you confirm on the next screen."
+          />
+          <noscript>
+            <p class="concept-note">This form needs JavaScript in the concept demo.</p>
+          </noscript>
+        </div>
+      </form>
+
+      <div class="rv__done" data-reserve-done hidden>
+        <p class="rv__done-id">
+          <span class="rv__done-label">Reservation</span>
+          <span class="readout" data-res-id></span>
+        </p>
+        <h2 class="rv__done-title" tabindex="-1">
+          You’re in line.
+        </h2>
+        <dl class="rv__done-spec">
+          <div>
+            <dt>Edition</dt>
+            <dd data-res-edition></dd>
+          </div>
+          <div>
+            <dt>Finish</dt>
+            <dd data-res-finish></dd>
+          </div>
+          <div>
+            <dt>Deposit</dt>
+            <dd class="readout" data-res-deposit></dd>
+          </div>
+          <div>
+            <dt>When it ships</dt>
+            <dd>
+              <span class="readout" data-res-balance></span>{' '}
+              <span class="rv__done-aside" data-res-balance-note></span>
+            </dd>
+          </div>
+          <div>
+            <dt>Ships</dt>
+            <dd>
+              Batch 1 ({LAUNCH.firstShipBatch}) or Batch 2 ({LAUNCH.secondShipBatch}), in
+              reservation order.
+            </dd>
+          </div>
+        </dl>
+        <div class="rv__done-actions">
+          <button class="btn btn--primary" type="button" data-ics-launch>
+            Add launch day to your calendar
+          </button>
+          <button class="btn btn--quiet" type="button" data-cancel>
+            Cancel and refund
+          </button>
+        </div>
+        <p class="rv__done-status" role="status" data-cancel-status></p>
+        <p class="concept-note">
+          {IS_DEMO
+            ? 'Concept demo: no card was charged and nothing was sent. This reservation exists only in this browser.'
+            : 'A receipt is on its way to your inbox.'}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="how" data-world="day" aria-labelledby="how-title">
+    <div class="container">
+      <h2 id="how-title" class="rv-h2">
+        How the {usd(LAUNCH.depositUsd)} works
+      </h2>
+      <ol class="how__steps" role="list">
+        <li class="how__step">
+          <span class="how__n readout" aria-hidden="true">
+            1
+          </span>
+          <h3>Reserve</h3>
+          <p>
+            Pay {usd(LAUNCH.depositUsd)} today ({usd(LAUNCH.foundersDepositUsd)} for Founders). It
+            holds your place in line and locks the {usd(one.launchPriceUsd)} launch price.
+          </p>
+        </li>
+        <li class="how__step">
+          <span class="how__n readout" aria-hidden="true">
+            2
+          </span>
+          <h3>We email when your batch is ready</h3>
+          <p>
+            Batch 1 ships {LAUNCH.firstShipBatch}, Batch 2 {LAUNCH.secondShipBatch}. Reservations
+            fill in order, and you get a ship date before we ask for anything else.
+          </p>
+        </li>
+        <li class="how__step how__step--stop">
+          <span class="how__n readout" aria-hidden="true">
+            3
+          </span>
+          <h3>Complete or cancel</h3>
+          <p>
+            Pay the rest, {usd(one.launchPriceUsd - LAUNCH.depositUsd)}, and it ships free. Or
+            cancel for a full refund. One click, no questions, no call.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="eds" data-world="day" aria-labelledby="eds-title">
+    <div class="container">
+      <h2 id="eds-title" class="rv-h2">
+        Two editions. No decoy.
+      </h2>
+      <div class="eds__grid">
+        <article class="ed" aria-labelledby="ed-one">
+          <div class="ed__stills" aria-hidden="true">
+            {one.finishes.map((f) => (
+              <div class="ed__still">
+                <DialStill finish={f} view="top" />
+              </div>
+            ))}
+          </div>
+          <h3 id="ed-one" class="ed__name">
+            {one.name}
+          </h3>
+          <p class="ed__price">
+            <span class="readout ed__now">{usd(one.launchPriceUsd)}</span>
+            <span class="ed__was">
+              <s>{usd(one.priceUsd)}</s> after launch week
+            </span>
+          </p>
+          <p class="ed__summary">{one.summary}</p>
+          <ul class="ed__list" role="list">
+            {one.includes.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+          <a class="btn btn--solid" href="#reserve-form" data-pick-edition="one">
+            Reserve for {usd(LAUNCH.depositUsd)}
+          </a>
+        </article>
+
+        <article class="ed ed--founders" aria-labelledby="ed-founders">
+          <div class="ed__stills" aria-hidden="true">
+            <div class="ed__still ed__still--solo">
+              <DialStill finish="tally" view="top" />
+            </div>
+          </div>
+          <h3 id="ed-founders" class="ed__name">
+            {founders.name}
+          </h3>
+          <p class="ed__price">
+            <span class="readout ed__now">{usd(founders.launchPriceUsd)}</span>
+            <span class="ed__was">numbered {serials}</span>
+          </p>
+          <p class="ed__summary">
+            A numbered run of {LAUNCH.foundersRun.toLocaleString('en-US')} in Tally red. When they
+            are reserved, Tally is gone. We don’t show a countdown because we won’t fake one.
+          </p>
+          <ul class="ed__list" role="list">
+            {founders.includes.map((i) => (
+              <li>{i}</li>
+            ))}
+          </ul>
+          <a class="btn btn--solid" href="#reserve-form" data-pick-edition="founders">
+            Reserve for {usd(LAUNCH.foundersDepositUsd)}
+          </a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="dates" data-world="day" aria-labelledby="dates-title">
+    <div class="container">
+      <h2 id="dates-title" class="rv-h2">
+        The calendar
+      </h2>
+      <LaunchTimeline labelledBy="dates-title" />
+    </div>
+  </section>
+
+  <section class="rv-faq" data-world="day" aria-labelledby="faq-title">
+    <div class="container rv-faq__grid">
+      <h2 id="faq-title" class="rv-h2">
+        Questions before you put down {usd(LAUNCH.depositUsd)}
+      </h2>
+      <LaunchFaq faqs={faqs} name="reserve-faq" openFirst />
+    </div>
+  </section>
+
+  <section class="risk" aria-labelledby="risk-title">
+    <div class="container risk__grid">
+      <h2 id="risk-title" class="rv-h2">
+        If it isn’t for you
+      </h2>
+      <dl class="risk__list">
+        <div class="risk__row">
+          <dt>Before it ships</dt>
+          <dd>
+            <span class="readout">{usd(LAUNCH.depositUsd)} back</span> Cancel any time before your
+            Detent ships. The whole deposit, one click.
+          </dd>
+        </div>
+        <div class="risk__row">
+          <dt>After it arrives</dt>
+          <dd>
+            <span class="readout">{PAYMENT.trialDays} days</span> Use it in real sessions. If it
+            hasn’t earned its spot on your desk, send it back with the prepaid label.
+          </dd>
+        </div>
+        <div class="risk__row">
+          <dt>For years</dt>
+          <dd>
+            <span class="readout">{PAYMENT.warrantyYears} years</span> Warranty on parts and labor.
+          </dd>
+        </div>
+        <div class="risk__row">
+          <dt>When it breaks anyway</dt>
+          <dd>
+            <span class="readout">4 screws</span> Open it with a Torx driver. {repairParts}.
+          </dd>
+        </div>
+        <div class="risk__row">
+          <dt>Shipping</dt>
+          <dd>
+            <span class="readout">{usd(PAYMENT.freeShippingOverUsd)}</span> Free everywhere we ship,
+            tracked and insured.
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="rv-closer" aria-labelledby="rv-closer-title">
+    <div class="container rv-closer__inner">
+      <h2 id="rv-closer-title" class="rv-closer__title">
+        {usd(LAUNCH.depositUsd)} now. The rest when it ships. All of it back if you change your
+        mind.
+      </h2>
+      <PhaseCTA placement="reserve-closer" size="lg" />
+    </div>
+  </section>
+
+  <StickyCta
+    watch="#reserve-submit"
+    hideOver=".rv__done, .rv-closer, .site-footer"
+    label={reserveLabel('one')}
+    target="#reserve-email"
+    note="Fully refundable"
+  />
+</BaseLayout>
+
+<script>
+  import '@/scripts/launch/reserve';
+</script>
+
+<style>
+  /* ---- Hero: the form is the hero ------------------------------------- */
+  .rv {
+    padding-block: clamp(var(--space-l), 5svh, var(--space-2xl)) var(--section-y);
+    overflow-x: clip;
+  }
+  .rv__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'head head'
+      'fields stage'
+      'submit stage'
+      'done stage';
+    column-gap: var(--space-3xl);
+    row-gap: var(--space-l);
+    align-items: start;
+  }
+  /* The form's parts join the hero grid so the dial can sit beside the button at every width. */
+  .rv__form {
+    display: contents;
+  }
+  .rv__head {
+    grid-area: head;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--space-m) var(--space-xl);
+    margin-block-end: var(--space-s);
+  }
+  .rv__title {
+    font-size: clamp(2.4rem, 1.2rem + 3.9vw, 4.6rem);
+    font-stretch: var(--stretch-display);
+    font-weight: 790;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .rv__amount {
+    font-size: 1em;
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--accent-text);
+  }
+  .rv__title-2 {
+    display: block;
+    color: var(--ink-muted);
+  }
+  .rv__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 30ch;
+    padding-block-end: 0.4em;
+  }
+  .rv__fields {
+    grid-area: fields;
+    display: grid;
+    gap: var(--space-m);
+    max-inline-size: 38rem;
+  }
+  .rv__set {
+    border: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .rv__set legend {
+    display: flex;
+    gap: 0.6em;
+    align-items: baseline;
+    margin-block-end: var(--space-2xs);
+    font-size: var(--step--1);
+    font-weight: 620;
+  }
+  .rv__finish-name {
+    font-weight: 450;
+    color: var(--ink-muted);
+  }
+
+  .editions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2xs);
+  }
+  .edition {
+    position: relative;
+    display: grid;
+    gap: 0.2rem;
+    padding: var(--space-s);
+    border-radius: var(--r-m);
+    border: 1px solid var(--line-strong);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .edition input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .edition:hover {
+    border-color: var(--ink-muted);
+  }
+  .edition:has(input:checked) {
+    border-color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .edition:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .edition__name {
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .edition__price {
+    font-size: var(--step-0);
+    color: var(--ink-strong);
+  }
+  .edition__price s {
+    color: var(--ink-muted);
+    margin-inline-end: 0.3em;
+  }
+  .edition__meta {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  .finishes {
+    display: flex;
+    gap: var(--space-xs);
+  }
+  .finish {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 3rem;
+    block-size: 3rem;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+  .finish input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .finish__chip {
+    inline-size: 2.3rem;
+    block-size: 2.3rem;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.25);
+  }
+  .finish:hover {
+    border-color: var(--ink-muted);
+  }
+  .finish:has(input:checked) {
+    border-color: var(--ink-strong);
+  }
+  .finish:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .rv__finish-line {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    min-block-size: 3em;
+    max-inline-size: 44ch;
+  }
+
+  /* ---- Stage + ritual -------------------------------------------------- */
+  .rv__stage {
+    grid-area: stage;
+    align-self: center;
+    display: grid;
+    justify-items: center;
+  }
+  .ritual {
+    position: relative;
+    inline-size: min(100%, 36rem);
+    aspect-ratio: 1;
+    margin-block-start: calc(-1 * var(--space-xl));
+  }
+  .ritual__arc {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+  }
+  .ritual__dial {
+    position: absolute;
+    inset: 20.6%;
+  }
+  .ritual__dial :global(.dd-scale) {
+    display: none;
+  }
+  .ritual__dial :global(detent-dial:focus-visible) {
+    border-radius: 50%;
+    outline-offset: 6px;
+  }
+  .ritual__track {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 2;
+  }
+  .ritual__fill {
+    fill: none;
+    stroke: var(--tally);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: calc(1 - var(--arm));
+    transition: stroke-dashoffset var(--dur-2) var(--ease-out);
+  }
+  .ritual__zero,
+  .ritual__mark line {
+    stroke: var(--ink-muted);
+    stroke-width: 1.6;
+  }
+  .ritual__mark text,
+  .ritual__hint {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    fill: var(--ink-muted);
+  }
+  .ritual__hint {
+    font-family: var(--font-sans);
+    font-weight: 620;
+    font-size: 11px;
+    font-stretch: 112%;
+    fill: var(--ink);
+  }
+  .ritual__mark.is-on line {
+    stroke: var(--tally-hot);
+    stroke-width: 2.4;
+  }
+  .ritual__mark.is-on text {
+    fill: var(--tally-hot);
+  }
+  .ritual__stop {
+    stroke: var(--ink-strong);
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke var(--dur-2) var(--ease-out);
+  }
+  .rv[data-armed] .ritual__stop {
+    stroke: var(--tally);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .rv[data-armed] .ritual {
+      animation: thud 260ms var(--ease-out);
+    }
+    @keyframes thud {
+      30% {
+        translate: 4px 0;
+      }
+    }
+  }
+
+  /* ---- Submit: the button fills with tally as the ritual progresses ---- */
+  .rv__submit {
+    grid-area: submit;
+    display: grid;
+    gap: var(--space-xs);
+    justify-items: start;
+    align-content: start;
+  }
+  .rv__btn {
+    --btn-bg: var(--ink-strong);
+    --btn-ink: var(--graphite-950);
+    --btn-line: var(--ink-strong);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    min-inline-size: 15rem;
+  }
+  .rv__btn-fill {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--tally);
+    transform-origin: left;
+    transform: scaleX(var(--arm));
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+  .rv[data-armed] .rv__btn {
+    --btn-line: var(--tally);
+  }
+  .rv[data-armed] .rv__btn-label::after {
+    content: ' ✓';
+  }
+  .rv__summary {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .rv__ritual-note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  /* ---- Confirmation ------------------------------------------------------ */
+  .rv__done {
+    grid-area: done;
+    display: grid;
+    gap: var(--space-m);
+    padding: var(--space-l);
+    border-radius: var(--r-l);
+    border: 1px solid var(--line-strong);
+    background: var(--bg-raised);
+    max-inline-size: 40rem;
+  }
+  .rv[data-done] .rv__grid {
+    grid-template-areas:
+      'head head'
+      'done stage';
+  }
+  .rv__done-id {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+    padding-block-end: var(--space-s);
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .rv__done-label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .rv__done-id .readout {
+    font-size: var(--step-1);
+    color: var(--accent-text);
+  }
+  .rv__done-title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+  }
+  .rv__done-title:focus {
+    outline: none;
+  }
+  .rv__done-spec {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .rv__done-spec div {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: var(--space-s);
+    padding-block: 0.35rem;
+    border-bottom: 1px solid var(--line);
+    font-size: var(--step--1);
+  }
+  .rv__done-spec dt {
+    color: var(--ink-muted);
+  }
+  .rv__done-spec dd {
+    color: var(--ink-strong);
+  }
+  .rv__done-aside {
+    color: var(--ink-muted);
+  }
+  .rv__done-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .rv__done-status {
+    font-size: var(--step--1);
+    color: var(--accent-text);
+  }
+  .rv__done-status:empty {
+    display: none;
+  }
+
+  /* ---- Lower sections ------------------------------------------------------ */
+  .rv-h2 {
+    font-size: var(--step-4);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    max-inline-size: 18ch;
+  }
+  .how,
+  .eds,
+  .dates,
+  .risk,
+  .rv-faq {
+    padding-block: var(--section-y);
+  }
+  .eds,
+  .dates,
+  .rv-faq {
+    padding-block-start: 0;
+  }
+
+  /* How: three detents on a rail, then the end stop. */
+  .how__steps {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-xl);
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-xl);
+  }
+  .how__steps::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    border-top: 2px solid var(--line-strong);
+  }
+  .how__step {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: var(--space-xs);
+  }
+  .how__step h3 {
+    font-size: var(--step-1);
+    font-stretch: var(--stretch-ui);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .how__step p {
+    color: var(--ink-muted);
+    max-inline-size: 34ch;
+  }
+  .how__n {
+    position: absolute;
+    inset-block-start: calc(-1 * var(--space-xl) - 1.05rem);
+    inset-inline-start: 0;
+    display: grid;
+    place-items: center;
+    inline-size: 2.1rem;
+    block-size: 2.1rem;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--ink-strong);
+    color: var(--ink-strong);
+    font-size: var(--step--1);
+  }
+  .how__step--stop::after {
+    content: '';
+    position: absolute;
+    inset-block-start: calc(-1 * var(--space-xl) - 1.4rem);
+    inset-inline-end: 0;
+    inline-size: 6px;
+    block-size: 2.8rem;
+    border-radius: var(--r-xs);
+    background: var(--tally);
+  }
+
+  /* Editions */
+  .eds__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-l);
+    margin-block-start: var(--space-xl);
+  }
+  .ed {
+    display: grid;
+    align-content: start;
+    gap: var(--space-s);
+    padding: var(--space-l);
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+  }
+  .ed--founders {
+    background: var(--graphite-950);
+    color: var(--alu-100);
+    --ink: var(--alu-100);
+    --ink-strong: var(--white);
+    --ink-muted: oklch(0.76 0.006 355);
+    --line: oklch(1 0 0 / 0.1);
+    --line-strong: oklch(1 0 0 / 0.24);
+    --bg: var(--graphite-950);
+  }
+  .ed__stills {
+    display: flex;
+    gap: var(--space-s);
+    margin-block-end: var(--space-s);
+  }
+  .ed__still {
+    inline-size: clamp(4.5rem, 9vw, 7rem);
+    aspect-ratio: 1;
+  }
+  .ed__still--solo {
+    inline-size: clamp(6rem, 12vw, 9rem);
+  }
+  .ed__name {
+    font-size: var(--step-2);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+  }
+  .ed__price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3em 0.8em;
+  }
+  .ed__now {
+    font-size: var(--step-3);
+    color: var(--ink-strong);
+    letter-spacing: -0.02em;
+  }
+  .ed__was {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .ed__summary {
+    color: var(--ink-muted);
+    max-inline-size: 46ch;
+  }
+  .ed__list {
+    display: grid;
+    gap: 0.4rem;
+    margin-block: var(--space-2xs) var(--space-s);
+    font-size: var(--step--1);
+  }
+  .ed__list li {
+    display: flex;
+    gap: 0.6em;
+    padding-block-end: 0.4rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .ed__list li::before {
+    content: '';
+    flex: none;
+    inline-size: 0.4rem;
+    block-size: 0.4rem;
+    margin-block-start: 0.55em;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .ed .btn {
+    justify-self: start;
+  }
+
+  .dates .rv-h2 {
+    margin-block-end: var(--space-xl);
+  }
+
+  /* Risk reversal: a spec sheet, not a pitch. */
+  .risk__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-xl);
+    align-items: start;
+  }
+  .risk__list {
+    border-top: 1px solid var(--line);
+  }
+  .risk__row {
+    display: grid;
+    grid-template-columns: 11rem 1fr;
+    gap: var(--space-m);
+    padding-block: var(--space-m);
+    border-bottom: 1px solid var(--line);
+  }
+  .risk__row dt {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .risk__row dd {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--ink-muted);
+  }
+  .risk__row .readout {
+    font-size: var(--step-1);
+    color: var(--ink-strong);
+  }
+
+  .rv-faq__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-xl);
+    align-items: start;
+  }
+
+  .rv-closer {
+    padding-block: var(--space-3xl);
+  }
+  .rv-closer__inner {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-l);
+  }
+  .rv-closer__title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    max-inline-size: 26ch;
+  }
+
+  /* ---- Narrow: dial beside the button ---------------------------------- */
+  @media (max-width: 60rem) {
+    .rv__grid {
+      grid-template-columns: clamp(7rem, 26vw, 14rem) minmax(0, 1fr);
+      grid-template-areas:
+        'head head'
+        'fields fields'
+        'stage submit'
+        'done done';
+      column-gap: var(--space-s);
+    }
+    .rv[data-done] .rv__grid {
+      grid-template-areas:
+        'head head'
+        'done done'
+        'stage .';
+    }
+    .rv__stage {
+      align-self: start;
+    }
+    .ritual {
+      margin-block-start: 0;
+    }
+    .rv__head {
+      display: grid;
+      margin-block-end: 0;
+    }
+    .rv__lede {
+      max-inline-size: 40ch;
+    }
+    .ritual__arc text {
+      display: none;
+    }
+    .rv__btn {
+      min-inline-size: 0;
+      inline-size: 100%;
+      padding-inline: 1em;
+    }
+    .how__steps {
+      grid-template-columns: 1fr;
+      gap: var(--space-l);
+      padding-block-start: 0;
+      padding-inline-start: var(--space-xl);
+    }
+    .how__steps::before {
+      inset: 0 auto 0 1rem;
+      border-top: 0;
+      border-inline-start: 2px solid var(--line-strong);
+    }
+    .how__n {
+      inset-block-start: 0;
+      inset-inline-start: calc(-1 * var(--space-xl) - 0.05rem);
+    }
+    .how__step--stop::after {
+      inset-block-start: auto;
+      inset-block-end: -1.2rem;
+      inset-inline-start: calc(-1 * var(--space-xl) - 0.4rem);
+      inline-size: 2.8rem;
+      block-size: 6px;
+    }
+    .eds__grid,
+    .risk__grid,
+    .rv-faq__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 22rem) {
+    .editions {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 34rem) {
+    .risk__row {
+      grid-template-columns: 1fr;
+      gap: var(--space-2xs);
+    }
+    .ed {
+      padding: var(--space-m);
+    }
+    .rv__done {
+      padding: var(--space-m);
+    }
+    .rv__done-spec div {
+      grid-template-columns: 7rem 1fr;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ritual__fill,
+    .rv__btn-fill {
+      transition: none;
+    }
+  }
+</style>

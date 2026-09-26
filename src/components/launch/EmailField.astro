@@ -1,0 +1,74 @@
+---
+/**
+ * Labelled email input with an error slot wired for forms.ts (setError).
+ * The label can be visually hidden when the context names the field.
+ */
+interface Props {
+  id: string;
+  label?: string;
+  hideLabel?: boolean;
+  placeholder?: string;
+  /** Associate with a form elsewhere in the page (HTML form attribute). */
+  form?: string;
+  describedBy?: string;
+  class?: string;
+}
+const {
+  id,
+  label = 'Email',
+  hideLabel = false,
+  placeholder = 'you@studio.com',
+  form,
+  describedBy,
+  class: className,
+} = Astro.props;
+const described = [`${id}-err`, describedBy].filter(Boolean).join(' ');
+---
+
+<div class:list={['field', 'email-field', className]}>
+  <label for={id} class:list={{ 'visually-hidden': hideLabel }}>
+    {label}
+  </label>
+  <input
+    class="input"
+    id={id}
+    name="email"
+    type="email"
+    inputmode="email"
+    autocomplete="email"
+    autocapitalize="off"
+    spellcheck="false"
+    required
+    placeholder={placeholder}
+    aria-describedby={described}
+    form={form}
+  />
+  <p class="field-error" id={`${id}-err`} role="alert"></p>
+</div>
+
+<style>
+  .email-field .input {
+    inline-size: 100%;
+    font-size: max(16px, var(--step-0)); /* 16px floor: no iOS zoom on focus */
+  }
+  .field-error {
+    display: flex;
+    gap: 0.45em;
+    align-items: baseline;
+    font-size: var(--step--1);
+    font-weight: 560;
+    color: var(--accent-text);
+  }
+  .field-error:empty {
+    display: none;
+  }
+  .field-error::before {
+    content: '';
+    flex: none;
+    inline-size: 0.5em;
+    block-size: 0.5em;
+    border-radius: 50%;
+    background: currentColor;
+    translate: 0 -0.05em;
+  }
+</style>

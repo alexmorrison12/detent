@@ -1,0 +1,458 @@
+---
+/**
+ * Tease: a dark, near-empty page. One dial whose display is a clock, one
+ * line, one date. Set the knob to the date (10.20 -> 10:20) and hold it:
+ * the page tunes in and the email field opens. "Skip the puzzle" is always
+ * one visible link away.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import PhaseNotice from '@/components/launch/PhaseNotice.astro';
+import EmailField from '@/components/launch/EmailField.astro';
+import ConceptNote from '@/components/launch/ConceptNote.astro';
+import { eventLd } from '@/components/launch/ld';
+import { PHASES } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { SITE } from '@/config/site';
+import { dotDate, longDate } from '@/scripts/launch/format';
+
+const revealIso = PHASES.waitlist.starts;
+const revealDot = dotDate(revealIso); // "10.20"
+const revealLong = longDate(revealIso); // "October 20"
+const [hh = 10, mm = 20] = revealDot.split('.').map(Number);
+const target = (hh % 12) * 30 + mm * 0.5; // clock angle, 0 = 12 o'clock
+// Detent spacing: every 10 minutes if the date allows it, else finer.
+const detents = mm % 10 === 0 ? 72 : mm % 5 === 0 ? 144 : 720;
+const targetClock = `${hh}:${String(mm).padStart(2, '0')}`;
+
+const ticks = Array.from({ length: 72 }, (_, i) => i);
+const numerals = Array.from({ length: 12 }, (_, i) => (i === 0 ? 12 : i));
+const tickIndexOfTarget = Math.round(target / 5);
+
+const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
+const title = `Something you can feel. ${revealDot}`;
+const description = `A dial on a dark page, a date and one line. Set the knob to ${revealDot} and see what it does. ${SITE.name} reveals ${revealLong}.`;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  ogImage={ogPath('tease')}
+  ogImageAlt={`Something you can feel. ${revealDot}`}
+  chrome="minimal"
+  jsonLd={eventLd({
+    name: `${SITE.name}: the reveal`,
+    description: 'Something you can feel.',
+    start: revealIso,
+    url: pageUrl,
+    site: Astro.site,
+  })}
+>
+  <!-- impeccable-disable numbered-section-markers -- the 10.20 date and a clock face (12, 1, 2...) are real content, not section markers -->
+  <PhaseNotice
+    placement="tease-notice"
+    notices={{
+      waitlist: `Revealed ${revealDot}. It’s a dial, and the waitlist is open.`,
+      reserve: `Revealed ${revealDot}. Reservations for ${SITE.product} are open.`,
+      launch: `Revealed ${revealDot}. ${SITE.product} is on sale today.`,
+      live: `Revealed ${revealDot}. ${SITE.product} is in the store.`,
+    }}
+  />
+
+  <section
+    class="tease"
+    data-tease
+    data-target={target}
+    data-detents={detents}
+    data-reveal={revealIso}
+    data-reveal-dot={revealDot}
+    data-hint1="The knob shows a time. The page shows a date."
+    data-hint2={`Set it to ${targetClock}, then hold still.`}
+    data-hint-hold="Hold it there."
+    data-hint-set={`Set to ${targetClock}.`}
+    aria-labelledby="tease-title"
+  >
+    <div class="tease__stage">
+      <canvas class="tease__trace" data-signal-canvas aria-hidden="true"></canvas>
+      <div class="tease__clock">
+        <svg class="tease__ring" viewBox="-130 -130 260 260" aria-hidden="true">
+          {ticks.map((i) => (
+            <line
+              data-tick
+              class:list={['tick', { 'tick--hour': i % 6 === 0 }]}
+              style={`--i:${i}; --lit:${i <= tickIndexOfTarget ? 1 : 0}`}
+              x1="0"
+              y1={i % 6 === 0 ? -101 : -104}
+              x2="0"
+              y2={i % 6 === 0 ? -113 : -109}
+              transform={`rotate(${i * 5})`}
+            />
+          ))}
+          {numerals.map((n, i) => {
+            const a = (i * 30 * Math.PI) / 180;
+            return (
+              <text
+                class="numeral"
+                x={Math.sin(a) * 122}
+                y={-Math.cos(a) * 122}
+                text-anchor="middle"
+                dominant-baseline="central"
+              >
+                {n}
+              </text>
+            );
+          })}
+          <circle class="lock" data-lock r="97" transform="rotate(-90)"></circle>
+        </svg>
+        <div class="tease__dial">
+          <DialStage
+            id="tease-dial"
+            interactive
+            finish="graphite"
+            profile="clock"
+            camera="top"
+            display="12.00"
+            label="Clock dial. Turn to set a time"
+            priority
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="tease__copy">
+      <h1 id="tease-title" class="tease__title">
+        <span class="tease__line">Something you</span>
+        <span class="tease__line">
+          can feel<span class="tease__stop">.</span>
+        </span>
+      </h1>
+      <p class="tease__date">
+        <span class="visually-hidden">Revealed</span>
+        <time class="readout" datetime={revealIso}>
+          {revealDot}
+        </time>
+      </p>
+      <p class="tease__hint readout" data-hint aria-live="polite">
+        Turn the dial. Drag, scroll or use arrow keys.
+      </p>
+      <p class="tease__skip">
+        <a href="#signal" data-track="tease_skip_click">
+          Skip the puzzle
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <section id="signal" class="signal" aria-labelledby="signal-title">
+    <div class="signal__inner">
+      <h2
+        id="signal-title"
+        class="signal__title"
+        data-signal-heading
+        data-solved="You set that by feel."
+        data-skipped="Here’s the short version."
+      >
+        Here’s the short version.
+      </h2>
+      <div class="signal__body">
+        <p>
+          The dial has {detents} clicks. The one at {targetClock} is heavier than the other{' '}
+          {detents - 1}. Nothing inside the knob changed shape. Software put it there.
+        </p>
+        <p>
+          Now picture every app you use doing that. On {revealLong} we show you the knob.{' '}
+          {PHASES.tease.primary.note}
+        </p>
+      </div>
+
+      <form
+        class="signal__form"
+        data-tease-form
+        novalidate
+        method="dialog"
+        aria-label="Get the first look"
+      >
+        <div class="signal__row">
+          <EmailField id="tease-email" label="Your email" hideLabel />
+          <button
+            class="btn btn--primary btn--lg"
+            type="submit"
+            data-track="cta_click"
+            data-track-placement="tease-form"
+          >
+            <span data-label>{PHASES.tease.primary.label}</span>
+          </button>
+        </div>
+        <ConceptNote />
+        <noscript>
+          <p class="concept-note">This form needs JavaScript in the concept demo.</p>
+        </noscript>
+      </form>
+
+      <div class="signal__done" data-tease-done hidden>
+        <h3 class="signal__done-title">You’re set for {revealDot}.</h3>
+        <p>
+          One email that morning. Put it in your calendar too, so the date does the remembering.
+        </p>
+        <button class="btn" type="button" data-ics>
+          Add {revealLong} to your calendar
+        </button>
+        <ConceptNote />
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  import '@/scripts/launch/tease';
+</script>
+
+<style>
+  .tease {
+    --tune: 1;
+    --trace-ink: oklch(1 0 0 / 0.26);
+    --trace-lit: var(--tally);
+    position: relative;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: clamp(1rem, 3svh, 2.5rem);
+    min-block-size: calc(100svh - var(--header-h));
+    padding-block: clamp(1rem, 4svh, 3rem) clamp(2rem, 6svh, 4rem);
+    overflow: clip;
+  }
+
+  /* ---- Stage: the clock ring around the dial, the trace behind ------- */
+  .tease__stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 100%;
+  }
+  .tease__trace {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 50%;
+    inline-size: 100%;
+    block-size: clamp(7rem, 18svh, 11rem);
+    translate: 0 -50%;
+    pointer-events: none;
+  }
+  .tease__clock {
+    position: relative;
+    inline-size: min(88vw, 56svh, 34rem);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--bg);
+  }
+  .tease__ring {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+  }
+  .tick {
+    stroke: var(--ink-faint);
+    stroke-width: 0.8;
+    stroke-linecap: round;
+    opacity: 0.55;
+    transition:
+      stroke var(--dur-2) var(--ease-out),
+      opacity var(--dur-2) var(--ease-out);
+  }
+  .tick--hour {
+    stroke: var(--ink-muted);
+    stroke-width: 1.4;
+    opacity: 0.9;
+  }
+  .tick.is-here {
+    stroke: var(--ink-strong);
+    opacity: 1;
+    stroke-width: 1.8;
+  }
+  .numeral {
+    font-family: var(--font-sans);
+    font-size: 8.5px;
+    font-weight: 620;
+    font-stretch: 112%;
+    fill: var(--ink-muted);
+  }
+  .lock {
+    fill: none;
+    stroke: var(--tally);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-dasharray: 610;
+    stroke-dashoffset: 610;
+  }
+  .tease__dial {
+    position: absolute;
+    inset: 13%;
+  }
+  /* The clock ring is the scale here; the fallback dial's own ring would double it. */
+  .tease__dial :global(.dd-scale) {
+    display: none;
+  }
+  .tease__dial :global(detent-dial:focus-visible) {
+    border-radius: 50%;
+    outline-offset: 6px;
+  }
+
+  /* Set: the minute track lights from 12 to the mark, one tick at a time. */
+  .tease[data-state='set'] .tick {
+    stroke: color-mix(in oklch, var(--tally-hot) calc(var(--lit) * 100%), var(--ink-faint));
+    opacity: calc(0.4 + var(--lit) * 0.6);
+    transition-delay: calc(var(--i) * 12ms);
+  }
+
+  /* ---- Copy: the headline is tuned by the dial ------------------------ */
+  .tease__copy {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-xs);
+    padding-inline: var(--gutter);
+    text-align: center;
+  }
+  .tease__title {
+    /* 125% stretch needs ~16.5em for the full line: size by viewport so it never overflows. */
+    font-size: clamp(2rem, 5.3vw, 4.5rem);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-display);
+    /* 62% (condensed, weak signal) to 125% (expanded, on station). */
+    font-stretch: calc(62% + var(--tune) * 63%);
+    font-weight: calc(320 + var(--tune) * 460);
+    color: color-mix(in oklch, var(--ink-strong) calc(var(--tune) * 100%), var(--ink-muted));
+    white-space: nowrap;
+  }
+  .tease__stop {
+    transition: color var(--dur-3) var(--ease-out);
+  }
+  .tease[data-state='set'] .tease__stop {
+    color: var(--tally-hot);
+  }
+  .tease__date time {
+    font-size: var(--step-2);
+    font-weight: 400;
+    color: var(--ink-strong);
+    letter-spacing: 0.06em;
+  }
+  .tease__hint {
+    min-block-size: 1.5em;
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+  }
+  .tease__skip a {
+    display: inline-block;
+    padding: 0.7rem 0.4rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  /* Two fixed lines on phones, so turning the dial never re-wraps the headline. */
+  @media (max-width: 40rem) {
+    .tease__title {
+      font-size: clamp(1.6rem, 9.4vw, 2.4rem);
+    }
+    .tease__line {
+      display: block;
+    }
+  }
+
+  /* ---- The signal: hidden (with JS) until solved or skipped ----------- */
+  .signal {
+    padding-block: var(--space-2xl) var(--section-y);
+    padding-inline: var(--gutter);
+    border-top: 1px solid var(--line);
+  }
+  .tease[data-ready] + .signal:not([data-open]) {
+    display: none;
+  }
+  .signal[data-open] {
+    border-top-color: transparent;
+  }
+  .signal__inner {
+    display: grid;
+    gap: var(--space-l);
+    inline-size: min(100%, 40rem);
+    margin-inline: auto;
+  }
+  .signal__title {
+    font-size: var(--step-4);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .signal__title:focus {
+    outline: none;
+  }
+  .signal__body {
+    display: grid;
+    gap: var(--space-s);
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .signal__form {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .signal__row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-xs);
+    align-items: start;
+  }
+  .signal__row .btn {
+    min-block-size: 3.5rem;
+  }
+  .signal__row :global(.input) {
+    min-block-size: 3.5rem;
+  }
+  .signal__done {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-s);
+  }
+  .signal__done-title {
+    font-size: var(--step-2);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+  }
+  .signal__done-title:focus {
+    outline: none;
+  }
+  @media (max-width: 34rem) {
+    .signal__row {
+      grid-template-columns: 1fr;
+    }
+    .signal__row .btn {
+      inline-size: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .signal[data-open] .signal__inner {
+      animation: signal-in var(--dur-4) var(--ease-out) both;
+    }
+    .signal[data-open='solved'] .signal__inner {
+      animation-delay: 420ms;
+    }
+    @keyframes signal-in {
+      from {
+        opacity: 0;
+        clip-path: inset(0 0 100% 0);
+        translate: 0 1rem;
+      }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tick,
+    .tease__stop {
+      transition: none;
+    }
+    .tease[data-state='set'] .tick {
+      transition-delay: 0s;
+    }
+  }
+</style>

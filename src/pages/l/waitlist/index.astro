@@ -1,0 +1,668 @@
+---
+/**
+ * Waitlist: "What would you turn?" The dial is a rotary selector: turning it
+ * (or tapping a chip) picks the kind of work, and the knob changes feel and
+ * display to match. That tap is step 1 of the form; step 2 is the email.
+ * On join, the Founder Pass below becomes yours.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import PhaseNotice from '@/components/launch/PhaseNotice.astro';
+import EmailField from '@/components/launch/EmailField.astro';
+import ConceptNote from '@/components/launch/ConceptNote.astro';
+import LaunchTimeline from '@/components/launch/LaunchTimeline.astro';
+import FounderPass from '@/components/launch/FounderPass.astro';
+import StickyCta from '@/components/launch/StickyCta.astro';
+import { productLd } from '@/components/launch/ld';
+import { SEGMENT_ANGLE, SEGMENT_SHORT, REST_ANGLE } from '@/components/launch/segments';
+import { PHASES, LAUNCH } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { SITE } from '@/config/site';
+import { EDITIONS, PAYMENT, byProfile, formatUsd } from '@/data/product';
+import { SEGMENTS } from '@/lib/waitlist';
+import { dotDate, longDate } from '@/scripts/launch/format';
+
+const one = EDITIONS.find((e) => e.id === 'one')!;
+const launchPrice = formatUsd(one.launchPriceUsd);
+const fullPrice = formatUsd(one.priceUsd);
+const reserveDot = dotDate(PHASES.reserve.starts);
+const reserveLong = longDate(PHASES.reserve.starts);
+
+// Selector geometry (degrees, 0 = 12 o'clock) for the arc around the dial.
+const polar = (deg: number, r: number) => {
+  const a = (deg * Math.PI) / 180;
+  return { x: +(Math.sin(a) * r).toFixed(2), y: +(-Math.cos(a) * r).toFixed(2) };
+};
+const arcFrom = polar(REST_ANGLE, 118);
+const arcTo = polar(SEGMENT_ANGLE.streaming, 118);
+const marks = SEGMENTS.map((s) => {
+  const deg = SEGMENT_ANGLE[s.id];
+  return {
+    ...s,
+    deg,
+    dot: polar(deg, 118),
+    tick: [polar(deg, 108), polar(deg, 114)],
+    label: polar(deg, 132),
+    anchor: deg < -10 ? 'end' : deg > 10 ? 'start' : 'middle',
+    color: byProfile(s.profile).color,
+  };
+});
+const minor = Array.from({ length: 16 }, (_, i) => REST_ANGLE + i * 10).filter((d) => d % 30 !== 0);
+
+const pageUrl = new URL(Astro.url.pathname, Astro.site).toString();
+---
+
+<BaseLayout
+  title="Join the waitlist"
+  description={`Tell us what you’d turn and get on the ${SITE.product} list: the ${launchPrice} launch price (${fullPrice} after launch week), first pick when reservations open ${reserveLong}, and a Founder Pass that’s yours alone.`}
+  ogImage={ogPath('waitlist')}
+  ogImageAlt="Get in line. Move up. The Detent One waitlist."
+  chrome="minimal"
+  jsonLd={productLd(Astro.site, pageUrl)}
+>
+  <!-- impeccable-disable numbered-section-markers -- MM.DD launch dates (10.20, 11.10, 12.01) are real dates, not section markers -->
+  <PhaseNotice
+    placement="waitlist-notice"
+    notices={{
+      tease: `The waitlist opens ${dotDate(PHASES.waitlist.starts)}. You’re early; joining now works the same.`,
+      reserve: `Reservations are open. The list still gets launch-day email and a Founder Pass.`,
+      launch: `${SITE.product} is on sale today at ${launchPrice}.`,
+      live: `${SITE.product} is in the store. Free shipping, ${PAYMENT.trialDays}-day studio trial.`,
+    }}
+  />
+
+  <section class="wl" aria-labelledby="wl-title">
+    <div class="container wl__grid">
+      <div class="wl__copy">
+        <h1 id="wl-title" class="wl__title">
+          What would you turn?
+        </h1>
+        <p class="wl__line" data-seg-line>
+          <strong data-seg-profile>Every app</strong>
+          <span data-seg-text>gets its own feel. Pick yours, or turn the dial.</span>
+        </p>
+
+        <form
+          id="join"
+          class="join"
+          novalidate
+          method="dialog"
+          aria-label="Join the waitlist"
+          data-join
+        >
+          <fieldset class="seg">
+            <legend class="step">
+              <span class="step__n readout" aria-hidden="true">
+                1
+              </span>{' '}
+              Pick what you’d turn
+            </legend>
+            <div class="seg__chips">
+              {SEGMENTS.map((s) => (
+                <label class="chip" style={`--feel:${byProfile(s.profile).color}`}>
+                  <input type="radio" name="segment" value={s.id} data-profile={s.profile} />
+                  <span class="chip__dot" aria-hidden="true" />
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div class="join__step">
+            <p class="step" id="join-step2">
+              <span class="step__n readout" aria-hidden="true">
+                2
+              </span>{' '}
+              Your email
+            </p>
+            <div class="join__row">
+              <EmailField
+                id="join-email"
+                label="Email for the waitlist"
+                hideLabel
+                describedBy="join-step2 join-offer"
+              />
+              <button
+                class="btn btn--primary btn--lg"
+                type="submit"
+                data-track="cta_click"
+                data-track-placement="waitlist-form"
+                id="join-submit"
+              >
+                <span data-label>{PHASES.waitlist.primary.label}</span>
+              </button>
+            </div>
+          </div>
+
+          <p class="join__offer" id="join-offer">
+            The list gets the <strong>{launchPrice}</strong> launch price and reserves first, from{' '}
+            {reserveLong}. After launch week it’s {fullPrice}.
+          </p>
+          <ConceptNote />
+          <p class="join__ref" data-ref-note hidden>
+            You came in on a friend’s pass. Their referral counts once you confirm your email.
+          </p>
+          <noscript>
+            <p class="concept-note">This form needs JavaScript in the concept demo.</p>
+          </noscript>
+        </form>
+
+        <div class="joined" data-joined hidden>
+          <p class="joined__title">You’re on the list.</p>
+          <p class="joined__text">
+            Saved as <span class="readout" data-joined-email></span>. The {launchPrice} launch price
+            is yours when reservations open {reserveDot}.
+          </p>
+          <a class="btn btn--primary" href="#pass">
+            Make your pass
+          </a>
+        </div>
+      </div>
+
+      <div class="wl__stage" data-stage>
+        <div class="selector">
+          <svg class="selector__arc" viewBox="-170 -170 340 340" aria-hidden="true">
+            <defs>
+              <filter id="halo-blur" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="6"></feGaussianBlur>
+              </filter>
+            </defs>
+            <circle class="selector__halo" r="92" filter="url(#halo-blur)"></circle>
+            <circle class="selector__halo-line" r="92"></circle>
+            <path
+              class="selector__track"
+              d={`M ${arcFrom.x} ${arcFrom.y} A 118 118 0 0 1 ${arcTo.x} ${arcTo.y}`}
+            ></path>
+            {minor.map((d) => {
+              const [a, b] = [polar(d, 114), polar(d, 118)];
+              return <line class="selector__minor" x1={a.x} y1={a.y} x2={b.x} y2={b.y} />;
+            })}
+            <g class="selector__rest">
+              <line
+                x1={polar(REST_ANGLE, 106).x}
+                y1="0"
+                x2={polar(REST_ANGLE, 118).x}
+                y2="0"
+              ></line>
+              <text
+                x={polar(REST_ANGLE, 128).x}
+                y="0"
+                text-anchor="end"
+                dominant-baseline="central"
+              >
+                Turn
+              </text>
+            </g>
+            {marks.map((m) => (
+              <g class="selector__mark" data-mark={m.id} style={`--feel:${m.color}`}>
+                <line x1={m.tick[0]!.x} y1={m.tick[0]!.y} x2={m.tick[1]!.x} y2={m.tick[1]!.y} />
+                <circle cx={m.dot.x} cy={m.dot.y} r="3.2" />
+                <text
+                  x={m.label.x}
+                  y={m.label.y}
+                  text-anchor={m.anchor}
+                  dominant-baseline="central"
+                >
+                  {SEGMENT_SHORT[m.id]}
+                </text>
+              </g>
+            ))}
+          </svg>
+          <div class="selector__dial">
+            <DialStage
+              id="waitlist-dial"
+              interactive
+              finish="graphite"
+              profile="ratchet"
+              camera="top"
+              display="PICK ONE"
+              label="What would you turn? Turn to choose"
+              priority
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gets" data-world="day" aria-labelledby="gets-title">
+    <div class="container gets__grid">
+      <h2 id="gets-title" class="gets__title">
+        What the list gets you
+      </h2>
+      <p class="gets__price">
+        <span class="visually-hidden">
+          {launchPrice} instead of {fullPrice}
+        </span>
+        <span class="gets__was readout" aria-hidden="true">
+          {fullPrice}
+        </span>
+        <span class="gets__now readout" aria-hidden="true">
+          {launchPrice}
+        </span>
+      </p>
+      <div class="gets__copy">
+        <p>
+          <strong>The launch price, locked.</strong> Detent One is {fullPrice}. Everyone on the list
+          pays {launchPrice} when they reserve, and it holds until your batch ships.
+        </p>
+        <p>
+          <strong>First in line.</strong> Reservations open to the list on {reserveLong}:{' '}
+          {formatUsd(LAUNCH.depositUsd)}, fully refundable, filled in order into Batch 1 (
+          {LAUNCH.firstShipBatch}) and Batch 2 ({LAUNCH.secondShipBatch}).
+        </p>
+        <p>
+          <strong>Three emails, not thirty.</strong> Reservations open, launch day, your batch
+          ships. That’s the list.
+        </p>
+      </div>
+      <div class="gets__timeline">
+        <h3 id="tl-title" class="visually-hidden">
+          Launch dates
+        </h3>
+        <LaunchTimeline labelledBy="tl-title" />
+      </div>
+    </div>
+  </section>
+
+  <FounderPass />
+
+  <section class="closer" aria-labelledby="closer-title">
+    <div class="container closer__inner">
+      <h2 id="closer-title" class="closer__title">
+        The list is free. Leaving it takes one click.
+      </h2>
+      <PhaseCTA placement="waitlist-closer" size="lg" />
+    </div>
+  </section>
+
+  <StickyCta
+    watch="#join-submit"
+    hideOver="#join, .closer, .site-footer"
+    label={PHASES.waitlist.primary.label}
+    target="#join-email"
+    note={`${launchPrice} on the list`}
+  />
+</BaseLayout>
+
+<script>
+  import '@/scripts/launch/waitlist';
+</script>
+
+<style>
+  /* ---- Hero ------------------------------------------------------------ */
+  .wl {
+    --feel: var(--ink-faint);
+    --feel-ink: var(--ink-strong);
+    padding-block: clamp(var(--space-l), 5svh, var(--space-2xl)) var(--section-y);
+    overflow-x: clip;
+  }
+  .wl__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    grid-template-areas: 'copy stage';
+    align-items: center;
+    gap: var(--space-xl);
+  }
+  .wl__copy {
+    grid-area: copy;
+    display: grid;
+    gap: var(--space-m);
+    align-content: start;
+  }
+  .wl__title {
+    font-size: var(--step-6);
+    font-stretch: var(--stretch-display);
+    font-weight: 790;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    max-inline-size: 9ch;
+  }
+  .wl__line {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink-muted);
+    min-block-size: 2.8em;
+    max-inline-size: 34ch;
+  }
+  .wl__line strong {
+    color: var(--feel-ink);
+    font-weight: 700;
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .join {
+    display: grid;
+    gap: var(--space-m);
+    max-inline-size: 40rem;
+  }
+  .seg {
+    border: 0;
+    padding: 0;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    margin-block-end: var(--space-2xs);
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink);
+  }
+  .step__n {
+    display: inline-grid;
+    place-items: center;
+    inline-size: 1.6rem;
+    block-size: 1.6rem;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--2);
+    color: var(--ink-strong);
+  }
+  .seg__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55em;
+    min-block-size: 2.9rem;
+    padding: 0.45rem 1.05rem 0.45rem 0.85rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    font-size: var(--step--1);
+    cursor: pointer;
+    user-select: none;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .chip input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .chip:hover {
+    border-color: var(--ink-muted);
+  }
+  .chip:active {
+    transform: translateY(1px);
+  }
+  .chip:has(input:checked) {
+    border-color: var(--feel);
+    background: color-mix(in oklch, var(--feel) 14%, transparent);
+    color: var(--ink-strong);
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .chip__dot {
+    inline-size: 0.62rem;
+    block-size: 0.62rem;
+    border-radius: 50%;
+    background: var(--feel);
+  }
+  .join__row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-xs);
+    align-items: start;
+  }
+  .join__row :global(.input),
+  .join__row .btn {
+    min-block-size: 3.5rem;
+  }
+  .join__offer {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 48ch;
+  }
+  .join__offer strong {
+    color: var(--ink-strong);
+  }
+  .join__ref {
+    font-size: var(--step--1);
+    color: var(--accent-text);
+  }
+  .joined {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-s);
+    padding-block: var(--space-m);
+    border-block: 1px solid var(--line);
+    max-inline-size: 36rem;
+  }
+  .joined__title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    color: var(--ink-strong);
+    letter-spacing: var(--tracking-display);
+  }
+  .joined__title:focus {
+    outline: none;
+  }
+  .joined__text {
+    color: var(--ink-muted);
+  }
+
+  /* ---- The selector ---------------------------------------------------- */
+  .wl__stage {
+    grid-area: stage;
+    display: grid;
+    justify-items: center;
+  }
+  .selector {
+    position: relative;
+    inline-size: min(100%, 36rem);
+    aspect-ratio: 1;
+  }
+  .selector__arc {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+  }
+  .selector__dial {
+    position: absolute;
+    inset: 20.6%;
+  }
+  .selector__dial :global(.dd-scale) {
+    display: none;
+  }
+  .selector__dial :global(detent-dial:focus-visible) {
+    border-radius: 50%;
+    outline-offset: 6px;
+  }
+  .selector__halo {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 6;
+    opacity: 0.45;
+    transition:
+      stroke var(--dur-3) var(--ease-out),
+      opacity var(--dur-3) var(--ease-out);
+  }
+  .selector__halo-line {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 1.2;
+    opacity: 0.9;
+    transition: stroke var(--dur-3) var(--ease-out);
+  }
+  .selector__track {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .selector__minor {
+    stroke: var(--ink-faint);
+    stroke-width: 0.8;
+    opacity: 0.6;
+  }
+  .selector__rest line {
+    stroke: var(--ink-muted);
+    stroke-width: 1.4;
+  }
+  .selector__rest text,
+  .selector__mark text {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 640;
+    font-stretch: 112%;
+    fill: var(--ink-muted);
+    transition: fill var(--dur-2) var(--ease-out);
+  }
+  .selector__mark line {
+    stroke: var(--ink-muted);
+    stroke-width: 1.4;
+  }
+  .selector__mark circle {
+    fill: var(--feel);
+    opacity: 0.55;
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      r var(--dur-2) var(--ease-out);
+  }
+  .selector__mark.is-on circle {
+    opacity: 1;
+    r: 4.6px;
+  }
+  .selector__mark.is-on text {
+    fill: var(--ink-strong);
+  }
+
+  /* ---- What the list gets you (day) ------------------------------------ */
+  .gets {
+    padding-block: var(--section-y);
+  }
+  .gets__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    grid-template-areas:
+      'title copy'
+      'price copy'
+      'tl tl';
+    gap: var(--space-l) var(--space-3xl);
+    align-items: start;
+  }
+  .gets__title {
+    grid-area: title;
+    font-size: var(--step-4);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .gets__price {
+    grid-area: price;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2em 0.5em;
+    font-size: clamp(3rem, 1.6rem + 6vw, 6rem);
+    line-height: 1;
+  }
+  .gets__was {
+    font-size: 0.42em;
+    color: var(--ink-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 3px;
+  }
+  .gets__now {
+    font-size: 1em;
+    color: var(--ink-strong);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .gets__copy {
+    grid-area: copy;
+    display: grid;
+    gap: var(--space-m);
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+  .gets__copy strong {
+    color: var(--ink-strong);
+  }
+  .gets__timeline {
+    grid-area: tl;
+    margin-block-start: var(--space-xl);
+  }
+
+  /* ---- Closer ------------------------------------------------------------ */
+  .closer {
+    padding-block: var(--space-3xl);
+    border-top: 1px solid var(--line);
+  }
+  .closer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-l);
+  }
+  .closer__title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 760;
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    max-inline-size: 20ch;
+  }
+
+  @media (max-width: 60rem) {
+    .wl__grid {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        'copy'
+        'stage';
+      gap: var(--space-l);
+    }
+    .gets__grid {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'title' 'price' 'copy' 'tl';
+    }
+  }
+  @media (max-width: 40rem) {
+    .wl__grid {
+      grid-template-areas:
+        'copy'
+        'stage';
+    }
+    .wl__title {
+      font-size: clamp(2.6rem, 11vw, 3.4rem);
+    }
+    .join__row {
+      grid-template-columns: 1fr;
+    }
+    .join__row .btn {
+      inline-size: 100%;
+    }
+    .selector {
+      inline-size: min(100%, 24rem);
+    }
+    .wl {
+      padding-block-end: var(--space-xl);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .selector__halo,
+    .selector__halo-line,
+    .selector__mark circle,
+    .chip {
+      transition: none;
+    }
+  }
+</style>
