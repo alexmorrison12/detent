@@ -17,7 +17,10 @@ for (const route of ROUTES) {
     await expect(page.locator('h1')).not.toHaveText(/^\s*$/);
     expect((await page.title()).trim(), 'document title').not.toBe('');
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /\S/);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https?:\/\//);
+    // Indexable pages declare a canonical URL; noindex pages deliberately don't.
+    const noindex = await page.locator('meta[name="robots"][content*="noindex"]').count();
+    if (noindex) await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
+    else await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https?:\/\//);
 
     const og = await page.locator('meta[property="og:image"]').getAttribute('content');
     expect(og, 'og:image').toBeTruthy();

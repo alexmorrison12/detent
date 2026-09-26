@@ -193,5 +193,5 @@ function init(drawer: HTMLDialogElement) {
     if (drawer.open) render(s);
   });
 
-  if (location.hash === '#cart') open();
+  if (location.hash === '#cart' || location.hash === '#cart-drawer') open();
 }
