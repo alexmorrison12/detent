@@ -175,6 +175,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     'label',
     'display',
     'display-sub',
+    'display-name',
     'camera',
     'autorotate',
     'quality',
@@ -390,6 +391,7 @@ class DetentDial extends HTMLElement implements DetentDialElement {
         break;
       case 'display':
       case 'display-sub':
+      case 'display-name':
         this.#invalidate();
         break;
       case 'profile':
@@ -1201,7 +1203,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       explode: this.#explode,
       finish: this.#finishData(),
       color: this.#feelColor ?? prof.color,
-      name: prof.name,
+      // display-name hides or renames the profile line (e.g. a game's hidden feel).
+      name: this.getAttribute('display-name') ?? prof.name,
       p: ph.p,
       value: ph.value,
       index: ph.index,

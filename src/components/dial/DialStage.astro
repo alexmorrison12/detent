@@ -27,6 +27,10 @@ interface Props {
   display?: string;
   /** Small line under `display` on the knob (without it the line is blank while `display` is set). */
   displaySub?: string;
+  /** Replaces the profile name line on the knob display; '' hides it (games with a hidden feel). */
+  displayName?: string;
+  /** Show the still's display as powered off (top camera only), e.g. so a game's hidden feel isn't printed on the still before the live dial takes over. */
+  blankDisplay?: boolean;
   quality?: 'auto' | 'low' | 'high';
   /** Eager-load the still (use for the LCP dial above the fold). */
   priority?: boolean;
@@ -52,11 +56,13 @@ const {
   label,
   display,
   displaySub,
+  displayName,
   quality = 'auto',
   priority = false,
   id,
   class: className,
   steppers = false,
+  blankDisplay = false,
   muted = false,
   eager = false,
   sizes,
@@ -87,8 +93,9 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
       label={label}
       display={display}
       display-sub={displaySub}
+      display-name={displayName}
     >
-      <div data-dial-fallback data-camera={stillView} class="dial-stage__fallback">
+      <div data-dial-fallback data-camera={stillView} data-blank-display={blankDisplay && stillView === 'top' ? '' : undefined} class="dial-stage__fallback">
         <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
       </div>
     </detent-dial>
@@ -138,8 +145,9 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
     label={label}
     display={display}
     display-sub={displaySub}
+    display-name={displayName}
   >
-    <div data-dial-fallback data-camera={stillView} class="dial-stage__fallback">
+    <div data-dial-fallback data-camera={stillView} data-blank-display={blankDisplay && stillView === 'top' ? '' : undefined} class="dial-stage__fallback">
       <DialStill finish={finish} view={stillView} priority={priority} sizes={sizes} />
     </div>
   </detent-dial>
@@ -199,5 +207,15 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
     .dial-step:active {
       transform: none;
     }
+  }
+  /* A powered-off display on the top-view still (the glass face sits at the
+     centre, ~39% of the frame). The live dial draws its own face on top. */
+  .dial-stage__fallback[data-blank-display]::after {
+    content: '';
+    position: absolute;
+    inset: 30.5%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 42%, oklch(0.16 0.004 355), oklch(0.08 0.003 355) 70%);
+    pointer-events: none;
   }
 </style>

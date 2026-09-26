@@ -28,7 +28,7 @@ export function torque(p: FeelPhysics, deg: number): number {
   if (p.detents > 0) {
     const period = 360 / p.detents;
     const near = (p.accents ?? []).some((acc) => Math.abs(wrap(a - acc)) < period / 2);
-    const amp = clamp(p.strength * 0.7 * (near ? 1.45 : 1), 0, 1);
+    const amp = clamp(p.strength * 0.7 * (near ? 1.31 : 1), 0, 1);
     t += -amp * Math.sin((a / period) * 2 * Math.PI);
   } else if (p.accents?.length) {
     // A single soft bump (e.g. Wall's halfway detent).

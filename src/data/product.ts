@@ -429,7 +429,7 @@ export const FAQS: Faq[] = [
     q: `How does the $${LAUNCH.depositUsd} reservation work?`,
     a: `You pay a $${LAUNCH.depositUsd} deposit ($${LAUNCH.foundersDepositUsd} for the Founders Edition) to hold your place and lock the launch price. When your batch is ready we email a ship date and a link to pay the rest; the deposit comes off the price. Cancel any time before it ships for a full refund, one click, no questions.`,
   },
-  { topic: 'Launch', q: 'When does it ship?', a: 'Batch 1 ships in February 2027 and Batch 2 in April 2027. Reservations are filled in order, and your confirmation email shows your batch.' },
+  { topic: 'Launch', q: 'When does it ship?', a: `Batch 1 ships in ${LAUNCH.firstShipBatch} and Batch 2 in ${LAUNCH.secondShipBatch}. Reservations are filled in order, and your confirmation email shows your batch.` },
   { topic: 'Launch', q: 'What makes the Founders Edition different?', a: 'Tally red anodize, a serial number from 0001 to 2000 engraved on the base, a machined walnut plinth, the Founders feel pack and early firmware for life. When the 2,000 are gone, Tally is gone.' },
   { topic: 'Product', q: 'What is software-defined haptics?', a: 'Instead of a mechanical click, a small brushless motor pushes back on your fingers. Firmware decides where the clicks are, how strong they feel, whether it springs back or stops dead, and it can change that per app in about a millisecond.' },
   { topic: 'Product', q: 'Is it loud?', a: 'The clicks you feel are silent; the motor is quieter than a keyboard. There is an optional tick sound in the app if you like hearing them.' },

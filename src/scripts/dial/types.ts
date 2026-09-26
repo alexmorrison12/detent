@@ -14,6 +14,7 @@
  *                                    engine's small readout line under it is cleared
  *   display-sub  string              (extension) the small line under `display` (≤ 16 chars,
  *                                    caps read best, e.g. "OF 3"); ignored without `display`
+ *   display-name string              (extension) replaces the profile name line on the display; "" hides it
  *   quality      'auto'|'low'|'high' renderer tier hint ('low' = SVG only, never loads three.js)
  *   muted        boolean attr        (extension) no sound and no vibration from this dial
  *   loading      'lazy'|'eager'      (extension) 'eager' boots 3D immediately (render harness, above-the-fold toys)
