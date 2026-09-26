@@ -10,7 +10,7 @@ const { chrome = 'full' } = Astro.props;
 const year = new Date().getFullYear();
 ---
 
-<footer class="site-footer" data-world="night">
+<footer class:list={['site-footer', { 'site-footer--minimal': chrome === 'minimal' }]} data-world="night">
   <div class="container">
     {
       chrome === 'full' && (
@@ -115,6 +115,15 @@ const year = new Date().getFullYear();
     gap: var(--space-s);
     padding-top: var(--space-l);
     border-top: 1px solid var(--line);
+  }
+  /* Minimal chrome has no nav block above the bottom row: one rule, one band,
+     not the full footer's top padding and a second rule over empty space. */
+  .site-footer--minimal {
+    padding-block: var(--space-l);
+  }
+  .site-footer--minimal .site-footer__bottom {
+    padding-top: 0;
+    border-top: 0;
   }
   .site-footer__concept {
     max-width: 70ch;

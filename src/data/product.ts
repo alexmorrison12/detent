@@ -3,7 +3,8 @@
  * Pages, JSON-LD, the product feed and llms.txt all read from here.
  * Never hard-code a price, spec or finish name in a page.
  */
-import { LAUNCH } from '@/config/launch';
+// The leaf, not '@/config/launch': that module quotes prices from this one.
+import { LAUNCH } from '@/config/launch-terms';
 
 export type FinishId = 'raw' | 'graphite' | 'glacier' | 'tally';
 
@@ -246,7 +247,10 @@ export const SPECS: SpecGroup[] = [
     rows: [
       { label: 'Motor', value: 'Brushless gimbal motor, field-oriented control at 10 kHz' },
       { label: 'Position sensing', value: '14-bit magnetic encoder, 0.022° resolution' },
-      { label: 'Peak torque', value: '32 mN·m on USB-C, 24 mN·m on battery' },
+      // A bare figure: pages set it as a readout ("32 mN·m peak torque") and
+      // parse the number. Qualifiers go in their own row.
+      { label: 'Peak torque', value: '32 mN·m' },
+      { label: 'Torque on battery', value: '24 mN·m peak, capped to save charge' },
       { label: 'Press', value: 'Force-sensing knob, three pressure levels' },
       { label: 'Profiles on device', value: '64, switched automatically per app' },
     ],

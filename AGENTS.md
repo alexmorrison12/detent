@@ -32,6 +32,7 @@ When starting the dev server manually for a quick look, pick your own port (`npx
 ```
 src/
   config/        site.ts, launch.ts             (shared; do not change semantics)
+                 launch-terms.ts: LAUNCH dates/deposits, a leaf so data/product.ts can read them
   data/          product.ts (+ feature data files)
   lib/           url, storage, analytics, sound, cart (+ feature libs)
   styles/        tokens.css, global.css         (shared)
