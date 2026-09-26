@@ -1,0 +1,638 @@
+---
+/**
+ * The launch on one engraved scale: one column per day (one row per day on
+ * narrow screens), phases as a segmented band, dated moments pinned to it.
+ * Every layer is a subgrid of the same day grid, so ticks, phases and moments
+ * stay aligned in both orientations. The phase being previewed lights up.
+ */
+import { PHASES, PHASE_ORDER } from '@/config/launch';
+import {
+  AFTER,
+  MOMENTS,
+  SCALE,
+  addDays,
+  daysBetween,
+  fmtDay,
+  fmtDot,
+  numberWord,
+  phaseEnds,
+} from '@/data/launch-plan';
+import { url } from '@/lib/url';
+
+const total = daysBetween(SCALE.start, SCALE.end) + 1;
+const col = (iso: string) => daysBetween(SCALE.start, iso) + 1;
+const weeksToOrders = daysBetween(PHASES.tease.starts, PHASES.launch.starts) / 7;
+
+/* Ticks: every day; Mondays and month starts are longer. */
+const days = Array.from({ length: total }, (_, i) => {
+  const iso = addDays(SCALE.start, i);
+  const date = new Date(`${iso}T12:00:00Z`);
+  const monday = date.getUTCDay() === 1;
+  const monthStart = date.getUTCDate() === 1;
+  return { d: i + 1, iso, monday, monthStart, date };
+});
+const mondays = days
+  .filter((x) => x.monday)
+  .map((x, i, all) => {
+    const prev = all[i - 1];
+    const newMonth = !prev || prev.date.getUTCMonth() !== x.date.getUTCMonth();
+    const month = x.date.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+    return {
+      d: x.d,
+      label: newMonth ? `${month} ${x.date.getUTCDate()}` : String(x.date.getUTCDate()),
+    };
+  });
+
+/* Phase segments, with a Prep segment before the site goes public. */
+const segments = [
+  {
+    id: 'prep' as const,
+    name: 'Prep',
+    from: 1,
+    to: col(PHASES.tease.starts),
+    dates: `${fmtDot(SCALE.start)} → ${fmtDot(addDays(PHASES.tease.starts, -1))}`,
+    route: 'site private',
+    href: null as string | null,
+    open: false,
+  },
+  ...PHASE_ORDER.map((id) => {
+    const end = phaseEnds(id);
+    return {
+      id,
+      name: PHASES[id].name,
+      from: col(PHASES[id].starts),
+      to: end ? col(end) + 1 : total + 1,
+      dates: `${fmtDot(PHASES[id].starts)} → ${end ? fmtDot(end) : 'open'}`,
+      route: PHASES[id].landing === '/' ? 'home page /' : PHASES[id].landing,
+      href: `${url(PHASES[id].landing)}?phase=${id}`,
+      open: !end,
+    };
+  }),
+].map((s) => ({ ...s, lane: s.to - s.from < 8 ? 1 : 0 }));
+
+/* Moments: greedy lanes so labels never overlap (width estimated in days). */
+const PX_PER_DAY = 14.5;
+const placed: { lane: number; start: number; end: number }[] = [];
+const moments = MOMENTS.filter((m) => col(m.date) >= 1 && col(m.date) <= total)
+  .sort((a, b) => a.date.localeCompare(b.date))
+  .map((m) => {
+    const start = col(m.date);
+    const dateText = `${fmtDot(m.date)}${m.time ? ` · ${m.time}` : ''}`;
+    const px = Math.max(dateText.length * 7.4, m.label.length * 8) + 26;
+    const span = Math.min(total - start + 1, Math.ceil(px / PX_PER_DAY));
+    let lane = 0;
+    while (placed.some((p) => p.lane === lane && p.end >= start)) lane++;
+    placed.push({ lane, start, end: start + span });
+    return { ...m, start, span, lane, dateText };
+  });
+const lanes = Math.max(...moments.map((m) => m.lane)) + 1;
+
+const buildDay = new Date().toISOString().slice(0, 10);
+const todayCol = col(buildDay);
+---
+
+<section class="scale" id="scale" aria-labelledby="scale-title">
+  <div class="container">
+    <header class="scale__head">
+      <h2 id="scale-title" class="display display--m">
+        {numberWord(weeksToOrders)} weeks from a silhouette to orders.
+      </h2>
+      <p class="scale__sub">
+        One tick per day, a long one every Monday. The lit segment is the phase you are previewing;
+        turn the dial above and watch it move.
+      </p>
+      <p
+        class="scale__today readout"
+        data-today
+        data-scale-start={SCALE.start}
+        data-tease={PHASES.tease.starts}
+      >
+        Today · {fmtDay(buildDay)}
+      </p>
+    </header>
+
+    <div class="scale__ruler" style={`--days:${total};--lanes:${lanes}`}>
+      <ul class="scale__moments" role="list" aria-label="Dated moments">
+        {moments.map((m) => (
+          <li
+            class="moment"
+            data-kind={m.kind}
+            style={`--d:${m.start};--span:${m.span};--row:${lanes - m.lane}`}
+          >
+            <span class="moment__text">
+              <time class="moment__date readout" datetime={m.date}>
+                {m.dateText}
+                {m.time && <span class="visually-hidden"> Pacific time</span>}
+              </time>
+              <span class="moment__label">{m.label}</span>
+              <span class="visually-hidden">. {m.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div class="scale__ticks" aria-hidden="true">
+        {days.map((x) => (
+          <span
+            class:list={['tick', { 'tick--week': x.monday, 'tick--month': x.monthStart }]}
+            style={`--d:${x.d}`}
+          />
+        ))}
+      </div>
+
+      <ol class="scale__phases" role="list" aria-label="Phases">
+        {segments.map((s) => (
+          <li
+            class="seg"
+            data-plan-phase={s.id === 'prep' ? undefined : s.id}
+            data-kind={s.id === 'prep' ? 'prep' : 'phase'}
+            data-lane={s.lane}
+            data-open={s.open || undefined}
+            style={`--from:${s.from};--to:${s.to}`}
+          >
+            <span class="seg__band" aria-hidden="true" />
+            <span class="seg__text">
+              <span class="seg__name">{s.name}</span>
+              <span class="seg__dates readout">{s.dates}</span>
+              {s.href ? (
+                <a class="seg__route readout" href={s.href} data-no-prerender>
+                  {s.route}
+                </a>
+              ) : (
+                <span class="seg__route readout">{s.route}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <div class="scale__dates" aria-hidden="true">
+        {mondays.map((m) => (
+          <span class="scale__date readout" style={`--d:${m.d}`}>
+            {m.label}
+          </span>
+        ))}
+      </div>
+
+      <span
+        class="scale__now"
+        data-now
+        aria-hidden="true"
+        style={`--d:${todayCol}`}
+        hidden={todayCol < 1 || todayCol > total}
+      >
+        <span class="scale__now-label">Today</span>
+      </span>
+    </div>
+
+    <div class="then">
+      <p class="then__note">
+        Then the scale changes to months. We only date what suppliers have committed to.
+      </p>
+      <ol class="then__list" role="list">
+        {AFTER.map((a) => (
+          <li class="then__item">
+            <span class="then__when readout">{a.when}</span>
+            <span class="then__label">{a.label}</span>
+            <span class="then__detail">{a.detail}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Keep "Today" true after the build date: move the marker and the readout.
+  const el = document.querySelector<HTMLElement>('[data-today]');
+  const now = document.querySelector<HTMLElement>('[data-now]');
+  if (el && now) {
+    const DAY = 86_400_000;
+    const dayOf = (iso: string) => Math.floor(Date.parse(`${iso}T00:00:00Z`) / DAY);
+    const today = Math.floor(Date.now() / DAY);
+    const start = dayOf(el.dataset.scaleStart!);
+    const tease = dayOf(el.dataset.tease!);
+    const ruler = now.parentElement!;
+    const total = Number(getComputedStyle(ruler).getPropertyValue('--days')) || 91;
+    const d = today - start + 1;
+    now.style.setProperty('--d', String(d));
+    now.hidden = d < 1 || d > total;
+    const label = new Date(today * DAY + DAY / 2).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
+    const toTease = tease - today;
+    el.textContent =
+      toTease > 0
+        ? `Today · ${label} · ${toTease} ${toTease === 1 ? 'day' : 'days'} before the silhouette drops`
+        : `Today · ${label}`;
+  }
+</script>
+
+<style>
+  .scale {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem) clamp(3rem, 2rem + 3vw, 5rem);
+  }
+  .scale__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-s) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-xl);
+  }
+  .scale__head h2 {
+    grid-row: span 2;
+  }
+  .scale__sub {
+    color: var(--ink-muted);
+    max-width: 44ch;
+  }
+  .scale__today {
+    color: var(--accent-text);
+  }
+
+  /* ---- The ruler (horizontal) ----------------------------------------- */
+  .scale__ruler {
+    --band: 0.75rem;
+    --lane-h: 3.1rem;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+    grid-template-rows:
+      [moments] auto
+      [ticks] 1.25rem
+      [band] var(--band)
+      [dates] 1.75rem
+      [phases] auto;
+  }
+
+  .scale__ticks,
+  .scale__dates,
+  .scale__phases,
+  .scale__moments {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+  }
+  .scale__ticks {
+    grid-row: ticks;
+    align-items: end;
+  }
+  .tick {
+    grid-column: var(--d);
+    grid-row: 1;
+    justify-self: center;
+    inline-size: 1px;
+    block-size: 0.35rem;
+    background: var(--line-strong);
+  }
+  .tick--week {
+    block-size: 0.8rem;
+    background: var(--ink-muted);
+  }
+  .tick--month {
+    block-size: 1.25rem;
+    inline-size: 2px;
+    background: var(--ink-strong);
+  }
+
+  .scale__dates {
+    grid-row: dates;
+    align-items: center;
+  }
+  .scale__date {
+    grid-column: var(--d);
+    grid-row: 1;
+    justify-self: center;
+    inline-size: 0;
+    padding-inline-start: 5px;
+    box-sizing: content-box;
+    white-space: nowrap;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  /* Phase band + labels share the phases subgrid; the band sits in the band row. */
+  .scale__phases {
+    grid-row: band / span 3;
+    grid-template-rows: subgrid;
+  }
+  .seg {
+    grid-column: var(--from) / var(--to);
+    grid-row: 1 / -1;
+    display: grid;
+    grid-template-rows: subgrid;
+    min-inline-size: 0;
+  }
+  .seg__band {
+    grid-row: 1;
+    margin-inline-end: 2px;
+    border-radius: var(--r-xs);
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 100%), var(--graphite-700));
+    transition: background-color var(--dur-3) var(--ease-out);
+  }
+  .seg[data-kind='prep'] .seg__band {
+    background: var(--surface-2);
+  }
+  .seg[data-open] .seg__band {
+    border-radius: var(--r-xs) 0 0 var(--r-xs);
+    margin-inline-end: 0;
+    mask-image: linear-gradient(to right, black 70%, transparent);
+  }
+  .seg__text {
+    grid-row: 3;
+    display: grid;
+    align-content: start;
+    gap: 0.1rem;
+    padding-block-start: var(--space-2xs);
+    padding-inline-end: var(--space-s);
+    white-space: nowrap;
+  }
+  .seg[data-lane='1'] .seg__text {
+    padding-block-start: 5rem;
+  }
+  .seg__name {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .seg[data-kind='prep'] .seg__name {
+    color: var(--ink-muted);
+  }
+  .seg__name::after {
+    content: ' · previewing';
+    font-weight: 500;
+    font-size: var(--step--1);
+    color: var(--accent-text);
+    opacity: var(--air, 0);
+  }
+  .seg__dates,
+  .seg__route {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  a.seg__route {
+    color: var(--accent-text);
+    justify-self: start;
+  }
+
+  /* Moments above the ticks, lane 0 nearest the ruler, pins dropping to it. */
+  .scale__moments {
+    grid-row: moments;
+    grid-template-rows: repeat(var(--lanes), var(--lane-h));
+    padding-block-end: 0.35rem;
+    overflow: clip;
+  }
+  .moment {
+    grid-column: var(--d) / span var(--span);
+    grid-row: var(--row);
+    position: relative;
+    min-inline-size: 0;
+  }
+  .moment::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 0.2rem;
+    inline-size: 1px;
+    block-size: 30rem;
+    background: var(--line-strong);
+  }
+  .moment::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: -3px;
+    inset-block-start: 0.2rem;
+    inline-size: 7px;
+    block-size: 7px;
+    border-radius: 50%;
+    background: var(--ink-strong);
+  }
+  .moment[data-kind='price']::after {
+    background: var(--tally);
+  }
+  .moment__text {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    margin-inline-start: 5px;
+    padding-inline: 0.35rem 0.25rem;
+    background: var(--bg);
+    inline-size: fit-content;
+    max-inline-size: 100%;
+  }
+  .moment__date {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .moment__label {
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.25;
+    color: var(--ink-strong);
+  }
+
+  .scale__now {
+    grid-column: var(--d);
+    grid-row: moments / dates;
+    justify-self: center;
+    position: relative;
+    inline-size: 2px;
+    background: var(--accent);
+    pointer-events: none;
+  }
+  .scale__now-label {
+    position: absolute;
+    inset-block-end: 100%;
+    inset-inline-start: 50%;
+    translate: -50% -0.25rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--step--2);
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  /* ---- Then, by month ---------------------------------------------- */
+  .then {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+    gap: var(--space-l);
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .then__note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-width: 30ch;
+  }
+  .then__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-l);
+  }
+  .then__item {
+    display: grid;
+    gap: 0.2rem;
+    align-content: start;
+  }
+  .then__when {
+    color: var(--accent-text);
+    font-size: var(--step--2);
+  }
+  .then__label {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    font-size: var(--step-1);
+  }
+  .then__detail {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  /* ---- Narrow: the scale turns vertical, one row per day ------------ */
+  @media (max-width: 48rem) {
+    .scale__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .scale__head h2 {
+      grid-row: auto;
+    }
+    .scale__ruler {
+      grid-template-columns: [dates] 3.4rem [ticks] 1.1rem [band] 0.55rem [phases] minmax(
+          0,
+          8.5rem
+        ) [moments] minmax(0, 1fr);
+      grid-template-rows: repeat(var(--days), minmax(0.42rem, auto));
+      column-gap: 0;
+    }
+    .scale__ticks,
+    .scale__dates,
+    .scale__moments {
+      grid-row: 1 / -1;
+      grid-template-columns: none;
+      grid-template-rows: subgrid;
+    }
+    .scale__ticks {
+      grid-column: ticks;
+      align-items: stretch;
+      justify-items: end;
+    }
+    .tick {
+      grid-row: var(--d);
+      grid-column: 1;
+      align-self: center;
+      inline-size: 0.35rem;
+      block-size: 1px;
+    }
+    .tick--week {
+      inline-size: 0.7rem;
+      block-size: 1px;
+    }
+    .tick--month {
+      inline-size: 1.1rem;
+      block-size: 2px;
+    }
+    .scale__dates {
+      grid-column: dates;
+    }
+    .scale__date {
+      grid-row: var(--d);
+      grid-column: 1;
+      justify-self: start;
+      inline-size: auto;
+      padding-inline-start: 0;
+      align-self: center;
+      line-height: 1;
+    }
+    .scale__phases {
+      grid-row: 1 / -1;
+      grid-column: band / moments;
+      grid-template-rows: subgrid;
+      grid-template-columns: subgrid;
+    }
+    .seg {
+      grid-row: var(--from) / var(--to);
+      grid-column: 1 / -1;
+      grid-template-rows: none;
+      grid-template-columns: subgrid;
+    }
+    .seg__band {
+      grid-row: 1;
+      grid-column: 1;
+      margin-inline-end: 0;
+      margin-block-end: 2px;
+    }
+    .seg[data-open] .seg__band {
+      border-radius: var(--r-xs) var(--r-xs) 0 0;
+      mask-image: linear-gradient(to bottom, black 70%, transparent);
+    }
+    .seg__text,
+    .seg[data-lane='1'] .seg__text {
+      grid-row: 1;
+      grid-column: 2;
+      padding: 0 0.5rem 0.75rem 0.6rem;
+      white-space: normal;
+    }
+    .seg__name {
+      font-size: var(--step--1);
+    }
+    .seg__dates {
+      white-space: nowrap;
+    }
+    .seg__name::after {
+      content: none;
+    }
+    .scale__moments {
+      grid-column: moments;
+      padding: 0;
+      overflow: visible;
+    }
+    .moment {
+      grid-row: var(--d);
+      grid-column: 1;
+      padding-block: 0.15rem 0.35rem;
+    }
+    .moment::before {
+      inset-block-start: 0.55rem;
+      inset-inline-start: -0.5rem;
+      inline-size: 0.5rem;
+      block-size: 1px;
+    }
+    .moment::after {
+      inset-block-start: calc(0.55rem - 3px);
+      inset-inline-start: -3px;
+    }
+    .moment__text {
+      padding-inline: 0.5rem 0;
+    }
+    .scale__now {
+      grid-row: var(--d);
+      grid-column: dates / phases;
+      justify-self: stretch;
+      align-self: center;
+      inline-size: auto;
+      block-size: 2px;
+    }
+    .scale__now-label {
+      inset-block-end: auto;
+      inset-block-start: 50%;
+      inset-inline-start: 0;
+      translate: 0 -50%;
+    }
+    .then {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .then__list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

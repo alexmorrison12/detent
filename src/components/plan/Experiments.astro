@@ -1,0 +1,182 @@
+---
+/**
+ * The A/B backlog, in run order, with the sample each test needs to see its
+ * lift (two-sided, α 0.05, 80% power). Rows for the previewed phase light up.
+ */
+import { PHASES } from '@/config/launch';
+import {
+  EXPERIMENTS,
+  EXPERIMENT_RULES,
+  fmtInt,
+  fmtPct,
+  numberWord,
+  sampleSizePerArm,
+} from '@/data/launch-plan';
+
+const rows = EXPERIMENTS.map((e) => ({
+  ...e,
+  n: sampleSizePerArm(e.baseline, e.lift),
+  target: e.baseline * (1 + e.lift),
+}));
+const pct = (r: number) => fmtPct(r, r < 0.1 ? 1 : 0);
+---
+
+<section class="exp" id="experiments" aria-labelledby="exp-title">
+  <div class="container">
+    <header class="exp__head">
+      <h2 id="exp-title" class="display display--m">
+        {numberWord(EXPERIMENTS.length)} tests, in the order we run them.
+      </h2>
+      <ul class="exp__rules" role="list">
+        {EXPERIMENT_RULES.map((r) => (
+          <li>{r}</li>
+        ))}
+      </ul>
+    </header>
+
+    <div data-tunable>
+      <ol class="exp__list" role="list">
+        {rows.map((e) => (
+          <li class="test" data-plan-phase={e.phase} data-tune-row>
+            <p class="test__id readout">{e.id}</p>
+            <h3 class="test__name">{e.name}</h3>
+            <p class="test__hyp">{e.hypothesis}</p>
+            <dl class="test__facts">
+              <div>
+                <dt>Measure</dt>
+                <dd>{e.metric}</dd>
+              </div>
+              <div>
+                <dt>From → to</dt>
+                <dd class="tabular">
+                  {pct(e.baseline)} → {pct(e.target)}
+                </dd>
+              </div>
+              <div>
+                <dt>Needs</dt>
+                <dd class="tabular">{fmtInt(e.n)} per arm</dd>
+              </div>
+              <div>
+                <dt>Where</dt>
+                <dd>
+                  {e.where} <span class="test__phase">({PHASES[e.phase].name})</span>
+                </dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ol>
+      <button
+        class="btn btn--sm exp__toggle"
+        type="button"
+        data-tune-toggle
+        aria-expanded="false"
+        hidden
+      >
+        Show all {EXPERIMENTS.length} tests
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { initTunables } from './preview';
+  initTunables();
+</script>
+
+<style>
+  .exp {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+  }
+  .exp__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-l) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-xl);
+  }
+  .exp__rules {
+    display: grid;
+    gap: 0.4rem;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .exp__rules li:first-child {
+    color: var(--ink-strong);
+    font-weight: 650;
+  }
+  .exp__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(2rem, 1rem + 3vw, 4rem);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .test {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    column-gap: var(--space-s);
+    padding: var(--space-m) var(--space-s) var(--space-m) 0;
+    border-block-end: 1px solid var(--line);
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 5%), transparent);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .test__id {
+    grid-row: 1 / -1;
+    font-size: var(--step--1);
+    color: color-mix(in oklch, var(--tally-deep) calc(var(--air, 0) * 100%), var(--ink-muted));
+    padding-block-start: 0.2rem;
+    padding-inline-start: var(--space-2xs);
+  }
+  .test__name {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.2;
+  }
+  .test__hyp {
+    font-size: var(--step--1);
+    color: var(--ink);
+    margin-block: 0.35rem 0.6rem;
+    max-width: 62ch;
+  }
+  .test__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1.25rem;
+    align-self: end;
+    font-size: var(--step--2);
+  }
+  .test__facts div {
+    display: flex;
+    gap: 0.4em;
+  }
+  .test__facts dt {
+    color: var(--ink-muted);
+  }
+  .test__facts dd {
+    color: var(--ink-strong);
+    font-weight: 600;
+  }
+  .test__phase {
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .exp__toggle {
+    margin-block-start: var(--space-m);
+  }
+
+  @media (max-width: 56rem) {
+    .exp__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .exp__list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .test {
+      transition: none;
+    }
+  }
+</style>

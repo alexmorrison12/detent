@@ -1,0 +1,302 @@
+---
+/**
+ * The operational switch between phases: flip times, the exact commands,
+ * and how ?phase= previews work. Code blocks get a copy button when the
+ * Clipboard API exists.
+ */
+import { BUILD_PHASE, PHASES, PHASE_ORDER } from '@/config/launch';
+import {
+  PHASE_PLANS,
+  PREVIEW_NOTES,
+  RUNBOOK,
+  fmtDay,
+  fmtPacific,
+  fmtUtc,
+} from '@/data/launch-plan';
+---
+
+<section class="run" id="runbook" aria-labelledby="run-title">
+  <div class="container run__grid">
+    <div class="run__side">
+      <header class="run__head">
+        <h2 id="run-title" class="display display--m">
+          Flipping a phase.
+        </h2>
+        <p class="run__lede">
+          One repository variable, <code>PUBLIC_LAUNCH_PHASE</code>, and one redeploy. Two people do
+          it together, at the times below. We don’t automate flips: each one is also an
+          announcement, and announcements go out after we have checked.
+        </p>
+        <p class="run__build">
+          This build: <strong>{PHASES[BUILD_PHASE].name}</strong> <code>{BUILD_PHASE}</code>
+        </p>
+      </header>
+
+      <table class="flips" role="table">
+        <caption class="visually-hidden">Flip times</caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col" role="columnheader">
+              Set the variable to
+            </th>
+            <th scope="col" role="columnheader">
+              On
+            </th>
+            <th scope="col" role="columnheader">
+              Pacific
+            </th>
+            <th scope="col" role="columnheader">
+              UTC
+            </th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {PHASE_ORDER.map((id) => (
+            <tr role="row" data-plan-phase={id}>
+              <th scope="row" role="rowheader">
+                <code>{id}</code>
+                <span class="flips__name">{PHASES[id].name}</span>
+              </th>
+              <td role="cell">{fmtDay(PHASES[id].starts)}</td>
+              <td role="cell" class="tabular">
+                {fmtPacific(PHASE_PLANS[id].flipAt)}
+              </td>
+              <td role="cell" class="tabular">
+                {fmtUtc(PHASE_PLANS[id].flipAt)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <aside class="preview" aria-labelledby="preview-title">
+        <h3 id="preview-title" class="preview__title">
+          Previewing without deploying
+        </h3>
+        <ul class="preview__list" role="list">
+          {PREVIEW_NOTES.map((n) => (
+            <li>{n}</li>
+          ))}
+        </ul>
+      </aside>
+    </div>
+
+    <ol class="steps" role="list">
+      {RUNBOOK.map((s, i) => (
+        <li class="step">
+          <span class="step__n readout" aria-hidden="true">
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <div class="step__body">
+            <h3 class="step__title">{s.step}</h3>
+            <p class="step__detail">{s.detail}</p>
+            {s.code && (
+              <div class="code">
+                <pre tabindex="0" aria-label={`Command: ${s.step}`}><code>{s.code}</code></pre>
+                <button class="code__copy btn btn--sm btn--quiet" type="button" data-copy hidden>
+                  <span data-copy-label>Copy</span>
+                  <span class="visually-hidden"> command: {s.step}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  </div>
+  <p class="visually-hidden" role="status" data-copy-status></p>
+</section>
+
+<script>
+  if (navigator.clipboard) {
+    const status = document.querySelector<HTMLElement>('[data-copy-status]');
+    document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+      const label = btn.querySelector<HTMLElement>('[data-copy-label]');
+      btn.hidden = false;
+      btn.addEventListener('click', async () => {
+        const code = btn.parentElement?.querySelector('code')?.textContent ?? '';
+        let msg = 'Copied';
+        try {
+          await navigator.clipboard.writeText(code);
+        } catch {
+          msg = 'Select and copy';
+        }
+        if (label) label.textContent = msg;
+        if (status) status.textContent = msg === 'Copied' ? 'Command copied to the clipboard.' : '';
+        setTimeout(() => label && (label.textContent = 'Copy'), 1600);
+      });
+    });
+  }
+</script>
+
+<style>
+  .run {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    background: var(--bg-raised);
+  }
+  .run__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--space-xl) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: start;
+  }
+  .run__side {
+    display: grid;
+    gap: var(--space-xl);
+    position: sticky;
+    inset-block-start: calc(var(--header-h) + 4rem);
+  }
+  .run__head {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .run__lede {
+    color: var(--ink);
+    max-width: 48ch;
+  }
+  .run__build {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .run code {
+    font-size: 0.88em;
+  }
+
+  .flips {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+  }
+  .flips th,
+  .flips td {
+    text-align: start;
+    padding: 0.6rem 0.75rem 0.6rem 0;
+    border-block-end: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .flips thead th {
+    font-weight: 620;
+    color: var(--ink-muted);
+    border-block-end-color: var(--line-strong);
+    white-space: normal;
+  }
+  .flips tbody th {
+    font-weight: 400;
+  }
+  .flips tbody th code {
+    color: color-mix(in oklch, var(--tally-deep) calc(var(--air, 0) * 100%), var(--ink-strong));
+    font-weight: 600;
+  }
+  .flips__name {
+    color: var(--ink-muted);
+    margin-inline-start: 0.4em;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    gap: var(--space-s);
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+  }
+  .step__n {
+    font-size: var(--step-1);
+    color: var(--accent-text);
+    line-height: 1.2;
+  }
+  .step__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2xs);
+    min-inline-size: 0;
+  }
+  .step__title {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.2;
+  }
+  .step__detail {
+    font-size: var(--step--1);
+    color: var(--ink);
+    max-width: 60ch;
+  }
+  .code {
+    display: flex;
+    align-items: flex-start;
+    min-inline-size: 0;
+    margin-block-start: var(--space-2xs);
+    border-radius: var(--r-m);
+    background: var(--graphite-900);
+    color: var(--alu-100);
+  }
+  .code pre {
+    flex: 1;
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+    font-size: var(--step--1);
+    line-height: 1.5;
+  }
+  .code pre:focus-visible {
+    outline-offset: -3px;
+  }
+  .code pre code {
+    font-size: 0.86em;
+    white-space: pre;
+  }
+  .code__copy {
+    flex: none;
+    margin: 0.3rem 0.3rem 0 0;
+    --btn-ink: var(--alu-200);
+    min-block-size: 2.25rem;
+  }
+  .code__copy:hover {
+    --btn-ink: var(--white);
+  }
+
+  .preview {
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-m);
+    border-radius: var(--r-l);
+    border: 1px solid var(--line-strong);
+  }
+  .preview__title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .preview__list {
+    display: grid;
+    gap: 0.5rem;
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+
+  @media (max-width: 60rem) {
+    .run__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .run__side {
+      position: static;
+    }
+  }
+  @media (max-width: 30rem) {
+    .flips th,
+    .flips td {
+      padding-inline-end: 0.5rem;
+    }
+    .flips__name {
+      display: block;
+      margin-inline-start: 0;
+    }
+  }
+</style>

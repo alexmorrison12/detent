@@ -1,0 +1,474 @@
+---
+/**
+ * Where the plan spends attention and money: the platform decisions, creator
+ * seeding, the Discord, message-matched paid social, and the budget split.
+ */
+import {
+  BUDGET,
+  COMMUNITY,
+  CREATORS,
+  DECISIONS,
+  MODEL,
+  PAID,
+  PAID_RULES,
+  fmtDot,
+  fmtInt,
+  fmtPct,
+  planOutcome,
+} from '@/data/launch-plan';
+import { formatUsd } from '@/data/product';
+import { url } from '@/lib/url';
+
+const budget = [...BUDGET].sort((a, b) => b.usd - a.usd);
+const maxBudget = Math.max(...budget.map((b) => b.usd));
+const outcome = planOutcome();
+---
+
+<section class="ch" id="channels" aria-labelledby="ch-title">
+  <div class="container">
+    <header class="ch__head">
+      <h2 id="ch-title" class="display display--m">
+        Where we show up, and where we don’t.
+      </h2>
+    </header>
+
+    <ul class="verdicts" role="list">
+      {DECISIONS.map((d) => (
+        <li class="verdict" data-verdict={d.verdict === 'No.' ? 'no' : 'yes'}>
+          <h3 class="verdict__platform">{d.platform}</h3>
+          <p class="verdict__word">{d.verdict}</p>
+          <p class="verdict__when readout">
+            {d.when ? fmtDot(d.when) : 'Not this launch, not later'}
+          </p>
+          <p class="verdict__why">{d.why}</p>
+        </li>
+      ))}
+    </ul>
+
+    <div class="ch__pair">
+      <div class="block">
+        <h3 class="block__title">Creators</h3>
+        <p class="block__lede">
+          <strong>{CREATORS.total} creators</strong>, {CREATORS.perAudience} per audience:{' '}
+          {CREATORS.tiers}.{CREATORS.paid}
+        </p>
+        <ul class="block__list" role="list">
+          {CREATORS.rules.map((r) => (
+            <li>{r}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3 class="block__title">Community</h3>
+        <p class="block__lede">
+          A Discord that opens on <strong>{fmtDot(COMMUNITY.opens)}</strong> with {COMMUNITY.seeded}{' '}
+          people already inside. Onboarding asks one question, “{COMMUNITY.question}”, and the
+          answer sets the role:
+        </p>
+        <ul class="chips" role="list" aria-label="Roles">
+          {COMMUNITY.roles.map((r) => (
+            <li>{r}</li>
+          ))}
+        </ul>
+        <p class="block__channels">
+          {COMMUNITY.channels.map((c, i) => (
+            <>
+              <code>{c}</code>
+              {i < COMMUNITY.channels.length - 1 ? ' ' : ''}
+            </>
+          ))}
+        </p>
+        <ul class="block__list" role="list">
+          {[...COMMUNITY.rituals, ...COMMUNITY.rules].map((r) => (
+            <li>{r}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    <div class="paid">
+      <div class="paid__intro">
+        <h3 class="block__title">Paid social, message-matched</h3>
+        <p class="block__lede">
+          Each audience sees its own page’s headline, word for word, and lands on that page. The
+          headlines come from the same data the pages render.
+        </p>
+        <ul class="block__list" role="list">
+          {PAID_RULES.map((r) => (
+            <li>{r}</li>
+          ))}
+        </ul>
+      </div>
+      <div class="paid__table-wrap">
+        <table class="paid__table">
+          <caption class="visually-hidden">Paid social by audience</caption>
+          <thead>
+            <tr>
+              <th scope="col">Audience</th>
+              <th scope="col">Ad headline = page headline</th>
+              <th scope="col">Hook</th>
+              <th scope="col">Where</th>
+              <th scope="col" class="num">
+                Budget
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {PAID.map((p) => (
+              <tr>
+                <th scope="row">
+                  <a href={url(p.landing)}>{p.label}</a>
+                  <span class="paid__route readout">{p.landing}</span>
+                </th>
+                <td class="paid__headline" data-label="Headline">
+                  “{p.headline}”
+                </td>
+                <td data-label="Hook">{p.hook}</td>
+                <td data-label="Where">{p.platforms}</td>
+                <td class="num" data-label="Budget">
+                  {formatUsd(p.budgetUsd)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <figure class="budget">
+      <figcaption class="budget__cap">
+        <h3 class="block__title">{formatUsd(MODEL.budgetUsd)}, and where it goes</h3>
+        <p class="block__lede">
+          At plan that is <strong>{formatUsd(Math.round(outcome.costPerOrder))} per order</strong>{' '}
+          across
+          {fmtInt(outcome.orders)} orders. Creators get the biggest line because they are the
+          channel that can show the feel.
+        </p>
+      </figcaption>
+      <ol class="bars" role="list">
+        {budget.map((b) => (
+          <li class="bar">
+            <span class="bar__label">
+              <span class="bar__item">{b.item}</span>
+              <span class="bar__note">{b.note}</span>
+            </span>
+            <span class="bar__track" aria-hidden="true">
+              <span class="bar__fill" style={`--w:${((b.usd / maxBudget) * 100).toFixed(2)}%`} />
+            </span>
+            <span class="bar__value">
+              {formatUsd(b.usd)} <span class="bar__pct">{fmtPct(b.usd / MODEL.budgetUsd)}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .ch {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    border-block-start: 1px solid var(--line);
+  }
+  .ch__head {
+    margin-block-end: var(--space-xl);
+  }
+
+  /* ---- Verdicts ------------------------------------------------------- */
+  .verdicts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border-block: 1px solid var(--line-strong);
+  }
+  .verdict {
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    gap: var(--space-2xs);
+    padding: var(--space-l) var(--space-l) var(--space-l) 0;
+  }
+  .verdict + .verdict {
+    padding-inline-start: var(--space-l);
+    border-inline-start: 1px solid var(--line);
+  }
+  .verdict__platform {
+    font-size: var(--step-0);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .verdict__word {
+    font-size: var(--step-6);
+    font-weight: 800;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 0.9;
+    color: var(--ink-strong);
+  }
+  .verdict[data-verdict='no'] .verdict__word {
+    color: var(--accent-text);
+  }
+  .verdict__when {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .verdict__why {
+    font-size: var(--step--1);
+    color: var(--ink);
+    margin-block-start: var(--space-xs);
+    max-width: 44ch;
+  }
+
+  /* ---- Creators + community ------------------------------------------ */
+  .ch__pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-xl) clamp(2rem, 1rem + 4vw, 6rem);
+    margin-block-start: var(--space-2xl);
+  }
+  .block {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .block__title {
+    font-size: var(--step-2);
+    font-weight: 760;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.1;
+  }
+  .block__lede {
+    color: var(--ink);
+    max-width: 58ch;
+  }
+  .block__list {
+    display: grid;
+    gap: 0.45rem;
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .block__list li {
+    display: grid;
+    grid-template-columns: 1rem minmax(0, 1fr);
+  }
+  .block__list li::before {
+    content: '';
+    inline-size: 0.4rem;
+    block-size: 1px;
+    margin-block-start: 0.8em;
+    background: var(--ink-muted);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chips li {
+    padding: 0.3em 0.8em;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+  }
+  .block__channels {
+    font-size: var(--step--1);
+    line-height: 2;
+  }
+  .block__channels code {
+    padding: 0.2em 0.5em;
+    border-radius: var(--r-s);
+    background: var(--surface);
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+
+  /* ---- Paid ------------------------------------------------------------ */
+  .paid {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-xl) clamp(2rem, 1rem + 4vw, 5rem);
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-2xl);
+    border-block-start: 1px solid var(--line);
+  }
+  .paid__intro {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .paid__table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+  }
+  .paid__table th,
+  .paid__table td {
+    text-align: start;
+    vertical-align: top;
+    padding: 0.8rem 0.9rem 0.8rem 0;
+    border-block-end: 1px solid var(--line);
+  }
+  .paid__table thead th {
+    font-weight: 620;
+    color: var(--ink-muted);
+    border-block-end-color: var(--line-strong);
+  }
+  .paid__table tbody th {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .paid__table tbody th a {
+    color: var(--ink-strong);
+    display: block;
+  }
+  .paid__route {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .paid__headline {
+    font-weight: 650;
+    color: var(--ink-strong);
+  }
+  .num {
+    text-align: end !important;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding-inline-end: 0 !important;
+  }
+
+  /* ---- Budget ---------------------------------------------------------- */
+  .budget {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-xl) clamp(2rem, 1rem + 4vw, 5rem);
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-2xl);
+    border-block-start: 1px solid var(--line);
+  }
+  .budget__cap {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .bars {
+    display: grid;
+    gap: 0.9rem;
+  }
+  .bar {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(7.5rem, auto);
+    gap: var(--space-s);
+    align-items: center;
+  }
+  .bar__label {
+    display: grid;
+  }
+  .bar__item {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    font-size: var(--step--1);
+  }
+  .bar__note {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .bar__track {
+    display: block;
+    block-size: 0.75rem;
+  }
+  .bar__fill {
+    display: block;
+    block-size: 100%;
+    inline-size: var(--w);
+    border-radius: 0 4px 4px 0;
+    background: var(--ink-strong);
+  }
+  .bar__value {
+    text-align: end;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-strong);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+  .bar__pct {
+    font-weight: 400;
+    color: var(--ink-muted);
+    display: inline-block;
+    min-inline-size: 2.6em;
+  }
+
+  @media (max-width: 64rem) {
+    .paid,
+    .budget {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 56rem) {
+    .verdicts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .verdict,
+    .verdict + .verdict {
+      padding-inline: 0;
+      border-inline-start: 0;
+    }
+    .verdict + .verdict {
+      border-block-start: 1px solid var(--line);
+    }
+    .ch__pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 40rem) {
+    .paid__table thead {
+      display: none;
+    }
+    .paid__table,
+    .paid__table tbody,
+    .paid__table tr {
+      display: grid;
+    }
+    .paid__table tr {
+      gap: 0.3rem;
+      padding-block: var(--space-s);
+      border-block-end: 1px solid var(--line);
+    }
+    .paid__table th,
+    .paid__table td {
+      display: grid;
+      grid-template-columns: 5rem minmax(0, 1fr);
+      gap: var(--space-s);
+      padding: 0;
+      border: 0;
+    }
+    .paid__table tbody th {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .paid__table td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--ink-muted);
+      font-size: var(--step--2);
+      padding-block-start: 0.2em;
+    }
+    .num {
+      text-align: start !important;
+    }
+    .bars {
+      gap: 1.4rem;
+    }
+    .bar {
+      grid-template-columns: minmax(0, 1fr) auto;
+      row-gap: 0.45rem;
+    }
+    .bar__track {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+</style>

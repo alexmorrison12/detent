@@ -1,0 +1,537 @@
+---
+/**
+ * The funnel as an honest diagram: every stage on ONE 0–100% axis (so a 7%
+ * stage looks like 7%), the published benchmark range as a band, our target
+ * as a bar and the alarm as a tick. Numbers are always printed beside the
+ * marks; nothing is readable only by hover or by color.
+ *
+ * Below it, a calculator runs the waitlist chain for any number of visits.
+ */
+import { PHASES } from '@/config/launch';
+import { BATCHES, FUNNEL, MODEL, cohort, fmtInt, fmtPct } from '@/data/launch-plan';
+
+const pct = (r: number) => `${(r * 100).toFixed(2)}%`;
+const axis = [0, 0.25, 0.5, 0.75, 1];
+const c = cohort();
+const batch = BATCHES[0];
+const fill = c.depositsFromList / batch.units;
+const gap = Math.max(0, batch.units - c.depositsFromList);
+
+const rows = [
+  { key: 'visits', label: 'Visits before reservations open', value: c.visits, sign: '' },
+  { key: 'signups', label: `Emails at ${fmtPct(MODEL.signupRate)}`, value: c.signups, sign: '' },
+  {
+    key: 'referred',
+    label: `Friends they bring (k ${MODEL.kFactor})`,
+    value: c.referred,
+    sign: '+',
+  },
+  { key: 'list', label: 'On the list', value: c.list, sign: '' },
+  {
+    key: 'confirmed',
+    label: `Confirmed at ${fmtPct(MODEL.confirmRate)}`,
+    value: c.confirmed,
+    sign: '',
+  },
+  {
+    key: 'depositsFromList',
+    label: `Deposits in 14 days at ${fmtPct(MODEL.waitlistToDeposit)}`,
+    value: c.depositsFromList,
+    sign: '',
+  },
+  {
+    key: 'ordersFromList',
+    label: `Orders when the batch ships at ${fmtPct(MODEL.depositToOrder)}`,
+    value: c.depositsFromList * MODEL.depositToOrder,
+    sign: '',
+  },
+];
+---
+
+<section class="funnel" id="funnel" aria-labelledby="funnel-title">
+  <div class="container">
+    <header class="funnel__head">
+      <h2 id="funnel-title" class="display display--m">
+        The numbers we’ll be judged on.
+      </h2>
+      <p class="funnel__lede">
+        Targets start from published benchmarks and lean on the one edge we have: people who turn
+        the dial. Every stage has an alarm. Below it, we stop spending and fix the page first.
+      </p>
+    </header>
+
+    <div class="ladder" role="group" aria-labelledby="funnel-title">
+      <div class="ladder__key" aria-hidden="true">
+        <span>
+          <i class="key key--band"></i>Published benchmark range
+        </span>
+        <span>
+          <i class="key key--bar"></i>Our target
+        </span>
+        <span>
+          <i class="key key--alarm"></i>Alarm
+        </span>
+        <span class="ladder__key-note">All stages share one 0–100% axis.</span>
+      </div>
+
+      <div class="ladder__axis" aria-hidden="true">
+        {axis.map((a) => (
+          <span style={`--x:${pct(a)}`} data-edge={a === 0 ? 'start' : a === 1 ? 'end' : undefined}>
+            {fmtPct(a)}
+          </span>
+        ))}
+      </div>
+
+      <ol class="ladder__rows" role="list">
+        {FUNNEL.map((s) => (
+          <li class="stage" data-plan-phase={s.phase}>
+            <div class="stage__name">
+              <h3>{s.label}</h3>
+              <p class="stage__events readout">{s.events}</p>
+            </div>
+            <div class="stage__track" aria-hidden="true">
+              {axis.map((a) => (
+                <span class="stage__grid" style={`--x:${pct(a)}`} />
+              ))}
+              {s.benchmark && (
+                <span
+                  class="stage__band"
+                  style={`--from:${pct(s.benchmark[0])};--to:${pct(s.benchmark[1])}`}
+                />
+              )}
+              <span class="stage__bar" style={`--x:${pct(s.target)}`} />
+              <span class="stage__alarm" style={`--x:${pct(s.alarm)}`} />
+            </div>
+            <div class="stage__nums">
+              <p class="stage__target">
+                <span class="visually-hidden">Target </span>
+                {fmtPct(s.target, s.target < 0.1 ? 1 : 0)}
+              </p>
+              <p class="stage__alarm-text">alarm under {fmtPct(s.alarm, s.alarm < 0.1 ? 1 : 0)}</p>
+            </div>
+            <p class="stage__bench">
+              {s.benchmarkNote.replace(/\.$/, '')}. <span class="stage__why">{s.why}</span>
+            </p>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <form class="calc" data-calc aria-labelledby="calc-title">
+      <div class="calc__intro">
+        <h3 id="calc-title" class="calc__title">
+          Run the chain.
+        </h3>
+        <p class="calc__text">
+          Pick how many people visit before reservations open on{' '}
+          {PHASES.reserve.starts.slice(5).replace('-', '.')}. The same rates as above do the rest.
+        </p>
+        <div class="field calc__field">
+          <label for="calc-visits">Visits</label>
+          <input
+            id="calc-visits"
+            class="calc__range"
+            type="range"
+            min="50000"
+            max="500000"
+            step="10000"
+            value={MODEL.visits}
+            data-calc-visits
+          />
+          <output for="calc-visits" class="calc__visits readout" data-out="visits">
+            {fmtInt(MODEL.visits)}
+          </output>
+        </div>
+      </div>
+
+      <dl class="calc__chain">
+        {rows.map((r) => (
+          <div class="calc__row" data-row={r.key}>
+            <dt>{r.label}</dt>
+            <dd class="readout">
+              <output data-out={r.key}>{`${r.sign}${fmtInt(r.value)}`}</output>
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div class="calc__batch">
+        <div class="meter" aria-hidden="true">
+          <span class="meter__fill" data-meter style={`--fill:${Math.min(1, fill)}`}></span>
+        </div>
+        <p class="calc__verdict" data-verdict aria-live="polite">
+          {gap > 0
+            ? `The list fills ${fmtPct(fill)} of Batch 1 (${fmtInt(batch.units)} units). The other ${fmtInt(gap)} deposits need about ${fmtInt(gap / MODEL.reservePageRate)} new visitors to /l/reserve/ at ${fmtPct(MODEL.reservePageRate)}.`
+            : `The list alone fills Batch 1 (${fmtInt(batch.units)} units). Open Batch 2 on launch day.`}
+        </p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  import { BATCHES, MODEL, cohort } from '@/data/launch-plan';
+
+  const form = document.querySelector<HTMLFormElement>('[data-calc]');
+  const input = form?.querySelector<HTMLInputElement>('[data-calc-visits]');
+  if (form && input) {
+    const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
+    const pct = (r: number) => `${Math.round(r * 100)}%`;
+    const out = (k: string) => form.querySelector<HTMLOutputElement>(`[data-out="${k}"]`);
+    const verdict = form.querySelector<HTMLElement>('[data-verdict]');
+    const meter = form.querySelector<HTMLElement>('[data-meter]');
+    const batch = BATCHES[0];
+    let pending = 0;
+
+    const render = () => {
+      pending = 0;
+      const c = cohort(Number(input.value));
+      const values: Record<string, string> = {
+        visits: fmt(c.visits),
+        signups: fmt(c.signups),
+        referred: `+${fmt(c.referred)}`,
+        list: fmt(c.list),
+        confirmed: fmt(c.confirmed),
+        depositsFromList: fmt(c.depositsFromList),
+        ordersFromList: fmt(c.depositsFromList * MODEL.depositToOrder),
+      };
+      for (const [k, v] of Object.entries(values)) {
+        const o = out(k);
+        if (o) o.value = v;
+      }
+      const fill = c.depositsFromList / batch.units;
+      const gap = Math.max(0, batch.units - c.depositsFromList);
+      meter?.style.setProperty('--fill', String(Math.min(1, fill)));
+      if (verdict) {
+        verdict.textContent =
+          gap > 0
+            ? `The list fills ${pct(fill)} of Batch 1 (${fmt(batch.units)} units). The other ${fmt(gap)} deposits need about ${fmt(gap / MODEL.reservePageRate)} new visitors to /l/reserve/ at ${pct(MODEL.reservePageRate)}.`
+            : `The list alone fills Batch 1 (${fmt(batch.units)} units), with ${fmt(-(batch.units - c.depositsFromList))} deposits to spare. Open Batch 2 on launch day.`;
+      }
+    };
+    input.addEventListener('input', () => {
+      if (!pending) pending = requestAnimationFrame(render);
+    });
+  }
+</script>
+
+<style>
+  .funnel {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    background: var(--bg-raised);
+  }
+  .funnel__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-s) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-xl);
+  }
+  .funnel__lede {
+    color: var(--ink-muted);
+    max-width: 46ch;
+  }
+
+  /* ---- Ladder --------------------------------------------------------- */
+  .ladder {
+    --name-w: minmax(0, 3.2fr);
+    --track-w: minmax(0, 6fr);
+    --nums-w: minmax(0, 1.4fr);
+  }
+  .ladder__key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-block-end: var(--space-m);
+  }
+  .ladder__key span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+  .ladder__key-note {
+    margin-inline-start: auto;
+  }
+  .key {
+    display: inline-block;
+  }
+  .key--band {
+    inline-size: 1.6rem;
+    block-size: 0.9rem;
+    border-radius: var(--r-xs);
+    background: var(--alu-200);
+  }
+  .key--bar {
+    inline-size: 1.6rem;
+    block-size: 0.5rem;
+    border-radius: 0 var(--r-xs) var(--r-xs) 0;
+    background: var(--ink-strong);
+  }
+  .key--alarm {
+    inline-size: 2px;
+    block-size: 1rem;
+    background: var(--tally-deep);
+  }
+
+  .ladder__axis,
+  .stage {
+    display: grid;
+    grid-template-columns: var(--name-w) var(--track-w) var(--nums-w);
+    column-gap: var(--space-l);
+  }
+  .ladder__axis {
+    position: relative;
+    block-size: 1.5rem;
+  }
+  .ladder__axis span {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+    margin-inline-start: var(--x);
+    translate: -50% 0;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .ladder__axis span[data-edge='start'] {
+    translate: 0 0;
+  }
+  .ladder__axis span[data-edge='end'] {
+    justify-self: end;
+    margin-inline-start: 0;
+    translate: 0 0;
+  }
+
+  .ladder__rows {
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .stage {
+    grid-template-rows: auto auto;
+    row-gap: 0.35rem;
+    align-items: center;
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .stage:hover {
+    background: color-mix(in oklch, var(--bg) 60%, transparent);
+  }
+  .stage__name h3 {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.3;
+  }
+  .stage__events {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .stage__track {
+    position: relative;
+    block-size: 1.6rem;
+  }
+  .stage__grid {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: var(--x);
+    inline-size: 1px;
+    background: var(--line);
+  }
+  .stage__band {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: var(--from);
+    inline-size: calc(var(--to) - var(--from));
+    border-radius: var(--r-xs);
+    background: var(--alu-200);
+  }
+  .stage__bar {
+    position: absolute;
+    inset-block: calc(50% - 5px);
+    inset-inline-start: 0;
+    inline-size: var(--x);
+    border-radius: 0 4px 4px 0;
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 100%), var(--ink-strong));
+    transition: background-color var(--dur-3) var(--ease-out);
+  }
+  .stage__alarm {
+    position: absolute;
+    inset-block: -0.2rem;
+    inset-inline-start: var(--x);
+    inline-size: 2px;
+    translate: -1px 0;
+    background: var(--tally-deep);
+  }
+  .stage__nums {
+    display: grid;
+    justify-items: end;
+    text-align: end;
+  }
+  .stage__target {
+    font-size: var(--step-2);
+    font-weight: 760;
+    font-stretch: var(--stretch-ui);
+    line-height: 1;
+    color: var(--ink-strong);
+  }
+  .stage__alarm-text {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .stage__bench {
+    grid-column: 2 / -1;
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-width: 80ch;
+  }
+  .stage__why {
+    color: var(--ink);
+  }
+
+  /* ---- Calculator ----------------------------------------------------- */
+  .calc {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 3fr);
+    gap: var(--space-l) clamp(2rem, 1rem + 3vw, 4rem);
+    margin-block-start: var(--space-2xl);
+    padding: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+    border-radius: var(--r-l);
+    background: var(--bg);
+    border: 1px solid var(--line);
+  }
+  .calc__intro {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .calc__title {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .calc__text {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-width: 36ch;
+  }
+  .calc__field {
+    margin-block-start: var(--space-xs);
+  }
+  .calc__range {
+    inline-size: 100%;
+    accent-color: var(--tally);
+    block-size: 44px;
+  }
+  .calc__visits {
+    font-size: var(--step-2);
+    font-weight: 500;
+    color: var(--ink-strong);
+  }
+  .calc__chain {
+    display: grid;
+    align-content: start;
+  }
+  .calc__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+    padding-block: 0.55rem;
+    border-block-end: 1px solid var(--line);
+    font-size: var(--step--1);
+  }
+  .calc__row dt {
+    color: var(--ink-muted);
+  }
+  .calc__row dd {
+    color: var(--ink-strong);
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+  .calc__row[data-row='list'] dt,
+  .calc__row[data-row='depositsFromList'] dt {
+    color: var(--ink-strong);
+    font-weight: 650;
+  }
+  .calc__batch {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .meter {
+    block-size: 0.6rem;
+    border-radius: var(--r-pill);
+    background: var(--alu-200);
+    overflow: hidden;
+  }
+  .meter__fill {
+    display: block;
+    block-size: 100%;
+    inline-size: calc(var(--fill) * 100%);
+    border-radius: inherit;
+    background: var(--ink-strong);
+    transition: inline-size var(--dur-2) var(--ease-out);
+  }
+  .calc__verdict {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+
+  @media (max-width: 64rem) {
+    .calc {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .calc__batch {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (max-width: 48rem) {
+    .funnel__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .ladder__key-note {
+      margin-inline-start: 0;
+    }
+    .ladder__axis {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .stage {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .ladder__axis span {
+      grid-column: 1;
+    }
+    .stage__name {
+      grid-column: 1;
+      grid-row: 1;
+    }
+    .stage__nums {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .stage__track {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      margin-block: 0.4rem;
+    }
+    .stage__bench {
+      grid-column: 1 / -1;
+    }
+    .calc {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stage__bar,
+    .meter__fill,
+    .stage {
+      transition: none;
+    }
+  }
+</style>

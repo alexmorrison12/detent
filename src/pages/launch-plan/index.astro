@@ -1,0 +1,602 @@
+---
+/**
+ * /launch-plan/: the internal launch plan, rendered from src/data/launch-plan.ts.
+ * noindex. Turn the dial at the top to preview the whole site in any phase;
+ * everything on this page that belongs to that phase lights up.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseSwitcher from '@/components/plan/PhaseSwitcher.astro';
+import PhaseTuner from '@/components/plan/PhaseTuner.astro';
+import LaunchScale from '@/components/plan/LaunchScale.astro';
+import PhaseSheet from '@/components/plan/PhaseSheet.astro';
+import FunnelLadder from '@/components/plan/FunnelLadder.astro';
+import Positioning from '@/components/plan/Positioning.astro';
+import PriceScale from '@/components/plan/PriceScale.astro';
+import Channels from '@/components/plan/Channels.astro';
+import PlanCalendar from '@/components/plan/PlanCalendar.astro';
+import Experiments from '@/components/plan/Experiments.astro';
+import Risks from '@/components/plan/Risks.astro';
+import Runbook from '@/components/plan/Runbook.astro';
+import { BUILD_PHASE, LAUNCH, PHASES, PHASE_ORDER } from '@/config/launch';
+import { SITE } from '@/config/site';
+import { ogPath } from '@/config/og';
+import {
+  GOALS,
+  MODEL,
+  NORTH_STAR,
+  PLAN_META,
+  fmtDay,
+  fmtDot,
+  fmtInt,
+  fmtLong,
+  fmtPct,
+  numberWord,
+  planOutcome,
+} from '@/data/launch-plan';
+import { formatUsd } from '@/data/product';
+import { absoluteUrl } from '@/lib/url';
+
+const title = 'Launch plan';
+const description = `How ${SITE.product} launches: five phases from a silhouette on ${fmtDay(PHASES.tease.starts)} to an open store on ${fmtDay(PHASES.live.starts)}, with funnel targets, a week-by-week channel calendar, the experiment backlog and the exact switch that moves the site between phases.`;
+const outcome = planOutcome();
+
+const toc = [
+  ['switch', 'The switch'],
+  ['scale', 'Timeline'],
+  ['goals', 'Goals'],
+  ['phases', 'Phases'],
+  ['funnel', 'Funnel'],
+  ['position', 'Positioning'],
+  ['price', 'Pricing'],
+  ['channels', 'Channels'],
+  ['calendar', 'Calendar'],
+  ['experiments', 'Experiments'],
+  ['risks', 'Risks'],
+  ['runbook', 'Runbook'],
+] as const;
+
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: `${SITE.product} launch plan`,
+    description,
+    url: absoluteUrl('/launch-plan/', Astro.site),
+    dateModified: PLAN_META.revised,
+    about: { '@type': 'Product', name: SITE.product, brand: { '@type': 'Brand', name: SITE.name } },
+    isPartOf: { '@type': 'WebSite', name: SITE.name, url: absoluteUrl('/', Astro.site) },
+    hasPart: [
+      { '@type': 'CreativeWork', name: 'Launch plan (Markdown)', url: PLAN_META.docs.plan },
+      { '@type': 'CreativeWork', name: 'Operations playbook (Markdown)', url: PLAN_META.docs.ops },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: SITE.product, item: absoluteUrl('/', Astro.site) },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: title,
+        item: absoluteUrl('/launch-plan/', Astro.site),
+      },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  world="day"
+  chrome="full"
+  noindex
+  ogImage={ogPath('launch-plan')}
+  ogImageAlt={`The ${SITE.product} launch plan`}
+  jsonLd={jsonLd}
+>
+  <header class="mast">
+    <div class="container mast__grid">
+      <h1 class="display display--xl mast__title">The launch plan.</h1>
+      <p class="mast__lede">
+        {numberWord(PHASE_ORDER.length)} phases, one config value. A silhouette on{' '}
+        {fmtDot(PHASES.tease.starts)}, reservations on {fmtDot(PHASES.reserve.starts)}, orders on{' '}
+        {fmtDot(PHASES.launch.starts)}, an open store on {fmtDot(PHASES.live.starts)}, and Batch 1
+        on desks in {LAUNCH.firstShipBatch}.
+      </p>
+
+      <dl class="plate">
+        <div>
+          <dt>Status</dt>
+          <dd>
+            {PLAN_META.status}, v{PLAN_META.version}
+          </dd>
+        </div>
+        <div>
+          <dt>Revised</dt>
+          <dd>
+            <time datetime={PLAN_META.revised}>{fmtLong(PLAN_META.revised)}</time>
+          </dd>
+        </div>
+        <div>
+          <dt>Owners</dt>
+          <dd>{PLAN_META.owner}</dd>
+        </div>
+        <div>
+          <dt>This build</dt>
+          <dd>{PHASES[BUILD_PHASE].name} phase</dd>
+        </div>
+        <div>
+          <dt>Long form</dt>
+          <dd class="plate__docs">
+            <a href={PLAN_META.docs.plan} rel="noopener">
+              LAUNCH_PLAN.md
+            </a>
+            <a href={PLAN_META.docs.ops} rel="noopener">
+              OPERATIONS.md
+            </a>
+          </dd>
+        </div>
+      </dl>
+
+      <nav class="toc" aria-label="On this page">
+        <ol role="list">
+          {toc.map(([id, label]) => (
+            <li>
+              <a href={`#${id}`}>{label}</a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </div>
+  </header>
+
+  <PhaseSwitcher />
+  <PhaseTuner />
+
+  <LaunchScale />
+
+  <section class="goals" id="goals" aria-labelledby="goals-title">
+    <div class="container goals__grid">
+      <div class="goals__star">
+        <h2 id="goals-title" class="display display--m">
+          One number that means money down.
+        </h2>
+        <p class="goals__name">
+          North star: <strong>{NORTH_STAR.name.toLowerCase()}</strong>. {NORTH_STAR.definition}
+        </p>
+        <p class="goals__why">{NORTH_STAR.why}</p>
+        <ol class="milestones" role="list">
+          {NORTH_STAR.milestones.map((m) => (
+            <li>
+              <span class="milestones__value">{fmtInt(m.value)}</span>
+              <span class="milestones__by">
+                by <time datetime={m.date}>{fmtDay(m.date)}</time>
+              </span>
+              <span class="milestones__note">{m.note}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div class="goals__list-wrap">
+        <h3 class="goals__sub">Five goals</h3>
+        <ul class="goals__list" role="list">
+          {GOALS.map((g) => (
+            <li>
+              <strong>{g.title}.</strong>
+              <span>{g.measure}.</span>
+            </li>
+          ))}
+        </ul>
+        <p class="goals__outcome">
+          At plan: {fmtInt(outcome.orders)} orders by the time Batch 1 balances are charged, about $
+          {(outcome.gross / 1_000_000).toFixed(1)}M gross at a {fmtPct(MODEL.foundersMix)} Founders
+          mix, and {formatUsd(Math.round(outcome.costPerOrder))} of launch budget per order.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="phases" id="phases" aria-labelledby="phases-title">
+    <div class="container">
+      <header class="phases__head">
+        <h2 id="phases-title" class="display display--m">
+          Five phases. One job each.
+        </h2>
+        <p class="phases__lede">
+          Each phase owns one landing page and one primary action. The button text, the offer line
+          and the announcement bar come from <code>src/config/launch.ts</code>, the same file the
+          site reads.
+          <span class="phases__tuned">
+            Showing
+            {PHASE_ORDER.map((id) => (
+              <strong data-phase-only={id}>{PHASES[id].name}</strong>
+            ))}
+            . Switch phases with the bar above or the dial.
+          </span>
+        </p>
+      </header>
+      {PHASE_ORDER.map((id) => (
+        <PhaseSheet id={id} />
+      ))}
+    </div>
+  </section>
+
+  <FunnelLadder />
+  <Positioning />
+  <PriceScale />
+  <Channels />
+  <PlanCalendar />
+  <Experiments />
+  <Risks />
+  <Runbook />
+
+  <section class="docs" id="docs" aria-labelledby="docs-title">
+    <div class="container docs__grid">
+      <h2 id="docs-title" class="display display--m">
+        The long version.
+      </h2>
+      <ul class="docs__list" role="list">
+        <li>
+          <a href={PLAN_META.docs.plan} rel="noopener">
+            <span class="docs__file">docs/LAUNCH_PLAN.md</span>
+            <span class="docs__what">
+              Every number on this page, with the reasoning and sources behind it.
+            </span>
+          </a>
+        </li>
+        <li>
+          <a href={PLAN_META.docs.ops} rel="noopener">
+            <span class="docs__file">docs/OPERATIONS.md</span>
+            <span class="docs__what">
+              Running the site after launch: CRO reviews, content, releases, support, backends.
+            </span>
+          </a>
+        </li>
+        <li>
+          <a href={PLAN_META.docs.planData} rel="noopener">
+            <span class="docs__file">src/data/launch-plan.ts</span>
+            <span class="docs__what">
+              The data this page renders. Change a number there and it changes here.
+            </span>
+          </a>
+        </li>
+        <li>
+          <a href={PLAN_META.docs.readme} rel="noopener">
+            <span class="docs__file">README.md</span>
+            <span class="docs__what">
+              How the site is built, deployed and switched between phases.
+            </span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* The phase being previewed lights up everywhere on this page. */
+  :global(:root[data-phase='tease'] [data-plan-phase~='tease']),
+  :global(:root[data-phase='waitlist'] [data-plan-phase~='waitlist']),
+  :global(:root[data-phase='reserve'] [data-plan-phase~='reserve']),
+  :global(:root[data-phase='launch'] [data-plan-phase~='launch']),
+  :global(:root[data-phase='live'] [data-plan-phase~='live']) {
+    --air: 1;
+  }
+
+  /* With JS, the plan is tuned to one phase: phase sheets show only that one,
+     and long lists collapse to it on small screens until expanded. Without
+     JS, everything stays visible. */
+  :global(:root[data-js][data-phase='tease'] [data-plan-panel]:not([data-plan-phase~='tease'])),
+  :global(
+    :root[data-js][data-phase='waitlist'] [data-plan-panel]:not([data-plan-phase~='waitlist'])
+  ),
+  :global(:root[data-js][data-phase='reserve'] [data-plan-panel]:not([data-plan-phase~='reserve'])),
+  :global(:root[data-js][data-phase='launch'] [data-plan-panel]:not([data-plan-phase~='launch'])),
+  :global(:root[data-js][data-phase='live'] [data-plan-panel]:not([data-plan-phase~='live'])) {
+    display: none;
+  }
+  @media (max-width: 40rem) {
+    :global(
+      :root[data-js][data-phase='tease']
+        [data-tunable]:not([data-expanded])
+        [data-tune-row]:not([data-plan-phase~='tease'])
+    ),
+    :global(
+      :root[data-js][data-phase='waitlist']
+        [data-tunable]:not([data-expanded])
+        [data-tune-row]:not([data-plan-phase~='waitlist'])
+    ),
+    :global(
+      :root[data-js][data-phase='reserve']
+        [data-tunable]:not([data-expanded])
+        [data-tune-row]:not([data-plan-phase~='reserve'])
+    ),
+    :global(
+      :root[data-js][data-phase='launch']
+        [data-tunable]:not([data-expanded])
+        [data-tune-row]:not([data-plan-phase~='launch'])
+    ),
+    :global(
+      :root[data-js][data-phase='live']
+        [data-tunable]:not([data-expanded])
+        [data-tune-row]:not([data-plan-phase~='live'])
+    ) {
+      display: none;
+    }
+  }
+  @media (min-width: 40.001rem) {
+    :global([data-tune-toggle]) {
+      display: none;
+    }
+  }
+  .phases__tuned {
+    display: block;
+    margin-block-start: var(--space-2xs);
+    color: var(--ink);
+  }
+  :global(:root:not([data-js])) .phases__tuned {
+    display: none;
+  }
+
+  /* ---- Masthead ------------------------------------------------------- */
+  .mast {
+    padding-block: clamp(2.5rem, 1.5rem + 4vw, 5rem) clamp(2rem, 1rem + 3vw, 3.5rem);
+  }
+  .mast__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+    gap: var(--space-l) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+  }
+  .mast__title {
+    grid-column: 1;
+  }
+  .mast__lede {
+    grid-column: 1;
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink);
+    max-width: 50ch;
+  }
+  .plate {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: end;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.45rem var(--space-m);
+    padding: var(--space-m);
+    border-radius: var(--r-l);
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+  }
+  .plate div {
+    display: contents;
+  }
+  .plate dt {
+    color: var(--ink-muted);
+  }
+  .plate dd {
+    color: var(--ink-strong);
+    font-weight: 560;
+  }
+  .plate__docs {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .plate__docs a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 1.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    font-weight: 450;
+    color: var(--accent-text);
+  }
+  .toc {
+    grid-column: 1 / -1;
+    padding-block-start: var(--space-m);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .toc ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem var(--space-m);
+  }
+  .toc a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2.25rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    text-decoration: none;
+  }
+  .toc a:hover {
+    color: var(--ink-strong);
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.4em;
+  }
+
+  /* ---- Goals ---------------------------------------------------------- */
+  .goals {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    border-block-start: 1px solid var(--line);
+  }
+  .goals__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-xl) clamp(2rem, 1rem + 4vw, 6rem);
+  }
+  .goals__star {
+    display: grid;
+    gap: var(--space-m);
+    align-content: start;
+  }
+  .goals__name {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink-strong);
+    max-width: 44ch;
+  }
+  .goals__why {
+    color: var(--ink-muted);
+    max-width: 56ch;
+  }
+  .milestones {
+    display: grid;
+    margin-block-start: var(--space-s);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .milestones li {
+    display: grid;
+    grid-template-columns: minmax(6rem, 1.3fr) minmax(0, 1.4fr) minmax(0, 3fr);
+    gap: var(--space-s);
+    align-items: baseline;
+    padding-block: var(--space-s);
+    border-block-end: 1px solid var(--line);
+  }
+  .milestones__value {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    color: var(--ink-strong);
+  }
+  .milestones__by {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .milestones__note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .goals__list-wrap {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .goals__sub {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .goals__list li {
+    display: grid;
+    gap: 0.15rem;
+    padding-block: 0.8rem;
+    border-block-start: 1px solid var(--line);
+    font-size: var(--step--1);
+  }
+  .goals__list strong {
+    font-size: var(--step-0);
+    font-stretch: var(--stretch-ui);
+  }
+  .goals__list span {
+    color: var(--ink-muted);
+  }
+  .goals__outcome {
+    font-size: var(--step--1);
+    color: var(--ink);
+    padding: var(--space-s) var(--space-m);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+  }
+
+  /* ---- Phases --------------------------------------------------------- */
+  .phases {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem) var(--space-xl);
+    border-block-start: 1px solid var(--line);
+  }
+  .phases__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-s) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-xl);
+  }
+  .phases__lede {
+    color: var(--ink-muted);
+    max-width: 46ch;
+  }
+
+  /* ---- Docs ----------------------------------------------------------- */
+  .docs {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+  }
+  .docs__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--space-xl) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: start;
+  }
+  .docs__list {
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .docs__list a {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.2rem var(--space-m);
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+    text-decoration: none;
+  }
+  .docs__list a::after {
+    content: '↗';
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+    transition:
+      translate var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .docs__list a:hover::after {
+    translate: 3px -3px;
+    color: var(--accent-text);
+  }
+  .docs__file {
+    font-family: var(--font-mono);
+    font-size: var(--step-0);
+    color: var(--ink-strong);
+  }
+  .docs__what {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 56rem) {
+    .mast__grid,
+    .goals__grid,
+    .phases__head,
+    .docs__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .plate {
+      grid-column: 1;
+      grid-row: auto;
+    }
+  }
+  @media (max-width: 30rem) {
+    .milestones li {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    }
+    .milestones__note {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .docs__list a::after {
+      transition: none;
+    }
+  }
+</style>
