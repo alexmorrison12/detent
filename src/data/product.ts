@@ -69,7 +69,7 @@ export interface Edition {
   name: string;
   sku: string;
   priceUsd: number;
-  /** Launch price for reservations/launch week. */
+  /** Launch price: reservations, and orders until LAUNCH.launchPriceEnds (72 hours). */
   launchPriceUsd: number;
   finishes: FinishId[];
   summary: string;

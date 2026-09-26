@@ -53,7 +53,7 @@ export interface PhaseConfig {
   bannerShort: string;
   /**
    * When an order or reservation placed in this phase ships. Batch 1 is
-   * filled by deposits; launch-week and later orders go to Batch 2
+   * filled by deposits; orders from launch day on go to Batch 2
    * (docs/LAUNCH_PLAN.md). Update here if a batch fills or slips.
    */
   ships: string;

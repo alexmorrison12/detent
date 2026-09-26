@@ -12,7 +12,7 @@ web
 
 **Detent One** is a desktop dial machined from one billet of 6061 aluminum with **software-defined haptics**. A brushless gimbal motor and a 14-bit magnetic encoder let firmware decide how the knob feels, per app and in about a millisecond: 24 crisp clicks for frame-stepping, a weighted fluid glide for scrubbing, a spring that pulls back to center for shuttle, hard end stops for volume, or **Magnet**, which snaps to the things that matter (markers, keyframes, diff hunks). A round AMOLED display in the knob face shows what it is controlling. USB-C and Bluetooth, local-first, open SDK, open firmware.
 
-Price: **$349** (Raw, Graphite, Glacier). **Founders Edition $449**: Tally red, numbered 0001–2000, walnut plinth. Launch price $299 for reservations and launch week. 60-day studio trial, 3-year warranty, free shipping.
+Price: **$349** (Raw, Graphite, Glacier). **Founders Edition $449**: Tally red, numbered 0001–2000, walnut plinth. Launch price $299 for reservations and for the first 72 hours of orders, 12.01 to 12.04. 60-day studio trial, 3-year warranty, free shipping.
 
 Detent is a **concept product**; the site is a design and engineering demonstration and says so plainly (footer and every form). Nothing is sold and no personal data leaves the browser.
 
@@ -29,7 +29,7 @@ People who make things on a screen for hours and whose hands are bored or overwo
 
 ## Positioning
 
-Not a "macro pad" and not a "stream controller". Detent is **an instrument for software**: the first input device whose *feel* changes with what you're doing. The competitor sentence we refuse: "A premium customizable controller for creators with beautiful design." Ours: "A knob that clicks one frame at a time in Resolve, stops dead at 0 dB in Logic, and snaps to every hunk in your diff."
+Not a "macro pad" and not a "stream controller". Detent is **an instrument for software**: the first input device whose *feel* changes with what you're doing. The competitor sentence we refuse: "A premium customizable controller for creators with beautiful design." Ours: "A knob that clicks one frame at a time in Resolve, bumps at 0 dB in Logic, and snaps to every hunk in your diff."
 
 ## Brand personality
 
