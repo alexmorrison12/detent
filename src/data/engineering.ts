@@ -5,6 +5,7 @@
  * (price, weight, torque, resolution) is read from there, not repeated.
  */
 import { SPECS } from './product';
+import { MM } from '@/scripts/dial/model';
 
 /** Pull a number out of a SPECS row, e.g. specNumber('Haptics', 'Peak torque') -> 32. */
 export function specNumber(group: string, label: string): number {
@@ -21,7 +22,9 @@ export function specValue(group: string, label: string): string {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Drawing dimensions (mm). The three headline numbers match SPECS.            */
+/* Drawing dimensions (mm). The three headline numbers match SPECS; the rest  */
+/* come from MM, the model both dial renderers and the stills are built from, */
+/* so the drawing, the copy and every picture of the dial agree.              */
 /* -------------------------------------------------------------------------- */
 
 const displayInches = parseFloat(specValue('Display & light', 'Display'));
@@ -30,14 +33,17 @@ export const DIMENSIONS = {
   baseDia: 72,
   knobDia: 58,
   height: 44,
-  /** Base (with foot) up to the halo slit. */
-  baseHeight: 14,
-  /** Gap between base and knob where the halo ring shows. */
-  haloGap: 0.8,
+  /** Base, with its foot, up to where the knob starts. */
+  baseHeight: MM.baseTop,
+  /** Running clearance between base and knob. */
+  knobGap: Math.round((MM.knobBottom - MM.baseTop) * 100) / 100,
+  /** The halo ring's light slot, low on the base just above the foot. */
+  haloFrom: MM.slotBottom,
+  haloTo: MM.slotTop,
   /** Knurled band on the knob skirt. */
-  knurlFrom: 18,
-  knurlTo: 38,
-  knurlLines: 120,
+  knurlFrom: MM.knurlBottom,
+  knurlTo: MM.knurlTop,
+  knurlLines: MM.knurlTeeth,
   topChamfer: 1.2,
   /** Round display, diagonal from SPECS (1.43 in -> 36.3 mm). */
   displayDia: Math.round(displayInches * 25.4 * 10) / 10,
@@ -56,7 +62,7 @@ export interface Part {
 export const EXPLODED_PARTS: Part[] = [
   { name: 'Cover glass', detail: 'Strengthened, anti-glare, 0.7 mm. Replaceable with the knob cap.' },
   { name: 'Display', detail: `${displayInches}″ round AMOLED, 466 × 466. It sits still while the knob turns around it.` },
-  { name: 'Knob shell', detail: '6061-T6, knurled at 120 lines, turned and bead-blasted in one setup.' },
+  { name: 'Knob shell', detail: `6061-T6, knurled at ${MM.knurlTeeth} lines, turned and bead-blasted in one setup.` },
   { name: 'Gimbal motor', detail: 'Brushless, hollow shaft. The display cable runs through the middle.' },
   { name: 'Encoder', detail: 'A diametric magnet on the shaft over a 14-bit sensor. Nothing touches.' },
   { name: 'Main board', detail: 'Motor driver, Bluetooth radio and the 24 LEDs of the halo ring.' },
@@ -72,7 +78,7 @@ export const VIEWS = [
   { id: 'hero', label: 'Desk', caption: 'Three-quarter, the way it sits beside your keyboard.' },
   { id: 'top', label: 'Top', caption: 'From above: the round display and the tally line that tells you where zero is.' },
   { id: 'side', label: 'Side', caption: `Profile. ${DIMENSIONS.height} mm tall, low enough to rest your wrist beside it.` },
-  { id: 'front', label: 'Front', caption: 'Face on, at desk height. The halo ring glows in the gap under the knob.' },
+  { id: 'front', label: 'Front', caption: 'Face on, at desk height. The halo ring glows in a slot low on the base, just above the foot.' },
   { id: 'exploded', label: 'Exploded', caption: 'Eight layers, top to bottom. Every one comes apart with a T6 driver.' },
 ] as const;
 

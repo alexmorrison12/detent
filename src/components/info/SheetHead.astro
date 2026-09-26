@@ -2,8 +2,13 @@
 /**
  * Top of every info page: the page title (h1) set large on the left, the lede
  * opposite it, and a single datasheet rule above them with one live fact from
- * the data (a count, a date). Pages add their own art under it.
+ * the data (a count, a date). Only the numbers and dates in that fact are set
+ * as readouts; the words stay in the UI face. With `dial`, a small top-down
+ * Detent One closes the row with the page's word on its display.
  */
+import PageDial, { type PageDialProps } from './PageDial.astro';
+import { readoutSegments } from '@/scripts/info/format';
+
 interface Props {
   title: string;
   /** What the page is, in plain words, for the rule line. */
@@ -12,15 +17,24 @@ interface Props {
   fact?: string;
   lede?: string;
   size?: 'l' | 'xl';
+  /** The nameplate dial: what its display reads, and its finish and feel. */
+  dial?: PageDialProps;
   class?: string;
 }
-const { title, sheet, fact, lede, size = 'l', class: className } = Astro.props;
+const { title, sheet, fact, lede, size = 'l', dial, class: className } = Astro.props;
+
+// "Sep 22, 2026" is one reading; everything else goes through the spec-sheet splitter.
+const DATE = /([A-Z][a-z]{2} \d{1,2}, \d{4})/;
+const factParts = (fact ?? '')
+  .split(DATE)
+  .flatMap((part, i) => (i % 2 ? [{ text: part, readout: true }] : readoutSegments(part)))
+  .filter((p) => p.text);
 ---
 
-<header class:list={['sheet-head container', className]}>
+<header class:list={['sheet-head container', { 'sheet-head--dial': dial }, className]}>
   <div class="sheet-head__rule">
     <span class="sheet-head__sheet">{sheet}</span>
-    {fact && <span class="sheet-head__fact readout">{fact}</span>}
+    {fact && <span class="sheet-head__fact">{factParts.map((p) => (p.readout ? <span class="readout">{p.text}</span> : p.text))}</span>}
   </div>
   <div class="sheet-head__body">
     <h1 class:list={['display', `display--${size}`, 'sheet-head__title']} set:html={title} />
@@ -29,6 +43,13 @@ const { title, sheet, fact, lede, size = 'l', class: className } = Astro.props;
         <div class="sheet-head__side">
           {lede && <p class="lede">{lede}</p>}
           <slot />
+        </div>
+      )
+    }
+    {
+      dial && (
+        <div class="sheet-head__dial">
+          <PageDial {...dial} />
         </div>
       )
     }
@@ -56,8 +77,13 @@ const { title, sheet, fact, lede, size = 'l', class: className } = Astro.props;
     color: var(--ink-strong);
   }
   .sheet-head__fact {
+    font-stretch: var(--stretch-ui);
     color: var(--ink-muted);
     text-align: end;
+  }
+  .sheet-head__fact .readout {
+    font-size: inherit;
+    color: var(--ink-strong);
   }
   .sheet-head__body {
     display: grid;
@@ -73,6 +99,25 @@ const { title, sheet, fact, lede, size = 'l', class: className } = Astro.props;
     gap: var(--space-m);
     padding-block-end: 0.35em;
   }
+
+  /* The nameplate needs a third column: squeezed beside the title it breaks
+     display words, and stacked its display is too small to read. Narrower
+     screens leave it out (hidden, its lazy still is never fetched and the
+     live dial never boots) and the title and lede own the first screen. */
+  .sheet-head__dial {
+    display: none;
+    align-self: center;
+  }
+  @media (min-width: 64rem) {
+    .sheet-head--dial .sheet-head__body {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 4fr) clamp(8rem, 3rem + 7vw, 11rem);
+      column-gap: var(--space-xl);
+    }
+    .sheet-head__dial {
+      display: block;
+    }
+  }
+
   @media (max-width: 56rem) {
     .sheet-head__body {
       grid-template-columns: 1fr;

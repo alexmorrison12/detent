@@ -8,6 +8,7 @@ import { absoluteUrl, url } from '@/lib/url';
 import { formatDate } from '@/scripts/info/format';
 
 const latest = RELEASES[0]!;
+const firmware = RELEASES.find((r) => r.stream === 'Firmware')!;
 const description = `${SITE.product} release notes: firmware, Detent Studio and SDK betas, newest first. Latest: ${releaseName(latest)}, ${latest.title.toLowerCase()}. Subscribe by RSS.`;
 
 // Date scale: first day of the earliest month to the last day of the latest.
@@ -48,8 +49,9 @@ const ld = {
   <SheetHead
     title="What changed."
     sheet="Changelog"
-    fact={`Latest release ${formatDate(latest.date)}`}
-    lede="Firmware, Detent Studio and the SDK, newest first. Betas run on the testers’ production-validation units; Founders Edition owners keep this early channel for life."
+    fact={`${RELEASES.length} releases · latest ${formatDate(latest.date)}`}
+    dial={{ text: `FW ${firmware.version.replace(/-.*/, '')}`, finish: 'raw', profile: 'ratchet' }}
+    lede="Firmware, Detent Studio and the SDK, newest first. Betas ran on testers’ EVT and DVT units and now run on the PVT units on their desks. Founders Edition owners keep this early channel for life."
   >
     <a class="rss" href={url('/changelog/rss.xml')} data-track="changelog_rss">
       <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">

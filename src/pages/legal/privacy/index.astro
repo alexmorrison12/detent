@@ -2,6 +2,24 @@
 import LegalPage from '@/components/info/LegalPage.astro';
 import { SITE } from '@/config/site';
 import { STORED_KEYS } from '@/data/legal';
+
+// The table below promises it is the complete list. Hold it to that at build
+// time: every key a feature passes to read()/write()/remove() from
+// @/lib/storage, as a literal or a same-file constant, must be listed.
+const sources = import.meta.glob<string>(['/src/**/*.{ts,astro}', '!/src/lib/storage.ts', '!/src/pages/legal/**'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+const listed = new Set(STORED_KEYS.map((k) => k.key));
+for (const [file, src] of Object.entries(sources)) {
+  if (!/from\s+['"]@\/lib\/storage['"]/.test(src)) continue;
+  for (const [, arg] of src.matchAll(/(?<![.\w])(?:read|write|remove)(?:<.*?>)?\(\s*([^,)\s]+)/g)) {
+    const key = /^['"`]/.test(arg!) ? arg!.slice(1, -1) : src.match(new RegExp(`const ${arg}\\s*=\\s*['"\`]([^'"\`]+)['"\`]`))?.[1];
+    if (!key) throw new Error(`Privacy page: cannot resolve the storage key "${arg}" in ${file}. Use a literal or a same-file const.`);
+    if (!listed.has(`detent:${key}`)) throw new Error(`Privacy page: ${file} stores "detent:${key}", which STORED_KEYS in src/data/legal.ts does not list.`);
+  }
+}
 ---
 
 <LegalPage
@@ -10,6 +28,7 @@ import { STORED_KEYS } from '@/data/legal';
   description="Detent's privacy policy in plain words: this concept site collects nothing, sets no cookies, loads no third parties, and keeps what you do in your own browser."
   summary="This site collects nothing about you. No cookies, no analytics service, no third parties, no accounts. Anything you type or choose here stays in your own browser, and you can wipe it below."
   other={{ label: 'Terms', href: '/legal/terms/' }}
+  dial={{ text: '0 COOKIES', finish: 'graphite', profile: 'wall' }}
 >
   <h2>What we collect</h2>
   <p>
@@ -18,20 +37,21 @@ import { STORED_KEYS } from '@/data/legal';
   </p>
 
   <h2>What stays in your browser</h2>
-  <p>These are the only things the site writes, all under keys that start with <code>detent:</code>.</p>
+  <p>These are the only things the site writes, all under keys that start with <code>detent:</code>. Most only appear after you use the feature they belong to.</p>
   <div class="keys" tabindex="0" role="region" aria-label="Storage keys this site uses">
-    <table>
+    <!-- Explicit roles: the phone layout restyles rows as grids, which can drop table semantics. -->
+    <table role="table">
       <caption class="visually-hidden">Browser storage keys this site uses</caption>
-      <thead>
-        <tr><th scope="col">Key</th><th scope="col">Where</th><th scope="col">What it holds</th></tr>
+      <thead role="rowgroup">
+        <tr role="row"><th scope="col" role="columnheader">Key</th><th scope="col" role="columnheader">Where</th><th scope="col" role="columnheader">What it holds</th></tr>
       </thead>
-      <tbody>
+      <tbody role="rowgroup">
         {
           STORED_KEYS.map((k) => (
-            <tr>
-              <th scope="row" class="readout">{k.key}</th>
-              <td>{k.area}</td>
-              <td>{k.what}</td>
+            <tr role="row">
+              <th scope="row" role="rowheader" class="readout">{k.key}</th>
+              <td role="cell" class="keys__area">{k.area}</td>
+              <td role="cell">{k.what}</td>
             </tr>
           ))
         }
@@ -128,7 +148,7 @@ import { STORED_KEYS } from '@/data/legal';
         k.textContent = r.key;
         const meta = document.createElement('span');
         meta.className = 'inspect__meta';
-        meta.textContent = `${r.area}, ${r.bytes} bytes. ${known.get(r.key) ?? 'Saved by a site feature, such as game progress or a preference.'}`;
+        meta.textContent = `${r.area}, ${r.bytes} bytes. ${known.get(r.key) ?? 'Not in the list above: left by an older version of this site. Safe to clear.'}`;
         li.append(k, meta);
         return li;
       }),
@@ -186,6 +206,43 @@ import { STORED_KEYS } from '@/data/legal';
   }
   td {
     color: var(--ink);
+  }
+  /* Phones: each key becomes a two-line entry (key and where, then what it
+     holds) instead of a 34rem table scrolled mostly out of view. */
+  @media (max-width: 40rem) {
+    .keys {
+      border-top: 1px solid var(--line-strong);
+    }
+    table {
+      min-inline-size: 0;
+    }
+    thead {
+      display: none;
+    }
+    tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.2rem var(--space-s);
+      align-items: baseline;
+      padding-block: var(--space-s);
+      border-bottom: 1px solid var(--line);
+    }
+    th,
+    td {
+      padding: 0;
+      border: 0;
+    }
+    tbody th {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .keys__area {
+      font-size: var(--step--2);
+      color: var(--ink-muted);
+    }
+    td:last-child {
+      grid-column: 1 / -1;
+    }
   }
   .inspect {
     display: grid;

@@ -84,10 +84,10 @@ const first = VIEWS[0];
         root.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
         if (caption) caption.textContent = btn.dataset.caption ?? '';
         stack?.toggleAttribute('data-active', view === 'exploded');
-        if (dial) {
-          dial.setAttribute('camera', view);
-          if ('explode' in dial) dial.explode = view === 'exploded' ? 1 : 0;
-        }
+        // The camera attribute alone drives the explode: the dial animates it
+        // 0↔1 with its staggered choreography. Setting dial.explode would pin
+        // it and jump straight to the end state.
+        dial?.setAttribute('camera', view);
         track('viewer_camera', { view });
       });
     });

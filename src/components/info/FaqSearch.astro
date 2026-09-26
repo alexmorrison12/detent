@@ -2,16 +2,31 @@
 /**
  * FAQ grouped by topic, as exclusive <details name="faq"> accordions, with an
  * instant client-side search that hides non-matching answers, highlights
- * the match in the question and announces the count.
+ * the match in the question and announces the count once typing pauses.
+ * The written policies (shipping, returns, warranty, repair) are searchable
+ * too: a match lists the policy and links to its card further down the page.
  */
 import { FAQS } from '@/data/product';
-import { CARE_FAQS } from '@/data/support';
+import { CARE_FAQS, POLICIES } from '@/data/support';
 import { slug } from '@/scripts/info/format';
 
 const ORDER = ['Launch', 'Buying', 'Shipping', 'Product', 'Software', 'Care'] as const;
 const all = [...FAQS, ...CARE_FAQS.map((f) => ({ ...f, topic: 'Care' as const }))];
 const groups = ORDER.map((t) => ({ topic: t, id: `faq-${slug(t)}`, items: all.filter((f) => f.topic === t) })).filter((g) => g.items.length);
 const total = all.length;
+/** Words people type for each policy that its own text may not contain. */
+const ALSO: Record<(typeof POLICIES)[number]['id'], string> = {
+  shipping: 'delivery duties customs tracking',
+  returns: 'return refund money back trial send back',
+  warranty: 'guarantee broken defect dead battery',
+  repair: 'fix parts screws open teardown',
+};
+const policies = POLICIES.map((p) => ({
+  id: p.id,
+  label: p.id.charAt(0).toUpperCase() + p.id.slice(1),
+  headline: p.headline,
+  text: `${p.id} ${ALSO[p.id]} ${p.headline} ${p.points.join(' ')}`.toLowerCase(),
+}));
 ---
 
 <div class="faq" data-faq data-total={total}>
@@ -24,7 +39,8 @@ const total = all.length;
       </svg>
       <input id="faq-q" type="search" class="faq__input" placeholder="Search: battery, refund, Linux…" autocomplete="off" data-q />
     </div>
-    <p class="faq__count" aria-live="polite" aria-atomic="true" data-count><span class="readout">{total}</span> answers</p>
+    <p class="faq__count" data-count><span class="readout">{total}</span> answers</p>
+    <p class="visually-hidden" role="status" data-count-status></p>
     <nav class="faq__topics" aria-label="FAQ topics">
       {
         groups.map((g) => (
@@ -37,6 +53,21 @@ const total = all.length;
   </div>
 
   <div class="faq__groups">
+    <section class="faq-group faq-policies" aria-labelledby="faq-policies-h" data-policies hidden>
+      <h2 class="faq-group__title" id="faq-policies-h">Policies</h2>
+      <ul class="faq-group__items" role="list">
+        {
+          policies.map((p) => (
+            <li class="policy-hit" data-policy data-text={p.text}>
+              <a href={`#${p.id}`}>
+                <span class="policy-hit__label">{p.label}</span>
+                <span class="policy-hit__head">{p.headline}</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
     {
       groups.map((g) => (
         <section class="faq-group" id={g.id} aria-labelledby={`${g.id}-h`} data-group>
@@ -63,7 +94,18 @@ const total = all.length;
     }
     <div class="faq__none" hidden data-none>
       <p class="faq__none-title">No answer for “<span data-none-q></span>” yet.</p>
-      <p>Write to us instead. A person reads every email; the contact details are further down this page.</p>
+      <p>
+        The written promises may cover it:
+        {
+          policies.map((p, i) => (
+            <>
+              <a href={`#${p.id}`}>{p.label.toLowerCase()}</a>
+              {i < policies.length - 2 ? ', ' : i === policies.length - 2 ? ' and ' : '.'}
+            </>
+          ))
+        }
+        If not, the contact details are further down this page.
+      </p>
       <a class="link-arrow" href="#contact">Contact support</a>
     </div>
   </div>
@@ -75,6 +117,9 @@ const total = all.length;
   document.querySelectorAll<HTMLElement>('[data-faq]').forEach((root) => {
     const input = root.querySelector<HTMLInputElement>('[data-q]');
     const count = root.querySelector<HTMLElement>('[data-count]')!;
+    const status = root.querySelector<HTMLElement>('[data-count-status]');
+    const policyBox = root.querySelector<HTMLElement>('[data-policies]');
+    const policies = [...root.querySelectorAll<HTMLElement>('[data-policy]')];
     const none = root.querySelector<HTMLElement>('[data-none]')!;
     const noneQ = root.querySelector<HTMLElement>('[data-none-q]')!;
     const total = Number(root.dataset.total);
@@ -102,6 +147,7 @@ const total = all.length;
     }
 
     let timer = 0;
+    let announceTimer = 0;
     function run() {
       const q = (input?.value ?? '').trim().toLowerCase().slice(0, 60);
       const terms = q.split(/\s+/).filter((t) => t.length > 1);
@@ -117,8 +163,25 @@ const total = all.length;
         g.hidden = !any;
         root.querySelector<HTMLElement>(`[data-topic-link="${g.id}"]`)?.toggleAttribute('data-empty', !any);
       }
-      count.innerHTML = shown === total ? `<span class="readout">${total}</span> answers` : `<span class="readout">${shown}</span> of ${total} answers`;
-      none.hidden = shown > 0;
+      // Policies only join the results once there is a query to match.
+      let pol = 0;
+      for (const p of policies) {
+        const ok = terms.length > 0 && terms.every((t) => (p.dataset.text ?? '').includes(t));
+        p.hidden = !ok;
+        if (ok) pol++;
+      }
+      if (policyBox) policyBox.hidden = pol === 0;
+      const polText = pol ? ` and ${pol} ${pol === 1 ? 'policy' : 'policies'}` : '';
+      count.innerHTML =
+        shown === total && !pol
+          ? `<span class="readout">${total}</span> answers`
+          : `<span class="readout">${shown}</span> of ${total} answers${polText}`;
+      none.hidden = shown + pol > 0;
+      // The visible count follows every keystroke; screen readers hear it once typing pauses.
+      clearTimeout(announceTimer);
+      announceTimer = window.setTimeout(() => {
+        if (status) status.textContent = count.textContent ?? '';
+      }, 500);
       noneQ.textContent = input?.value.trim() ?? '';
       if (q.length > 2) {
         clearTimeout(timer);
@@ -329,6 +392,38 @@ const total = all.length;
       block-size: auto;
     }
   }
+  .policy-hit {
+    border-bottom: 1px solid var(--line);
+  }
+  .policy-hit a {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem var(--space-s);
+    padding-block: 1.05rem;
+    text-decoration: none;
+    color: var(--ink-strong);
+  }
+  .policy-hit__label {
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    min-inline-size: 5.5rem;
+  }
+  .policy-hit__head {
+    font-size: var(--step-1);
+    font-weight: 620;
+    font-stretch: 104%;
+    line-height: 1.3;
+    text-decoration: underline;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 0.2em;
+    transition: text-decoration-color var(--dur-2) var(--ease-out);
+  }
+  .policy-hit a:hover .policy-hit__head {
+    text-decoration-color: currentColor;
+  }
   .faq__none {
     display: grid;
     gap: var(--space-xs);
@@ -351,7 +446,8 @@ const total = all.length;
       font-size: var(--step-2);
       padding: 0;
     }
-    .qa summary {
+    .qa summary,
+    .policy-hit__head {
       font-size: var(--step-0);
     }
   }
