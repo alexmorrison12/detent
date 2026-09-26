@@ -3,9 +3,19 @@
  * Wordle grid), then the Web Share sheet, then an image file where supported.
  */
 import { url } from '@/lib/url';
+import { getEntry } from '@/lib/waitlist';
 
-/** Absolute URL for a site path, for share text. */
-export const shareUrl = (path: string): string => new URL(url(path), location.origin).toString();
+/**
+ * Absolute URL for a site path, for share text. Carries the player's referral
+ * code when they're on the waitlist, so a friend who joins from a shared
+ * result credits them (captureRef() on the game pages stores it).
+ */
+export function shareUrl(path: string): string {
+  const u = new URL(url(path), location.origin);
+  const code = getEntry()?.code;
+  if (code) u.searchParams.set('ref', code);
+  return u.toString();
+}
 
 export async function copyText(text: string): Promise<boolean> {
   try {

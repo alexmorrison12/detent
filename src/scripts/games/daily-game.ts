@@ -12,7 +12,12 @@ import { read, write } from '@/lib/storage';
 import { track } from '@/lib/analytics';
 import { unlock } from '@/lib/achievements';
 import { url } from '@/lib/url';
-import type { DetentChangeDetail, DetentDialElement, FeelPhysics } from '@/scripts/dial/types';
+import type {
+  DetentChangeDetail,
+  DetentDialElement,
+  DialValueState,
+  FeelPhysics,
+} from '@/scripts/dial/types';
 import { puzzleNumber, utcDay } from './day';
 import { answerHash, seeded, shuffle } from './rng';
 import { emptyStreak, freezeReady, liveStreak, recordDay, type StreakState } from './streak';
@@ -137,6 +142,7 @@ class DailyDetent extends HTMLElement {
   #bind() {
     const dial = this.#dial;
     if (dial) {
+      dial.valueText = this.#valueText;
       const ready = () => {
         dial.physics = { ...this.#physics };
         if (!this.#run.finished) {
@@ -249,15 +255,16 @@ class DailyDetent extends HTMLElement {
     const shown = Math.round(a);
     const text = `${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${String(Math.abs(shown)).padStart(3, '0')}°`;
     this.#q('[data-angle]').forEach((el) => (el.textContent = text));
-    const dial = this.#dial;
-    if (dial) {
-      dial.setAttribute('aria-label', 'Today’s hidden feel');
-      dial.setAttribute(
-        'aria-valuetext',
-        `${shown} degrees${this.#lastWord ? `. ${this.#lastWord}` : ''}`,
-      );
-    }
   }
+
+  /**
+   * What a screen reader hears: the angle and what the contact mic picked up.
+   * Owned by the dial (its valueText contract) so its trailing aria update
+   * can't swap in the stock readout, which names the feel ("Centered",
+   * "Detent 3 of 24") and would give the answer away.
+   */
+  #valueText = (s: DialValueState): string =>
+    `${Math.round(s.angle)} degrees${this.#lastWord ? `. ${this.#lastWord}` : ''}`;
 
   /* ---------------------------------------------------------------- guess */
 
@@ -399,11 +406,14 @@ class DailyDetent extends HTMLElement {
             : '';
     });
 
-    // Torque hints appear on tries 3, 4 and 5.
+    // Torque hints appear on tries 3, 4 and 5. The next one to open is marked.
+    let soon = true;
     this.#q<HTMLElement>('[data-hint]').forEach((fig) => {
       const i = Number(fig.dataset.hint);
       const open = run.finished || run.guesses.length + 1 >= HINTS_AT[i]!;
       fig.dataset.locked = String(!open);
+      fig.toggleAttribute('data-soon', !open && soon);
+      if (!open) soon = false;
       if (!open || fig.dataset.drawn) return;
       fig.dataset.drawn = '';
       const path = fig.querySelector('[data-hint-path]');

@@ -47,9 +47,24 @@ const jsonLd = [
 ];
 
 const hints = [
-  { title: 'Torque, first quarter turn', at: GAMES.daily.hintsAt[0], axis: ['0°', '+45°', '+90°'] },
-  { title: 'Torque, full turn', at: GAMES.daily.hintsAt[1], axis: ['−180°', '0°', '+180°'] },
-  { title: 'The numbers', at: GAMES.daily.hintsAt[2], axis: [] },
+  {
+    title: 'Torque, first quarter turn',
+    note: 'The first 90° of a clockwise turn.',
+    at: GAMES.daily.hintsAt[0],
+    axis: ['0°', '+45°', '+90°'],
+  },
+  {
+    title: 'Torque, full turn',
+    note: 'One whole turn, −180° to +180°.',
+    at: GAMES.daily.hintsAt[1],
+    axis: ['−180°', '0°', '+180°'],
+  },
+  {
+    title: 'The numbers',
+    note: 'Detents, stops and spring, counted.',
+    at: GAMES.daily.hintsAt[2],
+    axis: [],
+  },
 ];
 const HW = 320;
 const HH = 112;
@@ -116,9 +131,10 @@ const HH = 112;
           reading="Still"
           caption="What a microphone on the knob would pick up. Turn the whole range, both ways, then let go."
         />
-        <p class="daily__keys">
+        <p class="daily__keys daily__keys--fine">
           Keyboard: focus the dial, then <kbd>←</kbd> <kbd>→</kbd> to turn.
         </p>
+        <p class="daily__keys daily__keys--coarse">Drag the knob in a circle.</p>
       </div>
 
       <div class="daily__play">
@@ -260,14 +276,20 @@ const HH = 112;
             {hints
               .map((h) => h.at)
               .join(', ')
-              .replace(/, (\d+)$/, ' and $1')}
-            .
+              .replace(/, (\d+)$/, ' and $1') + '.'}
           </p>
           <ol class="hints__list" role="list">
             {hints.map((h, i) => (
               <li class="hint" data-hint={i} data-locked="true" data-w={HW} data-h={HH}>
-                <h3 class="hint__title">{h.title}</h3>
-                <p class="hint__locked">Appears on try {h.at}.</p>
+                <div class="hint__head">
+                  <h3 class="hint__title">{h.title}</h3>
+                  <p class="hint__lock readout">
+                    <span class="hint__pip" aria-hidden="true" />
+                    <span class="visually-hidden">Appears on </span>
+                    <span class="hint__lock-try">Try</span> {h.at}
+                  </p>
+                </div>
+                <p class="hint__note">{h.note}</p>
                 {i < 2 ? (
                   <div class="hint__plot">
                     <svg
@@ -321,6 +343,9 @@ const HH = 112;
 
 <script>
   import '@/scripts/games/daily-game';
+  import { captureRef } from '@/lib/waitlist';
+  // Shared results link here with ?ref=; keep it so a later join credits the sharer.
+  captureRef();
   document.addEventListener('click', (e) => {
     if ((e.target as Element | null)?.closest('[data-reload]')) location.reload();
   });
@@ -393,6 +418,37 @@ const HH = 112;
     inline-size: min(100%, 36rem);
     justify-self: center;
   }
+  /* Phones held sideways: the protractor sits beside its readings and trace,
+     sized to the screen height, so the whole bench fits under the header and
+     you can watch the trace while you turn. */
+  @media (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) {
+    .daily__bench {
+      inline-size: 100%;
+      grid-template-columns: min(50%, max(14rem, 100svh - var(--header-h) - 2 * var(--space-s))) minmax(
+          0,
+          1fr
+        );
+      grid-template-areas:
+        'dial readings'
+        'dial trace'
+        'dial keys';
+      grid-template-rows: auto auto 1fr;
+      gap: var(--space-s) var(--space-l);
+      align-items: start;
+    }
+    .daily__bench > :global(.pt) {
+      grid-area: dial;
+    }
+    .daily__readings {
+      grid-area: readings;
+    }
+    .daily__bench :global(.daily__trace) {
+      grid-area: trace;
+    }
+    .daily__keys {
+      grid-area: keys;
+    }
+  }
   .daily__readings {
     display: flex;
     justify-content: space-between;
@@ -428,6 +484,18 @@ const HH = 112;
   .daily__keys {
     font-size: var(--step--2);
     color: var(--ink-muted);
+  }
+  /* Touch screens get touch instructions; the key list is for keyboards. */
+  .daily__keys--coarse {
+    display: none;
+  }
+  @media (pointer: coarse) {
+    .daily__keys--fine {
+      display: none;
+    }
+    .daily__keys--coarse {
+      display: block;
+    }
   }
   .sound-state {
     min-inline-size: 3ch;
@@ -760,28 +828,67 @@ const HH = 112;
     gap: var(--space-s);
     margin-block-start: var(--space-m);
   }
+  /* Locked and open hints share one solid panel; a locked one names what it
+     will show and the try that opens it, with the same ring as the try row. */
   .hint {
     padding: var(--space-s);
     border-radius: var(--r-m);
     background: var(--bg-raised);
+  }
+  .hint__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3xs) var(--space-s);
   }
   .hint__title {
     font-size: var(--step--1);
     font-weight: 650;
     font-stretch: var(--stretch-ui);
   }
-  .hint__locked {
+  .hint__lock {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .hint__pip {
+    inline-size: 0.8em;
+    block-size: 0.8em;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink-faint);
+  }
+  .hint[data-soon] .hint__lock {
+    color: var(--ink);
+  }
+  .hint[data-soon] .hint__pip {
+    border-color: var(--ink-strong);
+  }
+  .hint__note {
     margin-block-start: var(--space-3xs);
     font-size: var(--step--1);
     color: var(--ink-muted);
   }
-  .hint[data-locked='true'] {
-    background: none;
-    border: 1px dashed var(--line-strong);
-  }
   .hint[data-locked='true'] :is(.hint__plot, .hint__facts),
-  .hint[data-locked='false'] .hint__locked {
+  .hint[data-locked='false'] .hint__lock {
     display: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    /* The plot sweeps in left to right, like a pen recorder, when it opens. */
+    .hint[data-locked='false'] .hint__plot svg {
+      animation: hint-sweep var(--dur-4) var(--ease-out) both;
+    }
+    @keyframes hint-sweep {
+      from {
+        clip-path: inset(0 100% 0 0);
+      }
+      to {
+        clip-path: inset(0 0 0 0);
+      }
+    }
   }
   .hint__plot {
     margin-block-start: var(--space-xs);

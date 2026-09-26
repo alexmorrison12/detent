@@ -13,7 +13,13 @@ import { isSoundOn, onSoundChange, setSound } from '@/lib/sound';
 import { read, write } from '@/lib/storage';
 import { track } from '@/lib/analytics';
 import { unlock } from '@/lib/achievements';
-import type { DetentChangeDetail, DetentDialElement, FeelPhysics } from '@/scripts/dial/types';
+import { url } from '@/lib/url';
+import type {
+  DetentChangeDetail,
+  DetentDialElement,
+  DialValueState,
+  FeelPhysics,
+} from '@/scripts/dial/types';
 import { formatClock, puzzleNumber, spokenClock, utcDay } from './day';
 import { randomCode, seeded } from './rng';
 import { emptyStreak, freezeReady, liveStreak, recordDay, type StreakState } from './streak';
@@ -219,9 +225,25 @@ class SafeGame extends HTMLElement {
     else customElements.whenDefined('detent-dial').then(apply);
   }
 
+  /**
+   * What a screen reader hears: the number and how heavy it reads. Owned by
+   * the dial (its valueText contract), so its own throttled and trailing
+   * aria updates speak the game, never the generic "Detent n of 100".
+   */
+  #valueText = (s: DialValueState): string => {
+    const n = mod(Math.round(s.angle / STEP), N);
+    return this.#run.finishedAt ? `${n}. Open.` : `${n}. ${reading(this.#weight)}.`;
+  };
+
+  /** Re-speak the current value after a state change that didn't move the dial. */
+  #refreshAria() {
+    if (this.#dial) this.#dial.valueText = this.#valueText;
+  }
+
   #bind() {
     const dial = this.#dial;
     if (dial) {
+      dial.valueText = this.#valueText;
       const ready = () => {
         dial.physics = { ...this.#physics };
         dial.feelColor = null;
@@ -495,11 +517,8 @@ class SafeGame extends HTMLElement {
     const done = !!this.#run.finishedAt;
     const label = done ? 'OPEN' : pad2(n);
     if (dial.getAttribute('display') !== label) dial.setAttribute('display', label);
-    dial.setAttribute('aria-label', 'Safe dial');
-    dial.setAttribute('aria-valuemin', '0');
+    // The dial owns aria-valuenow/-valuetext (see #valueText); the range is the safe's.
     dial.setAttribute('aria-valuemax', '99');
-    dial.setAttribute('aria-valuenow', String(n));
-    dial.setAttribute('aria-valuetext', done ? `${n}. Open.` : `${n}. ${reading(this.#weight)}.`);
     this.#q('[data-set-n]').forEach((el) => (el.textContent = pad2(n)));
   }
 
@@ -578,6 +597,7 @@ class SafeGame extends HTMLElement {
     const set = this.#one<HTMLButtonElement>('[data-set]');
     if (set) set.disabled = done;
     this.#paintDial();
+    this.#refreshAria();
     this.#runClock();
     this.#renderStats();
   }
@@ -585,6 +605,10 @@ class SafeGame extends HTMLElement {
   #renderStats() {
     const s = this.#store;
     const streak = liveStreak(s.streak, this.#today);
+    // Four zeros say nothing: the record appears once there is one.
+    const any = s.cracked > 0;
+    this.#q('[data-record-grid]').forEach((el) => (el.hidden = !any));
+    this.#q('[data-record-empty]').forEach((el) => (el.hidden = any));
     const put = (k: string, v: string) =>
       this.#q(`[data-stat="${k}"]`).forEach((el) => (el.textContent = v));
     put('streak', String(streak));
@@ -635,6 +659,13 @@ class SafeGame extends HTMLElement {
       const pre = this.#one('[data-share-text]');
       if (pre) pre.textContent = this.#shareText();
       this.#q('[data-code]').forEach((el) => (el.textContent = run.code ?? ''));
+      // The reward, applied: the configurator opens with the safe engraved.
+      const combo = run.found.map((f, i) => `${DIRS[i]! > 0 ? 'R' : 'L'}${pad2(f ?? 0)}`).join(' ');
+      const engrave = new URLSearchParams({ engrave: `SAFE #${this.#number} ${combo}` });
+      this.#q<HTMLAnchorElement>('[data-engrave-link]').forEach((a) => {
+        a.href = `${url('/shop/')}?${engrave}#configure`;
+        a.dataset.trackSafe = String(this.#number);
+      });
       const cd = this.#one('[data-countdown]');
       if (cd && !this.#stopCountdown) {
         this.#stopCountdown = startCountdown(cd, () => {
