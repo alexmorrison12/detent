@@ -120,6 +120,7 @@ const { compact = false } = Astro.props;
 <style>
   .mx {
     --mx-h: 12.5rem;
+    --mute-h: 1.5rem;
     display: grid;
     gap: var(--space-xs);
     padding: var(--space-xs);
@@ -146,14 +147,23 @@ const { compact = false } = Astro.props;
     margin-inline-start: auto;
     color: var(--ink-strong);
     font-size: var(--step--2);
+    white-space: nowrap;
   }
   .mx__bpm {
     font-size: var(--step--2);
+    white-space: nowrap;
+  }
+  /* Narrow mixers keep one line: the tempo is the first thing to go. */
+  @container (max-width: 19rem) {
+    .mx__bpm {
+      display: none;
+    }
   }
   .mx__transport {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+    white-space: nowrap;
     min-height: 2rem;
     padding: 0.2rem 0.7rem 0.2rem 0.55rem;
     border: 1px solid var(--line-strong);
@@ -205,7 +215,7 @@ const { compact = false } = Astro.props;
   .mx__bus-head {
     display: grid;
     place-items: center;
-    block-size: 1.5rem;
+    block-size: var(--mute-h);
     font-size: 0.62rem;
     font-weight: 700;
     color: transparent;
@@ -243,7 +253,7 @@ const { compact = false } = Astro.props;
     position: relative;
     block-size: var(--mx-h);
     /* strip padding + border + mute button + row gap: aligns with the fader body */
-    margin-block-start: calc(0.3rem + 1px + 1.5rem + 0.35rem);
+    margin-block-start: calc(0.3rem + 1px + var(--mute-h) + 0.35rem);
   }
   .mx__mark {
     position: absolute;
@@ -302,7 +312,7 @@ const { compact = false } = Astro.props;
 
   .strip__mute {
     inline-size: 1.75rem;
-    block-size: 1.5rem;
+    block-size: var(--mute-h);
     border-radius: var(--r-xs);
     border: 1px solid var(--line-strong);
     font-size: 0.62rem;
@@ -344,12 +354,12 @@ const { compact = false } = Astro.props;
   .strip[data-selected] .strip__lvl {
     background: var(--feel);
   }
+  /* The hold line rides a full-height box so it moves by transform alone (no layout per frame). */
   .strip__peak {
     position: absolute;
-    inset-inline: 0;
-    inset-block-end: calc(var(--l, 0) * 100%);
-    block-size: 2px;
-    background: var(--ink-strong);
+    inset: 0;
+    border-block-start: 2px solid var(--ink-strong);
+    translate: 0 calc((1 - var(--l, 0)) * 100% - 2px);
   }
   .strip__clip {
     position: absolute;
@@ -462,8 +472,16 @@ const { compact = false } = Astro.props;
     background: var(--surface-2);
   }
 
-  /* Touch: grow the hit areas to 44px without changing the console's look. */
+  /* Touch: mutes become strip-wide keys with a readable M, and every hit area
+     reaches 44px (the extra height is borrowed from the gaps around them). */
   @media (pointer: coarse) {
+    .mx {
+      --mute-h: 2rem;
+    }
+    .strip__mute {
+      inline-size: min(100%, 2.75rem);
+      font-size: var(--step--2);
+    }
     .strip__mute,
     .strip__name {
       position: relative;
@@ -473,6 +491,9 @@ const { compact = false } = Astro.props;
       content: '';
       position: absolute;
       inset: -0.6rem -0.2rem;
+    }
+    .strip__mute::after {
+      inset-block: -0.4rem;
     }
     .mx__transport {
       min-block-size: 2.75rem;

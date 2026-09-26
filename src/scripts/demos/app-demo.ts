@@ -39,6 +39,8 @@ class AppDemoElement extends HTMLElement {
   #active = false;
   #onScreen = false;
   #muted = false;
+  /** Angle the demo just gave the dial: it reports it back on its next frame, and that echo is not input. */
+  #echo: number | null = null;
   #touched = false;
   #live: HTMLElement | null = null;
   #announceTimer = 0;
@@ -159,6 +161,7 @@ class AppDemoElement extends HTMLElement {
       setAngle: (deg) => {
         const was = this.#muted;
         this.#muted = true;
+        this.#echo = deg;
         try {
           dial.setAngle(deg, { instant: true });
         } finally {
@@ -275,6 +278,11 @@ class AppDemoElement extends HTMLElement {
   };
 
   #onChange = (e: CustomEvent<DetentChangeDetail>) => {
+    // The dial emits a programmatic setAngle a frame later, after #muted is
+    // already cleared; without this it would count as the visitor's first turn.
+    const echo = this.#echo;
+    this.#echo = null;
+    if (echo !== null && Math.abs(e.detail.angle - echo) < 0.01) return;
     if (!this.#active || this.#muted) return;
     this.#touch();
     this.#controller?.change(e.detail);

@@ -36,12 +36,12 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
         <div class="ed__price">
           {hasLaunchPrice && (
             <p data-phase-only="waitlist reserve launch">
+              <span class="ed__tag">Launch price</span>
               <span class="ed__now">{formatUsd(one.launchPriceUsd)}</span>
               <s class="ed__was">
                 <span class="visually-hidden">Regular price </span>
                 {formatUsd(one.priceUsd)}
               </s>
-              <span class="ed__tag">Launch price</span>
             </p>
           )}
           <p data-phase-only={hasLaunchPrice ? 'tease live' : undefined}>
