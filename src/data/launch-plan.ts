@@ -302,7 +302,7 @@ export const FUNNEL: FunnelStage[] = [
     alarm: 0.55,
     benchmark: [0.55, 0.72],
     benchmarkNote: 'Double opt-in: 55–58% median, 70%+ top quartile',
-    why: `The confirm email is the reward email: “Confirm to lock the ${LP} launch price.”`,
+    why: 'The confirm email is the reward email: “Confirm and we’ll send you the date reservations open.”',
     phase: 'tease',
   },
   {
@@ -418,7 +418,7 @@ export const PHASE_PLANS: Record<Phase, PhasePlan> = {
       'Everyone the reveal reaches, routed by the one-tap question “What will you turn?” into editors, producers, designers and developers.',
     channels: [
       'Reveal on 10.20: film, specs and price, then one drop a day to 10.23',
-      'Show HN on 10.27: the SDK and firmware go public',
+      'Show HN on 10.27: the open SDK and firmware, with a technical write-up',
       'Discord opens to everyone on 10.27, once 200 members are seeded',
       'Message-matched paid social to /for/ pages, $14,000',
       'Creator briefings under a 12.01 embargo',
@@ -563,7 +563,7 @@ export const MOMENTS: Moment[] = [
     date: '2026-10-27',
     time: '08:30',
     label: 'Show HN',
-    detail: 'The SDK and firmware go public. Discord opens.',
+    detail: 'A technical write-up on the open SDK and firmware. Discord opens.',
     kind: 'platform',
   },
   {
@@ -750,7 +750,7 @@ export const CREATORS = {
   rules: [
     'No script approval. Negative reviews are allowed, in writing.',
     'Disclosure in the video and in the first line of the post, never only in a bio.',
-    'Every creator gets a ?ref= code, early SDK access and their own feel profile in /profiles/.',
+    'Every creator gets a ?ref= code, prerelease SDK builds and their own feel profile in /profiles/.',
     'Units ship 11.16. Embargo lifts 12.01 at 09:00 PT, for everyone at once.',
   ],
 } as const;
@@ -914,9 +914,10 @@ export const WEEKS: PlanWeek[] = [
   {
     start: '2026-10-26',
     phase: 'waitlist',
-    site: '10.27: the SDK and firmware repositories go public, with a technical write-up on /changelog/.',
+    site: '10.27: a technical write-up on the open SDK and firmware, on /changelog/.',
     community: '10.27 at 08:30 PT: Show HN. Discord opens to everyone. Feel Friday #1 on 10.30.',
-    creators: 'Creators get beta firmware and the SDK. Three commit to publishing a feel profile.',
+    creators:
+      'Creators get beta firmware and prerelease SDK builds. Three commit to publishing a feel profile.',
     paidUsd: 5000,
     paid: 'Developers get budget only if Show HN lands. Otherwise hold it.',
   },
@@ -1033,8 +1034,9 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     id: 'E03',
-    name: 'Confirm to lock the price',
-    hypothesis: `If the confirmation email says “Confirm to lock the ${LP} launch price”, more people confirm than with “Confirm your email”.`,
+    name: 'Confirm to get the date',
+    hypothesis:
+      'If the confirmation email says “Confirm and we’ll send you the date reservations open”, more people confirm than with “Confirm your email”, because confirming earns something concrete.',
     metric: 'Email → confirmed',
     baseline: 0.6,
     lift: 0.1,

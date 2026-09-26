@@ -68,10 +68,22 @@ const segments = [
       open: !end,
     };
   }),
-].map((s) => ({ ...s, lane: s.to - s.from < 8 ? 1 : 0 }));
+].map((s) => {
+  // A segment too short for its label drops to a lower lane. Past the middle of the
+  // scale its label runs back from the segment's end, so it never passes the ruler's edge.
+  const short = s.to - s.from < 8;
+  return {
+    ...s,
+    lane: short ? 1 : 0,
+    anchor: short && s.from - 1 > total / 2 ? ('end' as const) : ('start' as const),
+  };
+});
 
-/* Moments: greedy lanes so labels never overlap (width estimated in days). */
-const PX_PER_DAY = 14.5;
+/* Moments: greedy lanes so labels never overlap (width estimated in days). The ruler is
+   horizontal above 64rem; days are measured at its narrowest there (a 1025px viewport
+   leaves about 958px of ruler), so the lanes hold at every width that shows it. */
+const MIN_RULER_PX = 958;
+const PX_PER_DAY = MIN_RULER_PX / total;
 const placed: { lane: number; start: number; end: number }[] = [];
 const moments = MOMENTS.filter((m) => col(m.date) >= 1 && col(m.date) <= total)
   .sort((a, b) => a.date.localeCompare(b.date))
@@ -149,6 +161,7 @@ const todayCol = col(buildDay);
             data-plan-phase={s.id === 'prep' ? undefined : s.id}
             data-kind={s.id === 'prep' ? 'prep' : 'phase'}
             data-lane={s.lane}
+            data-anchor={s.anchor}
             data-open={s.open || undefined}
             style={`--from:${s.from};--to:${s.to}`}
           >
@@ -326,6 +339,9 @@ const todayCol = col(buildDay);
     grid-row: 1 / -1;
     display: grid;
     grid-template-rows: subgrid;
+    /* One track exactly as wide as the segment's days: a label wider than a short
+       segment overflows its cell instead of stretching the band over its neighbour. */
+    grid-template-columns: minmax(0, 1fr);
     min-inline-size: 0;
   }
   .seg__band {
@@ -352,8 +368,26 @@ const todayCol = col(buildDay);
     padding-inline-end: var(--space-s);
     white-space: nowrap;
   }
+  /* Margin, not padding: the lower lane's box starts below the labels above it, so it
+     never sits over their links. */
   .seg[data-lane='1'] .seg__text {
-    padding-block-start: 5rem;
+    margin-block-start: calc(5rem - var(--space-2xs));
+  }
+  .seg[data-anchor='end'] .seg__text {
+    justify-self: end;
+    text-align: end;
+    padding-inline-end: 0;
+  }
+  .seg[data-anchor='end'] a.seg__route {
+    justify-self: end;
+  }
+  /* The marker takes no width and hangs past the band's end, on the name's baseline,
+     so the name sits flush with its band. */
+  .seg[data-anchor='end'] .seg__name::after {
+    display: inline-block;
+    inline-size: 0;
+    text-align: start;
+    white-space: pre;
   }
   .seg__name {
     font-weight: 700;
@@ -500,7 +534,6 @@ const todayCol = col(buildDay);
     color: var(--ink-muted);
   }
 
-  /* ---- Narrow: the scale turns vertical, one row per day ------------ */
   @media (max-width: 48rem) {
     .scale__head {
       grid-template-columns: minmax(0, 1fr);
@@ -508,6 +541,17 @@ const todayCol = col(buildDay);
     .scale__head h2 {
       grid-row: auto;
     }
+    .then {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .then__list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* ---- Tablets and phones: the scale turns vertical, one row per day ----
+     Below 64rem a day is under 10.5px wide, too narrow for dated labels side by side. */
+  @media (max-width: 64rem) {
     .scale__ruler {
       /* Phase labels take exactly their widest line; the dated moments get the rest. */
       grid-template-columns:
@@ -578,11 +622,18 @@ const todayCol = col(buildDay);
       mask-image: linear-gradient(to bottom, black 70%, transparent);
     }
     .seg__text,
-    .seg[data-lane='1'] .seg__text {
+    .seg[data-lane='1'] .seg__text,
+    .seg[data-anchor='end'] .seg__text {
       grid-row: 1;
       grid-column: 2;
+      justify-self: stretch;
+      margin: 0;
       padding: 0 0.5rem 0.75rem 0.6rem;
+      text-align: start;
       white-space: normal;
+    }
+    .seg[data-anchor='end'] a.seg__route {
+      justify-self: start;
     }
     .seg__name {
       font-size: var(--step--1);
@@ -640,12 +691,6 @@ const todayCol = col(buildDay);
       inset-block-start: 50%;
       inset-inline-start: 0;
       translate: 0 -50%;
-    }
-    .then {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .then__list {
-      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>
