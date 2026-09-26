@@ -114,8 +114,10 @@ import { CONTEXT_TABS, FACTS } from './data';
       color var(--dur-2) var(--ease-out),
       border-color var(--dur-2) var(--ease-out);
   }
-  .ctx__tab:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .ctx__tab:hover {
+      color: var(--ink-strong);
+    }
   }
   .ctx__tab[aria-selected='true'] {
     color: var(--ink-strong);

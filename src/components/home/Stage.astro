@@ -86,6 +86,19 @@ const rings = PROFILES.map((p) => {
 });
 
 const initial = byProfile('ratchet');
+
+// The still under the knob is the LCP image and loads eagerly, so the browser
+// picks its file from `sizes` before layout. The knob is the middle 75% of
+// .stage__dial (inset 12.5%), so each entry is 3/4 of that layout's dial size
+// in the CSS below (header 4rem; vh stands in for svh, which only rounds up):
+//   side             min(column ≈ 45vw, 100svh - header - 16.5rem, 46rem)
+//   landscape phone  100svh - header - 7.5rem (always shorter than the column)
+//   stack            min(72vw, 34svh, 26rem)
+const knobSizes = [
+  '(min-width: 64rem) min(34vw, 75vh - 15.375rem, 34.5rem)',
+  '(orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) calc(75vh - 8.625rem)',
+  'min(54vw, 25.5vh, 19.5rem)',
+].join(', ');
 ---
 
 <div class="stage" data-stage data-profile={initial.id}>
@@ -125,7 +138,7 @@ const initial = byProfile('ratchet');
         profile={initial.id}
         camera="hero"
         label="Detent One. Drag it in a circle, or use the arrow keys, to turn it."
-        sizes="(min-width: 64rem) 36vw, 56vw"
+        sizes={knobSizes}
       />
       <p class="stage__callout" data-callout aria-hidden="true">
         <span class="stage__callout-name" data-callout-name></span>
@@ -175,7 +188,7 @@ const initial = byProfile('ratchet');
       </dd>
     </div>
     <div class="stage__ro-width">
-      <dt>Headline</dt>
+      <dt>Type width</dt>
       <dd class="readout" data-ro-width>
         125%
       </dd>
@@ -379,8 +392,10 @@ const initial = byProfile('ratchet');
       border-color var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
   }
-  .sound-chip:hover {
-    border-color: var(--ink);
+  @media (hover: hover) {
+    .sound-chip:hover {
+      border-color: var(--ink);
+    }
   }
   .sound-chip:active {
     transform: translateY(1px);

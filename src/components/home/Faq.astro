@@ -82,8 +82,10 @@ import { HOME_FAQS } from './data';
   .qa__q::-webkit-details-marker {
     display: none;
   }
-  .qa__q:hover .qa__knob circle {
-    fill: var(--surface);
+  @media (hover: hover) {
+    .qa__q:hover .qa__knob circle {
+      fill: var(--surface);
+    }
   }
   .qa__knob {
     flex: none;

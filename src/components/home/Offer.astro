@@ -7,7 +7,7 @@
 import PhaseCTA from '@/components/PhaseCTA.astro';
 import DialStill from '@/components/dial/DialStill.astro';
 import { FINISHES, PAYMENT, byFinish, formatUsd } from '@/data/product';
-import { LAUNCH } from '@/config/launch';
+import { LAUNCH, PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
 import { url } from '@/lib/url';
 import { EDITION_FOUNDERS, EDITION_ONE, FACTS, launchPriceEndsLabel } from './data';
 import CantDo from './CantDo.astro';
@@ -23,6 +23,21 @@ const shipping =
     ? 'Free shipping'
     : `Free shipping over ${formatUsd(PAYMENT.freeShippingOverUsd)}`;
 const tally = FINISHES.find((f) => f.foundersOnly)!;
+
+/** When a reservation or order placed now ships: PHASES[phase].ships, e.g. "Batch 2, April 2027". */
+const shipsLead: Record<Phase, string> = {
+  tease: 'Reservations ship in',
+  waitlist: 'Reservations ship in',
+  reserve: 'Reserve today and yours ships in',
+  launch: 'Order today and yours ships in',
+  live: 'Order today and yours ships in',
+};
+/** One line per distinct sentence, shown in the phases it belongs to. */
+const batchLines = new Map<string, Phase[]>();
+for (const p of PHASE_ORDER) {
+  const line = `${shipsLead[p]} ${PHASES[p].ships}.`;
+  batchLines.set(line, [...(batchLines.get(line) ?? []), p]);
+}
 ---
 
 <section class="offer section" data-world="day" aria-labelledby="offer-title" id="editions">
@@ -59,11 +74,8 @@ const tally = FINISHES.find((f) => f.foundersOnly)!;
                 {price}
               </s>
             </p>
-            <p class="price__line" data-phase-only="tease">
-              Early reservations get the {launchPrice} launch price.
-            </p>
-            <p class="price__line" data-phase-only="waitlist">
-              Waitlist members reserve first, at the {launchPrice} launch price.
+            <p class="price__line" data-phase-only="tease waitlist">
+              Every reservation locks the {launchPrice} launch price.
             </p>
             <p class="price__line" data-phase-only="reserve">
               Launch price, locked with a {formatUsd(LAUNCH.depositUsd)} refundable deposit that
@@ -177,15 +189,11 @@ const tally = FINISHES.find((f) => f.foundersOnly)!;
       </li>
     </ul>
 
-    <p class="offer__batches" data-phase-only="tease waitlist">
-      {`Batch 1 ships in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}.`}
-    </p>
-    <p class="offer__batches" data-phase-only="reserve">
-      {`Reservations ship in the order they were made: Batch 1 in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}.`}
-    </p>
-    <p class="offer__batches" data-phase-only="launch live">
-      {`Orders ship in the order they are placed: Batch 1 in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}.`}
-    </p>
+    {[...batchLines].map(([line, phases]) => (
+      <p class="offer__batches" data-phase-only={phases.join(' ')}>
+        {line}
+      </p>
+    ))}
 
     <div class="offer__cta">
       <PhaseCTA placement="offer" size="lg" showNote showSecondary align="center" />
