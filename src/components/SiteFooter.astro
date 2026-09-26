@@ -90,8 +90,23 @@ const year = new Date().getFullYear();
     color: var(--ink-muted);
     text-decoration: none;
   }
-  .site-footer__nav a:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .site-footer__nav a:hover {
+      color: var(--ink-strong);
+    }
+  }
+  /* Under a finger every link is a full 44px row. */
+  @media (pointer: coarse) {
+    .site-footer__nav ul {
+      gap: 0;
+    }
+    .site-footer__nav a {
+      display: inline-block;
+      padding-block: 0.7rem;
+    }
+    .site-footer__title {
+      margin-bottom: 0;
+    }
   }
   .site-footer__bottom {
     display: flex;

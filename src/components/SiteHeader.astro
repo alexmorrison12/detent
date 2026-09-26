@@ -1,7 +1,13 @@
 ---
 /**
- * Site header. chrome="full": announcement bar + nav + cart + CTA.
- * chrome="minimal": logo + CTA only (campaign landing pages: fewer exits).
+ * Site header. chrome="full": announcement bar + nav + cart + CTA + menu.
+ * chrome="minimal": logo + sound + CTA only (campaign landing pages: fewer exits).
+ *
+ * Below 60rem the nav moves into a full-screen menu. The menu is a <dialog>:
+ * without JS it opens as a popover (popovertarget); the script upgrades it to
+ * a modal (showModal) so the page underneath is inert, focus starts on Close
+ * and returns to Menu. On phones (≤ 30rem) the sound toggle lives in the menu
+ * so the wordmark, cart, CTA and Menu fit at 320px with 44px targets.
  */
 import { PRIMARY_NAV } from '@/config/site';
 import { PHASES, PHASE_ORDER } from '@/config/launch';
@@ -23,13 +29,18 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
 {
   chrome === 'full' && (
     <div class="announce">
-      {PHASE_ORDER.map((p) => (
-        <p data-phase-only={p}>
-          <a href={url(PHASES[p].landing)} data-track="banner_click">
-            {PHASES[p].banner}
-          </a>
-        </p>
-      ))}
+      {PHASE_ORDER.map((p) => {
+        const { banner, bannerShort, landing } = PHASES[p];
+        const short = bannerShort !== banner;
+        return (
+          <p data-phase-only={p} data-short={short ? '' : undefined}>
+            <a href={url(landing)} data-track="banner_click">
+              <span class="announce__long">{banner}</span>
+              {short && <span class="announce__short">{bannerShort}</span>}
+            </a>
+          </p>
+        );
+      })}
     </div>
   )
 }
@@ -55,7 +66,7 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     }
 
     <div class="site-header__actions">
-      <SoundToggle />
+      <SoundToggle class="site-header__sound" />
       {
         chrome === 'full' && (
           <button class="icon-btn cart-btn" type="button" data-cart-open aria-label="Open cart">
@@ -72,10 +83,17 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
           </button>
         )
       }
-      {!hideCta && <PhaseCTA placement="header" size="sm" showNote={false} class="site-header__cta" />}
+      {!hideCta && <PhaseCTA placement="header" size="sm" showNote={false} returning class="site-header__cta" />}
       {
         chrome === 'full' && (
-          <button class="icon-btn menu-btn" type="button" popovertarget="mobile-nav" aria-label="Menu">
+          <button
+            class="icon-btn menu-btn"
+            type="button"
+            popovertarget="mobile-nav"
+            aria-controls="mobile-nav"
+            aria-label="Menu"
+            data-menu-open
+          >
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
               <path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
             </svg>
@@ -87,17 +105,27 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
 
   {
     chrome === 'full' && (
-      <div id="mobile-nav" class="mobile-nav" popover>
+      <dialog id="mobile-nav" class="mobile-nav" popover aria-label="Menu" data-mobile-nav>
         <div class="mobile-nav__top container">
           <Logo />
-          <button class="icon-btn" type="button" popovertarget="mobile-nav" popovertargetaction="hide" aria-label="Close menu">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-            </svg>
-          </button>
+          <div class="mobile-nav__tools">
+            <SoundToggle />
+            <button
+              class="icon-btn mobile-nav__close"
+              type="button"
+              popovertarget="mobile-nav"
+              popovertargetaction="hide"
+              aria-label="Close menu"
+              data-menu-close
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <nav class="container" aria-label="Mobile">
-          <ul role="list" class="mobile-nav__list">
+        <nav class="mobile-nav__body" aria-label="Mobile">
+          <ul role="list" class="mobile-nav__list container">
             {[{ label: 'Detent One', href: '/' }, ...PRIMARY_NAV].map((item) => (
               <li>
                 <a href={url(item.href)} aria-current={isActive(item.href) ? 'page' : undefined}>
@@ -106,16 +134,20 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
               </li>
             ))}
           </ul>
-          <PhaseCTA placement="mobile-nav" size="lg" />
         </nav>
-      </div>
+        <div class="mobile-nav__cta">
+          <PhaseCTA placement="mobile-nav" size="lg" returning class="container" />
+        </div>
+      </dialog>
     )
   }
 </header>
 
 <script>
   import { cartCount, getCart, onCartChange } from '@/lib/cart';
+  import { getEntry, getReservation } from '@/lib/waitlist';
 
+  /* ---- Cart badge ------------------------------------------------------- */
   function paint(n: number) {
     document.querySelectorAll<HTMLElement>('[data-cart-count]').forEach((el) => {
       el.textContent = String(n);
@@ -127,6 +159,49 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
   }
   paint(cartCount(getCart()));
   onCartChange((s) => paint(cartCount(s)));
+
+  /* ---- Returning visitors: the chrome CTA points at the next step ------- */
+  const done: Record<string, boolean> = { waitlist: !!getEntry(), reserve: !!getReservation() };
+  document.querySelectorAll<HTMLAnchorElement>('a[data-returning-href]').forEach((a) => {
+    const phase = a.closest<HTMLElement>('[data-phase-only]')?.dataset.phaseOnly;
+    if (!phase || !done[phase]) return;
+    a.textContent = a.dataset.returningLabel ?? a.textContent;
+    a.href = a.dataset.returningHref!;
+    a.dataset.trackCta = `${phase}:returning`;
+  });
+
+  /* ---- Mobile menu: popover without JS, modal dialog with it ------------ */
+  const nav = document.querySelector<HTMLDialogElement>('[data-mobile-nav]');
+  const openBtn = document.querySelector<HTMLButtonElement>('[data-menu-open]');
+  const closeBtn = nav?.querySelector<HTMLButtonElement>('[data-menu-close]');
+  if (nav && openBtn && closeBtn && typeof nav.showModal === 'function') {
+    nav.removeAttribute('popover');
+    for (const b of [openBtn, closeBtn]) {
+      b.removeAttribute('popovertarget');
+      b.removeAttribute('popovertargetaction');
+    }
+    // Set now, not in the markup, so page load never autofocuses a closed menu.
+    closeBtn.autofocus = true;
+    openBtn.setAttribute('aria-haspopup', 'dialog');
+    openBtn.setAttribute('aria-expanded', 'false');
+
+    openBtn.addEventListener('click', () => {
+      nav.showModal();
+      openBtn.setAttribute('aria-expanded', 'true');
+    });
+    closeBtn.addEventListener('click', () => nav.close());
+    nav.addEventListener('close', () => {
+      openBtn.setAttribute('aria-expanded', 'false');
+      // Browsers restore focus on close; make sure it lands on Menu, not <body>.
+      if (!document.activeElement || document.activeElement === document.body) {
+        openBtn.focus({ preventScroll: true });
+      }
+    });
+    // Rotating a tablet or widening a window past the breakpoint hides Menu:
+    // never leave an invisible modal holding the page inert.
+    const wide = matchMedia('(min-width: 60.01rem)');
+    wide.addEventListener('change', () => wide.matches && nav.open && nav.close());
+  }
 </script>
 
 <style>
@@ -141,8 +216,13 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
   .announce a {
     text-decoration: none;
   }
-  .announce a:hover {
-    text-decoration: underline;
+  @media (hover: hover) {
+    .announce a:hover {
+      text-decoration: underline;
+    }
+  }
+  .announce__short {
+    display: none;
   }
 
   .site-header {
@@ -170,6 +250,13 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     gap: var(--space-l);
     min-height: var(--header-h);
   }
+  /* The home link is a full 44px target; padding and margin cancel so the mark
+     still sits on the content edge. */
+  .site-header :global(.logo) {
+    min-block-size: 2.75rem;
+    padding-inline: 0.5rem;
+    margin-inline: -0.5rem;
+  }
   .site-nav {
     margin-inline-start: auto;
   }
@@ -186,20 +273,22 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     padding-block: 0.5rem;
     transition: color var(--dur-2) var(--ease-out);
   }
-  .site-nav a:hover,
   .site-nav a[aria-current='page'] {
     color: var(--ink-strong);
-  }
-  .site-nav a[aria-current='page'] {
     text-decoration: underline;
     text-decoration-color: var(--accent);
     text-decoration-thickness: 2px;
     text-underline-offset: 0.5em;
   }
+  @media (hover: hover) {
+    .site-nav a:hover {
+      color: var(--ink-strong);
+    }
+  }
   .site-header__actions {
     display: flex;
     align-items: center;
-    gap: var(--space-2xs);
+    gap: var(--space-3xs);
   }
   [data-chrome='minimal'] .site-header__actions {
     margin-inline-start: auto;
@@ -208,20 +297,22 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     position: relative;
     display: grid;
     place-items: center;
-    inline-size: 2.5rem;
-    block-size: 2.5rem;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
     border-radius: 50%;
     color: var(--ink-muted);
     transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
   }
-  .icon-btn:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .icon-btn:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
   }
   .cart-btn__count {
     position: absolute;
-    inset-block-start: 0.1rem;
-    inset-inline-end: 0.05rem;
+    inset-block-start: 0.2rem;
+    inset-inline-end: 0.15rem;
     min-inline-size: 1.1rem;
     padding: 0 0.25rem;
     border-radius: var(--r-pill);
@@ -235,6 +326,7 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     display: none;
   }
 
+  /* ---- Mobile menu ------------------------------------------------------ */
   .mobile-nav {
     position: fixed;
     inset: 0;
@@ -247,7 +339,9 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     border: 0;
     background: var(--bg);
     color: var(--ink);
-    overflow-y: auto;
+    overflow: hidden;
+    display: none;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     opacity: 0;
     translate: 0 -1rem;
     transition:
@@ -256,39 +350,80 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
       overlay var(--dur-3) allow-discrete,
       display var(--dur-3) allow-discrete;
   }
-  .mobile-nav:popover-open {
+  .mobile-nav:is([open], :popover-open) {
+    display: grid;
     opacity: 1;
     translate: 0 0;
   }
   @starting-style {
-    .mobile-nav:popover-open {
+    .mobile-nav:is([open], :popover-open) {
       opacity: 0;
       translate: 0 -1rem;
+    }
+  }
+  .mobile-nav::backdrop {
+    background: transparent;
+  }
+  /* The page underneath doesn't scroll while the menu is up. */
+  :global(html:has(.mobile-nav[open])) {
+    overflow: hidden;
+  }
+  @supports selector(:popover-open) {
+    :global(html:has(.mobile-nav:popover-open)) {
+      overflow: hidden;
     }
   }
   .mobile-nav__top {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-s);
     min-height: var(--header-h);
+    padding-block-start: env(safe-area-inset-top, 0px);
+    box-sizing: content-box;
+  }
+  .mobile-nav__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+  }
+  .mobile-nav__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .mobile-nav__list {
     display: grid;
     gap: var(--space-2xs);
-    margin-block: var(--space-xl);
+    margin-block: var(--space-l);
   }
   .mobile-nav__list a {
     display: block;
+    /* Big on a tall phone, never so big that landscape shows two links. */
     font-size: var(--step-4);
+    font-size: clamp(var(--step-2), 7svh, var(--step-4));
     font-weight: 760;
     font-stretch: var(--stretch-display);
     letter-spacing: var(--tracking-display);
+    line-height: var(--leading-snug);
     text-decoration: none;
     color: var(--ink-strong);
-    padding-block: 0.15em;
+    padding-block: 0.2em;
   }
   .mobile-nav__list a[aria-current='page'] {
     color: var(--accent-text);
+  }
+  /* The menu's action stays in view however far the list scrolls. */
+  .mobile-nav__cta {
+    padding-block: var(--space-s) max(var(--space-s), env(safe-area-inset-bottom, 0px));
+    border-block-start: 1px solid var(--line);
+    background: var(--bg);
+  }
+  @media (max-height: 30rem) {
+    .mobile-nav__list {
+      grid-template-columns: 1fr 1fr;
+      column-gap: var(--space-l);
+      margin-block: var(--space-s);
+    }
   }
 
   @media (max-width: 60rem) {
@@ -298,21 +433,59 @@ const isActive = (href: string) => (href === '/' ? current === '/' : current.sta
     .menu-btn {
       display: grid;
     }
+    .site-header__inner {
+      gap: var(--space-s);
+    }
     .site-header__actions {
       margin-inline-start: auto;
     }
+    /* Optical edge: the Menu and Close glyphs line up with the content edge,
+       their 44px hit areas run into the gutter. */
+    .menu-btn,
+    .mobile-nav__close {
+      margin-inline-end: -0.6875rem;
+    }
   }
   @media (max-width: 30rem) {
+    /* The logo's padding and the cart's own whitespace already space them. */
     .site-header__inner {
-      gap: var(--space-xs);
+      gap: var(--space-3xs);
     }
+    /* One line on a phone: the short status, where the phase has one. */
+    [data-short] .announce__long {
+      display: none;
+    }
+    .announce__short {
+      display: inline;
+    }
+    /* The menu carries its own sound toggle. */
+    [data-chrome='full'] :global(.site-header__sound) {
+      display: none;
+    }
+    .site-header :global(.logo__word) {
+      font-size: 1.12rem;
+    }
+    /* The width axis earns its keep: the CTA sets at body width on phones. */
+    .site-header :global(.site-header__cta .btn) {
+      padding-inline: 0.85em;
+      font-stretch: var(--stretch-body);
+    }
+  }
+  /* Narrowest phones (320–368px): the mark alone says "home". */
+  @media (max-width: 23rem) {
     .site-header :global(.logo__word) {
       display: none;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .mobile-nav {
+    .mobile-nav,
+    .mobile-nav:is([open], :popover-open) {
       translate: none;
+    }
+    @starting-style {
+      .mobile-nav:is([open], :popover-open) {
+        translate: none;
+      }
     }
   }
 </style>

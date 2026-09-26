@@ -13,8 +13,9 @@
     margin: 0;
   }
   html {
-    -webkit-text-size-adjust: none;
-    text-size-adjust: none;
+    /* 100%, not none: stops landscape font inflation without blocking text zoom. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     interpolate-size: allow-keywords;
     hanging-punctuation: first last;
   }
@@ -88,6 +89,15 @@
     background: var(--bg);
   }
 
+  /* While a bar is docked to the bottom of the viewport (the landing pages'
+     sticky CTA, the shop's build summary), keep focused and scrolled-to
+     elements clear of it (WCAG 2.4.11). */
+  @media (max-width: 74.99rem) {
+    html:has([data-sticky-cta][data-visible], [data-summary-bar][data-visible]) {
+      scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     html:focus-within {
       scroll-behavior: smooth;
@@ -134,8 +144,10 @@
     text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
     transition: text-decoration-color var(--dur-2) var(--ease-out);
   }
-  a:hover {
-    text-decoration-color: currentColor;
+  @media (hover: hover) {
+    a:hover {
+      text-decoration-color: currentColor;
+    }
   }
 
   :focus-visible {
@@ -289,8 +301,22 @@
       border-color var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out);
   }
-  .btn:hover {
-    --btn-line: var(--ink);
+  /* Hover styles only where hovering exists, so a tap never leaves a button
+     stuck in its hover state on touch screens. */
+  @media (hover: hover) {
+    .btn:hover {
+      --btn-line: var(--ink);
+    }
+    .btn--primary:hover {
+      --btn-bg: color-mix(in oklch, var(--accent) 88%, white);
+      --btn-line: var(--btn-bg);
+    }
+    .link-arrow:hover::after {
+      transform: translateX(3px);
+    }
+    .input:hover {
+      border-color: var(--ink-muted);
+    }
   }
   /* A press you can see: the button seats 1px, like a detent. */
   .btn:active {
@@ -300,10 +326,6 @@
     --btn-bg: var(--accent);
     --btn-ink: var(--accent-ink);
     --btn-line: var(--accent);
-  }
-  .btn--primary:hover {
-    --btn-bg: color-mix(in oklch, var(--accent) 88%, white);
-    --btn-line: var(--btn-bg);
   }
   .btn--solid {
     --btn-bg: var(--ink-strong);
@@ -324,6 +346,12 @@
     padding: 0.45em 1em;
     font-size: var(--step--1);
   }
+  /* Compact on a mouse; a full 44px target under a finger (PRODUCT.md). */
+  @media (pointer: coarse) {
+    .btn--sm {
+      min-height: 2.75rem;
+    }
+  }
   .btn[disabled],
   .btn[aria-disabled='true'] {
     opacity: 0.5;
@@ -343,9 +371,6 @@
     content: '→';
     transition: transform var(--dur-2) var(--ease-out);
   }
-  .link-arrow:hover::after {
-    transform: translateX(3px);
-  }
 
   /* Form controls */
   .field {
@@ -361,7 +386,9 @@
     min-height: 2.9rem;
     padding: 0.65em 1em;
     border-radius: var(--r-m);
-    border: 1px solid var(--line-strong);
+    /* --line-input, not --line-strong: the border is the only thing that
+       marks the field (the fill is near the page color), so it needs 3:1. */
+    border: 1px solid var(--line-input);
     background: var(--bg-raised);
     color: var(--ink-strong);
     transition: border-color var(--dur-2) var(--ease-out);
@@ -369,16 +396,13 @@
   .input::placeholder {
     color: var(--ink-muted);
   }
-  .input:hover {
-    border-color: var(--ink-muted);
-  }
   .input:focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 1px;
     border-color: transparent;
   }
   .input[aria-invalid='true'] {
-    border-color: var(--tally-hot);
+    border-color: var(--accent-text);
   }
 
   /* Honest-demo note that sits under every form. */

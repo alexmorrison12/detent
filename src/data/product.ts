@@ -3,6 +3,7 @@
  * Pages, JSON-LD, the product feed and llms.txt all read from here.
  * Never hard-code a price, spec or finish name in a page.
  */
+import { LAUNCH } from '@/config/launch';
 
 export type FinishId = 'raw' | 'graphite' | 'glacier' | 'tally';
 
@@ -34,7 +35,7 @@ export const FINISHES: Finish[] = [
   {
     id: 'graphite',
     name: 'Graphite',
-    line: 'Hard-anodized near-black. Disappears on a dark desk until you touch it.',
+    line: 'Anodized near-black. Disappears on a dark desk until you touch it.',
     body: '#2a2729',
     accent: '#e0115f',
     metalness: 0.9,
@@ -245,7 +246,7 @@ export const SPECS: SpecGroup[] = [
     rows: [
       { label: 'Motor', value: 'Brushless gimbal motor, field-oriented control at 10 kHz' },
       { label: 'Position sensing', value: '14-bit magnetic encoder, 0.022° resolution' },
-      { label: 'Peak torque', value: '32 mN·m' },
+      { label: 'Peak torque', value: '32 mN·m on USB-C, 24 mN·m on battery' },
       { label: 'Press', value: 'Force-sensing knob, three pressure levels' },
       { label: 'Profiles on device', value: '64, switched automatically per app' },
     ],
@@ -299,6 +300,12 @@ export const SPECS: SpecGroup[] = [
 /* Integrations                                                               */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * What every app gets with no profile at all. Say it with this constant
+ * wherever the site answers "does it work with my app?".
+ */
+export const SYSTEM_SET = 'scroll, zoom, undo, volume, brightness and media';
+
 export type IntegrationCategory = 'Video' | 'Audio' | 'Design' | '3D' | 'Code' | 'Stream' | 'System';
 
 export interface Integration {
@@ -329,7 +336,7 @@ export const INTEGRATIONS: Integration[] = [
   { name: 'Xcode', category: 'Code', does: 'Step the debugger one line per click; press to continue.', profile: 'ratchet', status: 'community' },
   { name: 'Terminal', category: 'Code', does: 'Scroll history in Fluid, cycle shells and tabs in Clock.', profile: 'fluid', status: 'native' },
   { name: 'OBS Studio', category: 'Stream', does: 'Switch scenes in Clock, ride mic gain with Wall.', profile: 'clock', status: 'plugin' },
-  { name: 'System', category: 'System', does: 'Volume, brightness, window switching and media, out of the box.', profile: 'wall', status: 'native' },
+  { name: 'System', category: 'System', does: `${SYSTEM_SET[0]!.toUpperCase()}${SYSTEM_SET.slice(1)}, in every app, out of the box.`, profile: 'wall', status: 'native' },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -363,7 +370,7 @@ export const AUDIENCES: Audience[] = [
     id: 'musicians',
     label: 'Music producers',
     headline: 'A real knob for every fake one.',
-    subhead: 'Hard stops at 0 and 100, a bump at unity gain, and 64 profiles that switch with your plugin window.',
+    subhead: 'Hard stops at −∞ and +6\u00a0dB, a bump at 0\u00a0dB, and 64 profiles that switch with your plugin window.',
     pains: ['Dragging tiny on-screen knobs with a mouse', 'Controllers that feel the same for every parameter', 'MIDI mapping that never quite sticks'],
     profile: 'wall',
     apps: ['Ableton Live', 'Logic Pro', 'Bitwig Studio', 'FL Studio'],
@@ -417,14 +424,18 @@ export interface Faq {
 }
 
 export const FAQS: Faq[] = [
-  { topic: 'Launch', q: 'How does the $20 reservation work?', a: 'You pay a $20 deposit to hold your place in line and lock the $299 launch price. When your batch is ready we email you to complete the order; the deposit comes off the price. Cancel any time before then for a full refund, no questions.' },
+  {
+    topic: 'Launch',
+    q: `How does the $${LAUNCH.depositUsd} reservation work?`,
+    a: `You pay a $${LAUNCH.depositUsd} deposit ($${LAUNCH.foundersDepositUsd} for the Founders Edition) to hold your place and lock the launch price. When your batch is ready we email a ship date and a link to pay the rest; the deposit comes off the price. Cancel any time before it ships for a full refund, one click, no questions.`,
+  },
   { topic: 'Launch', q: 'When does it ship?', a: 'Batch 1 ships in February 2027 and Batch 2 in April 2027. Reservations are filled in order, and your confirmation email shows your batch.' },
   { topic: 'Launch', q: 'What makes the Founders Edition different?', a: 'Tally red anodize, a serial number from 0001 to 2000 engraved on the base, a machined walnut plinth, the Founders feel pack and early firmware for life. When the 2,000 are gone, Tally is gone.' },
   { topic: 'Product', q: 'What is software-defined haptics?', a: 'Instead of a mechanical click, a small brushless motor pushes back on your fingers. Firmware decides where the clicks are, how strong they feel, whether it springs back or stops dead, and it can change that per app in about a millisecond.' },
   { topic: 'Product', q: 'Is it loud?', a: 'The clicks you feel are silent; the motor is quieter than a keyboard. There is an optional tick sound in the app if you like hearing them.' },
   { topic: 'Product', q: 'Can I use it wirelessly?', a: 'Yes. Bluetooth LE with three pairings, about 40 hours of active haptics per charge, and weeks on standby. Or leave it plugged in forever; the battery charge limiter keeps it healthy.' },
   { topic: 'Software', q: 'Do I need an account?', a: 'No. Detent Studio runs locally, profiles live on the device, and nothing is sent anywhere unless you opt in to crash reports.' },
-  { topic: 'Software', q: 'What if my app is not supported?', a: 'Every app gets system controls (scroll, volume, zoom, undo) out of the box. Beyond that, the open SDK lets anyone publish a profile, and most community profiles take an evening to write.' },
+  { topic: 'Software', q: 'What if my app is not supported?', a: `Every app gets the system set out of the box: ${SYSTEM_SET}. Beyond that, the open SDK lets anyone publish a profile, and most community profiles take an evening to write.` },
   { topic: 'Buying', q: 'What if I do not love it?', a: 'Use it for 60 days. If it has not earned its spot on your desk, send it back with the prepaid label for a full refund.' },
   { topic: 'Buying', q: 'Can I pay over time?', a: 'Yes. At checkout you can split the price into four interest-free payments.' },
   { topic: 'Shipping', q: 'Where do you ship?', a: 'The US, Canada, the UK, the EU, Australia, New Zealand, Japan and South Korea at launch, with duties included in the price you see.' },

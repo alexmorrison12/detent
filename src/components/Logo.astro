@@ -48,8 +48,10 @@ const Tag = href === null ? 'span' : 'a';
     flex: none;
     transition: transform var(--dur-3) var(--ease-out);
   }
-  a.logo:hover .logo__mark {
-    transform: rotate(30deg);
+  @media (hover: hover) {
+    a.logo:hover .logo__mark {
+      transform: rotate(30deg);
+    }
   }
   .logo__word {
     font-size: 1.28rem;

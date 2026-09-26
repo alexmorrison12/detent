@@ -1,0 +1,274 @@
+/*
+ * Web fonts and their metric-matched fallbacks.
+ *
+ * 1. Subsets. archivo-core (57 KB) and martian-mono-core (13 KB) carry only the
+ *    characters and features the site sets, with every design axis intact
+ *    (src/styles/fonts/subset.py rebuilds them and prints these ranges). The
+ *    full fontsource files are declared for exactly the rest of their ranges,
+ *    so they only download if a page, or a visitor's own input, uses a
+ *    character the subset lacks. Keep the ranges disjoint: an overlap would
+ *    make document.fonts.load() on the canvas pages fetch both files.
+ *
+ * 2. Fallbacks. Until the web font arrives (font-display: swap), text renders
+ *    in a local Verdana / Arial / Menlo scaled to Archivo's and Martian Mono's
+ *    advance widths so lines break in the same places and nothing reflows on
+ *    swap (CLS, measured with fonts delayed 1.3 s: 0.00–0.03 on every route).
+ *    Arial has no width axis, so 'Archivo Fallback' has one face per band of
+ *    font-stretch the site uses (body 100%, UI 108%, 112%, display 125%) and
+ *    per weight band; the browser picks the face from font-stretch and
+ *    font-weight like any family. size-adjust is Archivo's width over Arial's
+ *    for running English at that stretch and weight (measured in Chromium);
+ *    the overrides restore Archivo's 878/210 ascent/descent after scaling.
+ */
+
+/* ---- Archivo ------------------------------------------------------------ */
+@font-face {
+  font-family: 'Archivo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url('@fontsource-variable/archivo/files/archivo-latin-ext-standard-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url('@fontsource-variable/archivo/files/archivo-latin-standard-normal.woff2') format('woff2-variations');
+  unicode-range: U+00A1, U+00A4, U+00A6, U+00A8, U+00AA, U+00AC-00AD, U+00AF, U+00B4-00B6, U+00B8, U+00BF-00D6,
+    U+00D9-00F6, U+00F9-00FF, U+0131, U+0152-0153, U+02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+2191,
+    U+2193, U+2215, U+FEFF;
+}
+@font-face {
+  font-family: 'Archivo Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url('./fonts/archivo-core.woff2') format('woff2-variations');
+  unicode-range: U+0020-007E, U+00A0, U+00A2-00A3, U+00A5, U+00A7, U+00A9, U+00AB, U+00AE, U+00B0-00B3, U+00B7,
+    U+00B9-00BE, U+00D7-00D8, U+00F7-00F8, U+2009, U+2013-2014, U+2018-201A, U+201C-201E, U+2022, U+2026,
+    U+2032-2033, U+2039-203A, U+2044, U+20AC, U+2122, U+2212;
+}
+
+/*
+ * Archivo Display Fallback: expanded, heavy text (headlines) first tries
+ * Verdana Bold. Headlines are often sized in ch, and ch is measured from the
+ * font on screen; Verdana's letters-to-zero ratio is within 3% of Archivo
+ * Expanded's (Arial's is 10% off), so a 10ch headline breaks where it will in
+ * Archivo. Every other band, and any device without Verdana, falls through
+ * to 'Archivo Fallback': the local('Detent None') faces never load, on purpose.
+ */
+@font-face {
+  font-family: 'Archivo Display Fallback';
+  src: local('Verdana Bold'), local('Verdana-Bold');
+  font-weight: 690 900;
+  font-stretch: 119% 200%;
+  size-adjust: 108%;
+  ascent-override: 81.3%;
+  descent-override: 19.4%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Display Fallback';
+  src: local('Verdana Bold'), local('Verdana-Bold');
+  font-weight: 550 689;
+  font-stretch: 119% 200%;
+  size-adjust: 103%;
+  ascent-override: 85.2%;
+  descent-override: 20.4%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Display Fallback';
+  src: local('Verdana Bold'), local('Verdana-Bold');
+  font-weight: 690 900;
+  font-stretch: 111% 118%;
+  size-adjust: 101%;
+  ascent-override: 86.9%;
+  descent-override: 20.8%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Display Fallback';
+  src: local('Detent None');
+  font-weight: 100 549;
+  font-stretch: 119% 200%;
+}
+@font-face {
+  font-family: 'Archivo Display Fallback';
+  src: local('Detent None');
+  font-weight: 100 689;
+  font-stretch: 111% 118%;
+}
+@font-face {
+  font-family: 'Archivo Display Fallback';
+  src: local('Detent None');
+  font-weight: 100 900;
+  font-stretch: 50% 110%;
+}
+
+/*
+ * Archivo Fallback: size-adjust by band (Arial below weight 550, Arial Bold above).
+ *   stretch \ weight   100–549   550–689   690–900
+ *   ≤104% (body)       98%       95%       99%
+ *   105–110% (UI)     107%      104%      108%
+ *   111–118%          112%     108.5%     112%
+ *   ≥119% (display)   127%      123%      128%
+ */
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial'), local('ArialMT'), local('Roboto'), local('Helvetica Neue');
+  font-weight: 100 549;
+  font-stretch: 50% 104%;
+  size-adjust: 98%;
+  ascent-override: 89.6%;
+  descent-override: 21.4%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 550 689;
+  font-stretch: 50% 104%;
+  size-adjust: 95%;
+  ascent-override: 92.4%;
+  descent-override: 22.1%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 690 900;
+  font-stretch: 50% 104%;
+  size-adjust: 99%;
+  ascent-override: 88.7%;
+  descent-override: 21.2%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial'), local('ArialMT'), local('Roboto'), local('Helvetica Neue');
+  font-weight: 100 549;
+  font-stretch: 105% 110%;
+  size-adjust: 107%;
+  ascent-override: 82.1%;
+  descent-override: 19.6%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 550 689;
+  font-stretch: 105% 110%;
+  size-adjust: 104%;
+  ascent-override: 84.4%;
+  descent-override: 20.2%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 690 900;
+  font-stretch: 105% 110%;
+  size-adjust: 108%;
+  ascent-override: 81.3%;
+  descent-override: 19.4%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial'), local('ArialMT'), local('Roboto'), local('Helvetica Neue');
+  font-weight: 100 549;
+  font-stretch: 111% 118%;
+  size-adjust: 112%;
+  ascent-override: 78.4%;
+  descent-override: 18.8%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 550 689;
+  font-stretch: 111% 118%;
+  size-adjust: 108.5%;
+  ascent-override: 80.9%;
+  descent-override: 19.4%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 690 900;
+  font-stretch: 111% 118%;
+  size-adjust: 112%;
+  ascent-override: 78.4%;
+  descent-override: 18.8%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial'), local('ArialMT'), local('Roboto'), local('Helvetica Neue');
+  font-weight: 100 549;
+  font-stretch: 119% 200%;
+  size-adjust: 127%;
+  ascent-override: 69.1%;
+  descent-override: 16.5%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 550 689;
+  font-stretch: 119% 200%;
+  size-adjust: 123%;
+  ascent-override: 71.4%;
+  descent-override: 17.1%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'), local('Helvetica Neue Bold');
+  font-weight: 690 900;
+  font-stretch: 119% 200%;
+  size-adjust: 128%;
+  ascent-override: 68.6%;
+  descent-override: 16.4%;
+  line-gap-override: 0%;
+}
+
+/* ---- Martian Mono --------------------------------------------------------- */
+@font-face {
+  font-family: 'Martian Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('@fontsource-variable/martian-mono/files/martian-mono-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+00A1-00AF, U+00B2-00B6, U+00B8-00BB, U+00BF-00D6, U+00D9-00FF, U+0131, U+0152-0153, U+02BC,
+    U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+2002, U+201A, U+201E, U+2022, U+2039-203A, U+2044, U+20AC, U+2122,
+    U+2191, U+2193;
+}
+@font-face {
+  font-family: 'Martian Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url('./fonts/martian-mono-core.woff2') format('woff2-variations');
+  unicode-range: U+0020-007E, U+00A0, U+00B0-00B1, U+00B7, U+00BC-00BE, U+00D7-00D8, U+2013-2014, U+2018-2019,
+    U+201C-201D, U+2026, U+2212;
+}
+/* Monospace advances don't change with weight: one face covers them all. */
+@font-face {
+  font-family: 'Martian Mono Fallback';
+  src: local('Menlo'), local('Menlo-Regular'), local('Consolas'), local('DejaVu Sans Mono'), local('Roboto Mono'),
+    local('Courier New');
+  font-weight: 100 900;
+  size-adjust: 116.3%;
+  ascent-override: 86%;
+  descent-override: 17.2%;
+  line-gap-override: 0%;
+}

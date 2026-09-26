@@ -21,7 +21,7 @@ Strategy: **Committed accent on neutral worlds**, plus a **Full palette of feel 
 - Aluminum ramp: `--alu-400 … 50`. Night ink, day surfaces. Day background is pure white.
 - **Tally** `oklch(0.636 0.218 355.3)`: the knob's indicator line, the on-air light. Primary buttons, focus rings, the one thing lit on a dark page. Text on tally fills is **graphite**, never white (white fails contrast). Tally text on night uses `--tally-hot`; on day uses `--tally-deep`.
 - Feel colors (`--feel-ratchet|fluid|spring|clock|wall|magnet`): each haptic profile owns one hue and uses it only when that profile is active or being shown (the knob display ring, the playground world, profile cards). Never as general decoration.
-- Semantic tokens (`--bg --bg-raised --surface --surface-2 --ink --ink-strong --ink-muted --ink-faint --line --line-strong --accent --accent-text --accent-ink --focus`) flip with `data-world="night|day"`. Components use semantic tokens only.
+- Semantic tokens (`--bg --bg-raised --surface --surface-2 --ink --ink-strong --ink-muted --ink-faint --line --line-strong --line-input --accent --accent-text --accent-ink --focus`) flip with `data-world="night|day"`. Components use semantic tokens only. `--line-input` is the form-field boundary (≥ 3:1 on bg, bg-raised and surface); `--line`/`--line-strong` are decorative rules and never the only edge of a control.
 
 ## Typography
 
@@ -32,6 +32,7 @@ Strategy: **Committed accent on neutral worlds**, plus a **Full palette of feel 
   - **Signature:** the width axis is live. Where the dial is interactive, turning it may drive `font-stretch`/weight of a nearby headline (the page literally responds to the knob).
 - **Martian Mono Variable** for *readouts only*: degrees, detent counts, specs values, prices in configurator summaries, serial numbers. Class `.readout`. Never for paragraphs or labels-as-costume.
 - Scale `--step--2 … --step-6` (fluid, ~1.333). Hero max 6rem. `text-wrap: balance` on headings, `pretty` on prose. Body ≤ 66ch.
+- Loading: both fonts are self-hosted subsets with every axis kept (`src/styles/fonts/`, rebuilt by `subset.py`); Archivo is preloaded. `font-display: swap` over metric-matched local fallbacks (`src/styles/fonts.css`): Verdana Bold for expanded headlines, Arial per stretch/weight band, Menlo for readouts, so a late font doesn't reflow the page. Size headline measures in `em`, not `ch`: `ch` is measured in whatever font is on screen, so a `10ch` headline changes width when the font swaps.
 
 ## Shape, depth, texture
 
@@ -44,21 +45,23 @@ Strategy: **Committed accent on neutral worlds**, plus a **Full palette of feel 
 - Easing: `--ease-out` (expo-like), `--ease-out-quart`. No bounce/elastic except the dial's own spring physics (which is the product).
 - Durations: `--dur-1 120ms` (press), `--dur-2 220ms` (hover), `--dur-3 420ms` (reveal), `--dur-4 800ms` (hero choreography).
 - Buttons "seat" 1px on press, like a detent.
+- Hover styles live inside `@media (hover: hover)` so a tap never leaves a control stuck in its hover state; `:active` and `:focus-visible` stay outside it.
 - Scroll-driven animations (`animation-timeline: view()/scroll()`) inside `@supports`; the non-supporting default is the finished, visible state. Never gate content visibility on JS.
 - Cross-document View Transitions are on (`@view-transition { navigation: auto }`); name shared elements (e.g. the dial) with `view-transition-name` sparingly.
 - `prefers-reduced-motion: reduce`: no autorotation, no parallax, crossfades only; the dial still turns when the user turns it.
 
 ## Layout
 
-- Container 88rem, gutters `--gutter`, sections `--section-y`.
+- Container 88rem, gutters `--gutter` (never less than the safe-area inset, so landscape phones keep content off the notch), sections `--section-y`.
+- Touch targets are 44px: icon buttons are 2.75rem, and `.btn--sm` grows to 44px under `(pointer: coarse)`. Anything docked to the bottom of the viewport sets `data-visible` while shown so `global.css` keeps focused fields clear of it (`scroll-padding-bottom`).
 - One dominant idea per viewport on brand pages. Asymmetry is welcome; the dial is often off-center, bleeding off an edge.
 - Z-index: use `--z-*` tokens only.
 
 ## Components (shared, in `src/components/`)
 
 - `BaseLayout` (world, chrome, SEO, JSON-LD, phase script, speculation rules)
-- `SiteHeader` (announcement, nav, sound toggle, cart, phase CTA, mobile popover nav), `SiteFooter`
-- `PhaseCTA`: the only way to render the main buy/reserve/join action
+- `SiteHeader` (announcement with a phone-length status, nav, sound toggle, cart, phase CTA, mobile menu), `SiteFooter`. The mobile menu is a `<dialog>`: a popover without JS, a modal with it (page inert, focus on Close, back to Menu). At ≤ 30rem the sound toggle moves into the menu so wordmark, cart, CTA and Menu fit at 320px; below 23rem the mark alone is the home link.
+- `PhaseCTA`: the only way to render the main buy/reserve/join action. `query` carries context to the landing page (e.g. `segment=music&feel=wall` from an audience page); `returning` lets the chrome point visitors who already joined or reserved at their pass or reservation.
 - `dial/DialStage` (interactive or display dial), `dial/DialStill` (static image)
 - `.btn` `.btn--primary|solid|quiet` `.btn--sm|lg`, `.link-arrow`, `.field` + `.input`, `.readout`, `.lede`, `.concept-note`
 
