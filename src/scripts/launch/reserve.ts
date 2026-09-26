@@ -249,8 +249,10 @@ async function init(hero: HTMLElement) {
       : '';
     done.querySelector('[data-res-deposit]')!.textContent = formatUsd(dep);
     done.querySelector('[data-res-balance]')!.textContent = formatUsd(ed.launchPriceUsd - dep);
+    // Only an edition priced below its regular price has a launch price (Founders doesn't).
+    const launchPrice = ed.launchPriceUsd < ed.priceUsd ? ' launch price' : '';
     done.querySelector('[data-res-balance-note]')!.textContent =
-      `${formatUsd(ed.launchPriceUsd)} launch price, less your deposit`;
+      `${formatUsd(ed.launchPriceUsd)}${launchPrice}, less your deposit`;
     formParts.forEach((el) => (el.hidden = true));
     done.hidden = false;
     setStickyEnabled(false);
