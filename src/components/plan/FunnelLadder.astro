@@ -316,8 +316,10 @@ const rows = [
     border-block-end: 1px solid var(--line);
     transition: background-color var(--dur-2) var(--ease-out);
   }
-  .stage:hover {
-    background: color-mix(in oklch, var(--bg) 60%, transparent);
+  @media (hover: hover) {
+    .stage:hover {
+      background: color-mix(in oklch, var(--bg) 60%, transparent);
+    }
   }
   .stage__name h3 {
     font-size: var(--step-0);

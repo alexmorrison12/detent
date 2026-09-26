@@ -10,7 +10,7 @@
 
 - **The page is the product demo.** The dial on the page turns (drag, wheel, arrow keys), clicks audibly once you opt in to sound, vibrates on Android, and drives the page around it. Six feels (Ratchet, Fluid, Spring, Clock, Wall, Magnet) change the physics, the sound and the display.
 - **Play is the funnel.** Crack the Safe (`/crack/`) and Daily Detent (`/daily/`) are daily games you play by feel; the feel library (`/profiles/`) and achievements reward poking around.
-- **One value moves the launch.** Tease → Waitlist → Reserve → Launch day → Live. Every call to action, the announcement bar and every phase-specific block follow `PUBLIC_LAUNCH_PHASE`, and any URL previews any phase with `?phase=`.
+- **One value moves the launch.** Tease → Waitlist → Reserve → Launch day → Live. Every call to action, the announcement bar and every phase-specific block follow one build setting (the `LAUNCH_PHASE` repository variable, `PUBLIC_LAUNCH_PHASE` in the build), and any URL previews any phase with `?phase=`.
 - **Honest by construction.** Real dates and batch numbers from config, no fake timers or counters, no invented reviews, refundable deposits, demo mode that says it's a demo.
 - **Built on the platform, not on a framework runtime.** Static HTML first, light-DOM web components, cross-document View Transitions, Speculation Rules prerendering, `popover` and `<dialog>`, `@starting-style`, scroll-driven animations behind `@supports`, OKLCH color, CSS subgrid, and Archivo's live width axis. three.js loads after first paint and never blocks reading; everything works without WebGL.
 
@@ -48,29 +48,30 @@ Node 22.12 or newer.
 
 ## Deploy
 
-GitHub Actions builds and deploys to GitHub Pages on every push to `main`, and on demand from the Actions tab. The workflow passes these **repository variables** (Settings → Secrets and variables → Actions → Variables) into the build:
+GitHub Actions builds and deploys to GitHub Pages on every push to `main`, and on demand from the Actions tab. `.github/workflows/deploy.yml` reads three **repository variables** (Settings → Secrets and variables → Actions → Variables) and hands each one to the build under the `PUBLIC_*` name the site's code reads:
 
-| Variable                   | Default                                       | Purpose                                                      |
-| -------------------------- | --------------------------------------------- | ------------------------------------------------------------ |
-| `PUBLIC_LAUNCH_PHASE`      | `reserve`                                     | `tease`, `waitlist`, `reserve`, `launch` or `live`           |
-| `PUBLIC_SITE_MODE`         | `demo`                                        | `live` when real endpoints are configured                    |
-| `PUBLIC_WAITLIST_ENDPOINT` | unset                                         | Where waitlist and reservation forms `POST` JSON             |
-| `SITE_URL`, `SITE_BASE`    | `https://alexmorrison12.github.io`, `/detent` | Override for a custom domain (`https://detent.example`, `/`) |
+| Repository variable | Build environment it sets  | Default   | Purpose                                                                  |
+| ------------------- | -------------------------- | --------- | ------------------------------------------------------------------------ |
+| `LAUNCH_PHASE`      | `PUBLIC_LAUNCH_PHASE`      | `reserve` | `tease`, `waitlist`, `reserve`, `launch` or `live`                       |
+| `SITE_MODE`         | `PUBLIC_SITE_MODE`         | `demo`    | `live` when real endpoints are configured (adds `Offer` structured data) |
+| `WAITLIST_ENDPOINT` | `PUBLIC_WAITLIST_ENDPOINT` | unset     | Where waitlist and reservation forms `POST` JSON                         |
 
-`PUBLIC_*` values end up in public JavaScript. Never put a secret in one.
+The `PUBLIC_*` names are build-time environment variables, not repository variables: the workflow sets them, and a local build reads them from your shell (`PUBLIC_LAUNCH_PHASE=live npm run build`). Astro inlines `PUBLIC_*` values into public JavaScript, so never put a secret in one.
+
+`SITE_URL` and `SITE_BASE` are not repository variables either. The workflow takes them from the Pages configuration (`actions/configure-pages`), so a custom domain or a renamed repository needs no change. Local builds default to `https://alexmorrison12.github.io` and `/detent` (`astro.config.mjs`); set both in the environment to build for another host, for example `SITE_URL=https://detent.example SITE_BASE=/`.
 
 ## Switching launch phases
 
 ```bash
-gh variable set PUBLIC_LAUNCH_PHASE --body waitlist
+gh variable set LAUNCH_PHASE --body waitlist
 gh workflow run deploy.yml --ref main && gh run watch
 ```
 
-The variable takes effect on the next build. To look at a phase without deploying, add `?phase=launch` to any URL (it sticks for the tab; `?phase=reset` clears it), or turn the dial on [`/launch-plan/`](https://alexmorrison12.github.io/detent/launch-plan/). Flip times, the two-person runbook and rollback are in [docs/LAUNCH_PLAN.md §12](docs/LAUNCH_PLAN.md#12-the-switch-moving-the-site-between-phases).
+The variable takes effect on the next build. For a one-off build in another phase without changing the variable, run the workflow with its `phase` input: `gh workflow run deploy.yml --ref main -f phase=launch`. To look at a phase without deploying, add `?phase=launch` to any URL (it sticks for the tab; `?phase=reset` clears it), or turn the dial on [`/launch-plan/`](https://alexmorrison12.github.io/detent/launch-plan/). Flip times, the two-person runbook and rollback are in [docs/LAUNCH_PLAN.md §12](docs/LAUNCH_PLAN.md#12-the-switch-moving-the-site-between-phases).
 
 ## Configuring endpoints
 
-Set `PUBLIC_WAITLIST_ENDPOINT` to a URL that accepts `POST` JSON with `action: "join"` or `action: "reserve"` and returns the entry or reservation. Request and response shapes, CORS, double opt-in and the Stripe deposit flow are specified in [docs/OPERATIONS.md §9](docs/OPERATIONS.md#9-plugging-in-real-backends). Until it is set, the site runs in demo mode.
+Set the `WAITLIST_ENDPOINT` repository variable (the build's `PUBLIC_WAITLIST_ENDPOINT`) to a URL that accepts `POST` JSON with `action: "join"` or `action: "reserve"` and returns the entry or reservation. Request and response shapes, CORS, double opt-in and the Stripe deposit flow are specified in [docs/OPERATIONS.md §9](docs/OPERATIONS.md#9-plugging-in-real-backends). Until it is set, the site runs in demo mode; set `SITE_MODE` to `live` once the endpoint is real.
 
 ## Project structure
 

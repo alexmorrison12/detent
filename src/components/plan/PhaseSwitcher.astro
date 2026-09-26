@@ -129,9 +129,14 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
           <div class="switch__now" data-phase-only={id}>
             <p class="switch__name">{PHASES[id].name}</p>
             <p class="switch__dates readout">
-              {fmtDot(PHASES[id].starts)} → {end ? fmtDot(end) : 'open'}
-              {days ? ` · ${days} ${days === 1 ? 'day' : 'days'}` : ''} · flips{' '}
-              {fmtPacific(PHASE_PLANS[id].flipAt)} · phase {i + 1}/{PHASE_ORDER.length}
+              {[
+                `${fmtDot(PHASES[id].starts)} → ${end ? fmtDot(end) : 'open'}`,
+                days && `${days} ${days === 1 ? 'day' : 'days'}`,
+                `flips ${fmtPacific(PHASE_PLANS[id].flipAt)}`,
+                `phase ${i + 1}/${PHASE_ORDER.length}`,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
             <dl class="switch__facts">
               <div>
@@ -180,8 +185,8 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
         <span>The whole feel profile behind this dial:</span>
         <code>{profileJson}</code>
         <span>
-          Every click weighs the same. This build ships in {PHASES[BUILD_PHASE].name}, set by
-          <code>PUBLIC_LAUNCH_PHASE</code>.
+          Every click weighs the same. This build ships in {PHASES[BUILD_PHASE].name}, set by the{' '}
+          <code>LAUNCH_PHASE</code> repository variable.
         </span>
       </p>
     </div>
@@ -367,9 +372,11 @@ for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor
       color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .switch__stop a:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .switch__stop a:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
   }
   .switch__stop a[aria-current='true'] {
     color: var(--ink-strong);

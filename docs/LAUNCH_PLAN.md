@@ -27,7 +27,7 @@ Numbers live in [`src/data/launch-plan.ts`](../src/data/launch-plan.ts); dates, 
 
 ## 1. The plan in one paragraph
 
-We launch Detent One in five phases driven by one config value. On **Tue 6 Oct** a silhouette and one click of audio go out, and the only ask is an email. On **Tue 20 Oct** we reveal the product, the specs and the price, and open a referral waitlist. On **Tue 10 Nov** we open **$20 fully refundable reservations** that lock the **$299 launch price**, and we aim to fill Batch 1 (2,500 units) before launch day. On **Tue 1 Dec** at 09:00 PT the creator embargo lifts and orders open at $299 for 72 hours. On **Fri 4 Dec** at 09:00 PT the launch price ends, the site flips to the live store at **$349**, and the plan hands over to [OPERATIONS.md](OPERATIONS.md). Batch 1 ships in February 2027 and Batch 2 in April 2027. We sell on our own store, not Kickstarter; we post the open SDK to Hacker News on 27 Oct and the product to Product Hunt on 2 Dec. We never fake urgency, never invent a number, and never test prices.
+We launch Detent One in five phases driven by one config value. On **Tue 6 Oct** a silhouette and one click of audio go out, and the only ask is an email. On **Tue 20 Oct** we reveal the product, the specs and the price, and open a referral waitlist. On **Tue 10 Nov** we open **$20 fully refundable reservations** that lock the **$299 launch price**, and we aim to fill Batch 1 (2,500 units) before launch day. On **Tue 1 Dec** at 09:00 PT the creator embargo lifts and orders open at $299 for 72 hours. On **Fri 4 Dec** at 09:00 PT the launch price ends, the site flips to the live store at **$349**, and the plan hands over to [OPERATIONS.md](OPERATIONS.md). Reservations ship in Batch 1, February 2027; launch-week and later orders ship in Batch 2, April 2027. We sell on our own store, not Kickstarter; we post the open SDK to Hacker News on 27 Oct and the product to Product Hunt on 2 Dec. We never fake urgency, never invent a number, and never test prices.
 
 ## 2. Goals and the north star
 
@@ -51,7 +51,7 @@ Committed units by 12.31: 4,002. Gross at a 25% Founders mix: about $1.20M. Laun
 
 ## 3. Positioning and who we sell to
 
-**The sentence we sell with.** For people who make things on a screen for hours, Detent One is an instrument for software: the first input device whose feel changes with what you're doing. Macro pads and stream controllers give every task the same click. Detent clicks one frame at a time in Resolve, stops dead at 0 dB in Logic, and snaps to every hunk in your diff.
+**The sentence we sell with.** For people who make things on a screen for hours, Detent One is an instrument for software: the first input device whose feel changes with what you're doing. Macro pads and stream controllers give every task the same click. Detent clicks one frame at a time in Resolve, bumps at 0 dB in Logic, and snaps to every hunk in your diff.
 
 **The sentence we refuse.** ~~A premium customizable controller for creators with beautiful design.~~ Every competitor could write it, so it says nothing.
 
@@ -101,15 +101,25 @@ Streamers are a signup segment (“What will you turn?” → Streaming) but not
 
 ## 5. Timeline
 
-| Phase                     | Dates                            | Flips at             | Landing page   | Primary CTA          | Offer line                                          |
-| ------------------------- | -------------------------------- | -------------------- | -------------- | -------------------- | --------------------------------------------------- |
-| **Tease** (`tease`)       | Tue, Oct 6 → Mon, Oct 19 (14 d)  | 09:00 PT / 16:00 UTC | `/l/tease/`    | “Get the first look” | One email on reveal day. Nothing else.              |
-| **Waitlist** (`waitlist`) | Tue, Oct 20 → Mon, Nov 9 (21 d)  | 09:00 PT / 16:00 UTC | `/l/waitlist/` | “Join the waitlist”  | Free. Every friend who confirms earns you a reward. |
-| **Reserve** (`reserve`)   | Tue, Nov 10 → Mon, Nov 30 (21 d) | 09:00 PT / 17:00 UTC | `/l/reserve/`  | “Reserve for $20”    | Fully refundable. Locks the $299 launch price.      |
-| **Launch day** (`launch`) | Tue, Dec 1 → Thu, Dec 3 (3 d)    | 09:00 PT / 17:00 UTC | `/l/launch/`   | “Order Detent One”   | $299 launch price for 72 hours. Free shipping.      |
-| **Live** (`live`)         | Fri, Dec 4 → open                | 09:00 PT / 17:00 UTC | `/`            | “Buy Detent One”     | Free shipping. 60-day studio trial.                 |
+| Phase                     | Dates                            | Flips at             | Landing page   | Primary CTA         | Button note                                         |
+| ------------------------- | -------------------------------- | -------------------- | -------------- | ------------------- | --------------------------------------------------- |
+| **Tease** (`tease`)       | Tue, Oct 6 → Mon, Oct 19 (14 d)  | 09:00 PT / 16:00 UTC | `/l/tease/`    | “Get launch news”   | One email when the list opens 10.20. Nothing else.  |
+| **Waitlist** (`waitlist`) | Tue, Oct 20 → Mon, Nov 9 (21 d)  | 09:00 PT / 16:00 UTC | `/l/waitlist/` | “Join the waitlist” | Free. Every friend who confirms earns you a reward. |
+| **Reserve** (`reserve`)   | Tue, Nov 10 → Mon, Nov 30 (21 d) | 09:00 PT / 17:00 UTC | `/l/reserve/`  | “Reserve for $20”   | Fully refundable. Locks the $299 launch price.      |
+| **Launch day** (`launch`) | Tue, Dec 1 → Thu, Dec 3 (3 d)    | 09:00 PT / 17:00 UTC | `/l/launch/`   | “Order Detent One”  | $299 until 12.04. Free shipping.                    |
+| **Live** (`live`)         | Fri, Dec 4 → open                | 09:00 PT / 17:00 UTC | `/`            | “Buy Detent One”    | Free shipping. 60-day studio trial.                 |
 
 Flip times are 09:00 Pacific, which is 16:00 UTC before US daylight saving ends on 1 Nov and 17:00 UTC after. Launch and Live come straight from `LAUNCH.launchDate` and `LAUNCH.launchPriceEnds`.
+
+**What the site says in each phase** (`PHASES[phase]` in `src/config/launch.ts`: `banner`, `bannerShort` and `ships`). The launch banner names a day and a time, never a relative “ends in”, because the build is static for all three days. `ships` is the batch an order or reservation placed in that phase goes to: deposits fill Batch 1, launch-week and later orders go to Batch 2. If a batch fills or slips, that one field changes and every ship date on the site follows.
+
+| Phase      | Announcement bar                                                     | On a phone                              | Ships in               |
+| ---------- | -------------------------------------------------------------------- | --------------------------------------- | ---------------------- |
+| Tease      | The waitlist opens 10.20.                                            | The waitlist opens 10.20.               | Batch 1, February 2027 |
+| Waitlist   | The waitlist is open. Every reservation locks the $299 launch price. | The waitlist is open.                   | Batch 1, February 2027 |
+| Reserve    | Reservations are open. Batch 1 ships February 2027.                  | Reservations open. Ships February 2027. | Batch 1, February 2027 |
+| Launch day | Detent One is here. $299 until Friday, Dec 4, 09:00 PT.              | $299 until Dec 4, 09:00 PT.             | Batch 2, April 2027    |
+| Live       | Free shipping and a 60-day studio trial on every Detent.             | Free shipping. 60-day trial.            | Batch 2, April 2027    |
 
 **Dated moments**
 
@@ -144,7 +154,7 @@ Each phase owns one landing page and one primary action, rendered by `<PhaseCTA>
 ### 6.1 Tease · Tue 6 Oct → Mon 19 Oct · `/l/tease/`
 
 - **Objective.** Get 4,000 people to hand over an email before they know the price, on the strength of one turn of the dial.
-- **Primary CTA.** “Get the first look”. Note: _One email on reveal day. Nothing else._
+- **Primary CTA.** “Get launch news”. Note: _One email when the list opens 10.20. Nothing else._
 - **Offer.** A first look on reveal day, and first claim on the $299 launch price. No discount code, no giveaway.
 - **Who we talk to.** Warm first: the SmartKnob and maker communities, the founders' own followers, 100 SDK testers. Cold paid traffic only as a capped test of the 5% benchmark.
 - **The page.** The dial toy needs no email. The capture form appears after a visitor has turned the dial through three feels (test E01), asks one tap first (“What will you turn?”) and the email second (E02), and never covers more than 30% of the screen.
@@ -172,11 +182,11 @@ Each phase owns one landing page and one primary action, rendered by `<PhaseCTA>
 
 - **Objective.** Turn curiosity into a line: 15,000 confirmed waitlisters by 11.09, about a quarter of them brought in by a friend.
 - **Primary CTA.** “Join the waitlist”. Note: _Free. Every friend who confirms earns you a reward._
-- **Offer and referral milestones.** Rewards are craft and identity, never discounts, and only confirmed friends count:
-  - 1 friend: the **Referral Ratchet** feel profile, playable on the site now and on the device later.
-  - 3 friends: the **Founders priority window**, 72 hours of first pick of numbered serials from 10 Nov.
-  - 10 friends: a **display face with your handle** at first boot.
-  - 25 friends: an **engraved knob ring** (your mark, laser-engraved into the knurl).
+- **Offer and referral milestones.** Free. Every friend who confirms earns you a reward. Rewards are craft and identity, never discounts, and a referral counts only when the friend confirms their email. The ladder lives in [`src/data/referrals.ts`](../src/data/referrals.ts), which the waitlist page and this plan both read:
+  - 1 friend: **Referral Ratchet.** A feel profile you can't get any other way: Ratchet with a heavier click every fifth detent.
+  - 3 friends: **Founders priority window.** Reserve a numbered Founders Edition 72 hours before everyone else. The window opens with reservations, 10 Nov at 09:00 PT, and closes 13 Nov.
+  - 10 friends: **Your handle at first boot.** The display greets you by your handle the first time your Detent powers on.
+  - 25 friends: **Engraved knob ring.** Your mark, laser-engraved into the knurled ring.
   - In demo mode (no endpoint configured) the site shows no queue position and no counts, ever.
 - **Who we talk to.** Everyone the reveal reaches, routed by “What will you turn?” into editors, producers, designers and developers.
 - **Channels.**
@@ -205,7 +215,7 @@ Each phase owns one landing page and one primary action, rendered by `<PhaseCTA>
 
 - **Objective.** Fill Batch 1: 2,500 refundable deposits before launch day.
 - **Primary CTA.** “Reserve for $20”. Note: _Fully refundable. Locks the $299 launch price._
-- **Offer.** $20, fully refundable in one click, credited in full, locks the $299 launch price until your batch ships. Founders Edition: $50 holds a numbered serial.
+- **Offer.** $20, fully refundable in one click, credited in full, locks the $299 launch price until your batch ships. Founders Edition: $50 holds a numbered serial. Reservations ship in Batch 1, February 2027.
 - **The deposit, done right.** A captured charge that we refund on cancellation, not an authorization hold (holds expire in 7 days). The balance is a separate charge when the unit ships. Refunds are one click and land within 7 working days. Delay notices follow the FTC Mail Order Rule: a new date, or an honest “we can't date it yet”, and a free cancel.
 - **Who we talk to.** Confirmed waitlisters first (the 72-hour Founders window goes to people with three confirmed referrals), then everyone.
 - **Channels.**
@@ -232,8 +242,8 @@ Each phase owns one landing page and one primary action, rendered by `<PhaseCTA>
 ### 6.4 Launch day · Tue 1 Dec → Thu 3 Dec · `/l/launch/`
 
 - **Objective.** Turn launch-week attention into 800 paid orders in 72 hours, with no number on the page that we can't source.
-- **Primary CTA.** “Order Detent One”. Note: _$299 launch price for 72 hours. Free shipping._
-- **Offer.** $299 until 12.04 at 09:00 PT (17:00 UTC). Free shipping, 60-day studio trial, 3-year warranty. Orders are assigned to the next open batch and the date is on the button.
+- **Primary CTA.** “Order Detent One”. Note: _$299 until 12.04. Free shipping._
+- **Offer.** $299 for 72 hours, until 12.04 at 09:00 PT (17:00 UTC). Free shipping, 60-day studio trial, 3-year warranty. Launch-week orders ship in Batch 2, April 2027, and the date is on the button.
 - **Who we talk to.** The whole list, plus everyone the creator embargo lift, the film and Product Hunt bring in.
 - **Channels.**
   - Embargo lifts 12.01 at 09:00 PT: 60 creator videos, every one disclosed
@@ -261,7 +271,7 @@ Each phase owns one landing page and one primary action, rendered by `<PhaseCTA>
 
 - **Objective.** Run the store as one product page: 2.5% of sessions become orders, and every week the page gets a little faster and a little clearer.
 - **Primary CTA.** “Buy Detent One”. Note: _Free shipping. 60-day studio trial._
-- **Offer.** $349, free shipping, 60-day studio trial, 3-year warranty. Orders ship in the next open batch, dated at checkout. Pay over time appears here for the first time.
+- **Offer.** $349, free shipping, 60-day studio trial, 3-year warranty. New orders ship in Batch 2, April 2027, and the date is on the button. Pay over time appears here for the first time.
 - **Channels.**
   - Evergreen /for/ pages and search
   - Creator affiliate codes, disclosed
@@ -450,15 +460,15 @@ Rules:
 
 ## 12. The switch: moving the site between phases
 
-The whole site reads one value, `BUILD_PHASE`, from the `PUBLIC_LAUNCH_PHASE` environment variable at build time (default `reserve`). Changing it moves every `<PhaseCTA>`, the announcement bar, every `data-phase-only` block and every landing-page offer line at once.
+The whole site reads one value, `BUILD_PHASE`, from the `PUBLIC_LAUNCH_PHASE` environment variable at build time (default `reserve`). On GitHub the deploy workflow sets it from the `LAUNCH_PHASE` repository variable; `PUBLIC_LAUNCH_PHASE` is only the name the build sees, so it is what you export for a local build. Changing it moves every `<PhaseCTA>`, the announcement bar, every `data-phase-only` block and every landing-page offer line at once.
 
-| Set PUBLIC_LAUNCH_PHASE to | On          | Pacific  | UTC       |
-| -------------------------- | ----------- | -------- | --------- |
-| `tease`                    | Tue, Oct 6  | 09:00 PT | 16:00 UTC |
-| `waitlist`                 | Tue, Oct 20 | 09:00 PT | 16:00 UTC |
-| `reserve`                  | Tue, Nov 10 | 09:00 PT | 17:00 UTC |
-| `launch`                   | Tue, Dec 1  | 09:00 PT | 17:00 UTC |
-| `live`                     | Fri, Dec 4  | 09:00 PT | 17:00 UTC |
+| Set LAUNCH_PHASE to | On          | Pacific  | UTC       |
+| ------------------- | ----------- | -------- | --------- |
+| `tease`             | Tue, Oct 6  | 09:00 PT | 16:00 UTC |
+| `waitlist`          | Tue, Oct 20 | 09:00 PT | 16:00 UTC |
+| `reserve`           | Tue, Nov 10 | 09:00 PT | 17:00 UTC |
+| `launch`            | Tue, Dec 1  | 09:00 PT | 17:00 UTC |
+| `live`              | Fri, Dec 4  | 09:00 PT | 17:00 UTC |
 
 **Runbook (two people, every flip)**
 
@@ -468,9 +478,9 @@ The whole site reads one value, `BUILD_PHASE`, from the `PUBLIC_LAUNCH_PHASE` en
    npm run check && npm run build && npm run test
    ```
 2. **Freeze `main` two hours before.** The deploy that flips the phase should contain nothing else.
-3. **Set the repository variable** at flip time minus 15 minutes (Settings → Secrets and variables → Actions → Variables, or):
+3. **Set the `LAUNCH_PHASE` repository variable** at flip time minus 15 minutes (Settings → Secrets and variables → Actions → Variables, or):
    ```bash
-   gh variable set PUBLIC_LAUNCH_PHASE --body <next>
+   gh variable set LAUNCH_PHASE --body <next>
    ```
 4. **Redeploy.** The variable only takes effect on the next build (about two minutes):
    ```bash
@@ -485,7 +495,7 @@ The whole site reads one value, `BUILD_PHASE`, from the `PUBLIC_LAUNCH_PHASE` en
 
 We don't automate flips with a scheduled workflow. Each flip is also an announcement, and announcements go out after a human has checked the site.
 
-**Before the Reserve flip** (and only when the product is real): set `PUBLIC_WAITLIST_ENDPOINT` to the live waitlist/reservation endpoint and `PUBLIC_SITE_MODE=live`, so forms post for real and structured data includes offers. Until then the site stays in demo mode: nothing leaves the browser and every form says so. See [OPERATIONS.md](OPERATIONS.md#plugging-in-real-backends).
+**Before the Reserve flip** (and only when the product is real): set the `WAITLIST_ENDPOINT` repository variable to the live waitlist/reservation endpoint and `SITE_MODE` to `live` (the build sees them as `PUBLIC_WAITLIST_ENDPOINT` and `PUBLIC_SITE_MODE`), so forms post for real and structured data includes offers. Until then the site stays in demo mode: nothing leaves the browser and every form says so. See [OPERATIONS.md](OPERATIONS.md#plugging-in-real-backends).
 
 **Previewing without deploying**
 

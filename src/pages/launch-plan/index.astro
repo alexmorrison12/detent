@@ -39,6 +39,8 @@ import { absoluteUrl } from '@/lib/url';
 const title = 'Launch plan';
 const description = `How ${SITE.product} launches: five phases from a silhouette on ${fmtDay(PHASES.tease.starts)} to an open store on ${fmtDay(PHASES.live.starts)}, with funnel targets, a week-by-week channel calendar, the experiment backlog and the exact switch that moves the site between phases.`;
 const outcome = planOutcome();
+/** "$1.2M": one string, so no line break in the template can open a gap after the $. */
+const grossM = `$${(outcome.gross / 1_000_000).toFixed(1)}M`;
 
 const toc = [
   ['switch', 'The switch'],
@@ -191,9 +193,9 @@ const jsonLd = [
           ))}
         </ul>
         <p class="goals__outcome">
-          At plan: {fmtInt(outcome.orders)} orders by the time Batch 1 balances are charged, about $
-          {(outcome.gross / 1_000_000).toFixed(1)}M gross at a {fmtPct(MODEL.foundersMix)} Founders
-          mix, and {formatUsd(Math.round(outcome.costPerOrder))} of launch budget per order.
+          At plan: {fmtInt(outcome.orders)} orders by the time Batch 1 balances are charged, about{' '}
+          {grossM} gross at a {fmtPct(MODEL.foundersMix)} Founders mix, and{' '}
+          {formatUsd(Math.round(outcome.costPerOrder))} of launch budget per order.
         </p>
       </div>
     </div>
@@ -418,12 +420,14 @@ const jsonLd = [
     color: var(--ink-muted);
     text-decoration: none;
   }
-  .toc a:hover {
-    color: var(--ink-strong);
-    text-decoration: underline;
-    text-decoration-color: var(--accent);
-    text-decoration-thickness: 2px;
-    text-underline-offset: 0.4em;
+  @media (hover: hover) {
+    .toc a:hover {
+      color: var(--ink-strong);
+      text-decoration: underline;
+      text-decoration-color: var(--accent);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 0.4em;
+    }
   }
 
   /* ---- Goals ---------------------------------------------------------- */
@@ -562,9 +566,11 @@ const jsonLd = [
       translate var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
   }
-  .docs__list a:hover::after {
-    translate: 3px -3px;
-    color: var(--accent-text);
+  @media (hover: hover) {
+    .docs__list a:hover::after {
+      translate: 3px -3px;
+      color: var(--accent-text);
+    }
   }
   .docs__file {
     font-family: var(--font-mono);

@@ -124,8 +124,10 @@ const todayCol = col(buildDay);
                 {m.dateText}
                 {m.time && <span class="visually-hidden"> Pacific time</span>}
               </time>
-              <span class="moment__label">{m.label}</span>
-              <span class="visually-hidden">. {m.detail}</span>
+              {/* An array, not two sibling tags: no line break (or formatter) can put a space before the period. */}
+              <span class="moment__label">
+                {[m.label, <span class="visually-hidden">{`. ${m.detail}`}</span>]}
+              </span>
             </span>
           </li>
         ))}

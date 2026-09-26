@@ -435,7 +435,7 @@ export const PHASE_PLANS: Record<Phase, PhasePlan> = {
     id: 'reserve',
     flipAt: '2026-11-10T17:00:00Z',
     objective: `Fill Batch 1: ${fmtInt(BATCHES[0].units)} refundable deposits before launch day.`,
-    offer: `$${LAUNCH.depositUsd}, fully refundable in one click, locks the $${one.launchPriceUsd} launch price until your batch ships. Founders Edition: $${LAUNCH.foundersDepositUsd} holds a numbered serial.`,
+    offer: `$${LAUNCH.depositUsd}, fully refundable in one click, locks the $${one.launchPriceUsd} launch price until your batch ships. Founders Edition: $${LAUNCH.foundersDepositUsd} holds a numbered serial. Reservations ship in ${PHASES.reserve.ships}.`,
     audience:
       'Confirmed waitlisters first (the 72-hour Founders window goes to people with three confirmed referrals), then everyone.',
     channels: [
@@ -458,7 +458,7 @@ export const PHASE_PLANS: Record<Phase, PhasePlan> = {
     flipAt: LAUNCH.launchDate,
     objective:
       'Turn launch-week attention into 800 paid orders in 72 hours, with no number on the page that we can’t source.',
-    offer: `$${one.launchPriceUsd} for 72 hours, ending ${fmtDot(LAUNCH.launchPriceEnds.slice(0, 10))} at ${fmtPacific(LAUNCH.launchPriceEnds)}. Free shipping, ${PAYMENT.trialDays}-day studio trial.`,
+    offer: `$${one.launchPriceUsd} for 72 hours, ending ${fmtDot(LAUNCH.launchPriceEnds.slice(0, 10))} at ${fmtPacific(LAUNCH.launchPriceEnds)}. Free shipping, ${PAYMENT.trialDays}-day studio trial. Launch-week orders ship in ${PHASES.launch.ships}.`,
     audience:
       'The whole list, plus everyone the creator embargo lift, the film and Product Hunt bring in.',
     channels: [
@@ -481,7 +481,7 @@ export const PHASE_PLANS: Record<Phase, PhasePlan> = {
     flipAt: LAUNCH.launchPriceEnds,
     objective:
       'Run the store as one product page: 2.5% of sessions become orders, and every week the page gets a little faster and a little clearer.',
-    offer: `$${one.priceUsd}, free shipping, ${PAYMENT.trialDays}-day studio trial, ${PAYMENT.warrantyYears}-year warranty. Orders ship in the next open batch, dated at checkout.`,
+    offer: `$${one.priceUsd}, free shipping, ${PAYMENT.trialDays}-day studio trial, ${PAYMENT.warrantyYears}-year warranty. New orders ship in ${PHASES.live.ships}, and the date is on the button.`,
     audience: 'Search, AI assistants, creator affiliate links, the /for/ pages and word of mouth.',
     channels: [
       'Evergreen /for/ pages and search',
@@ -1244,8 +1244,8 @@ export const RUNBOOK: { step: string; detail: string; code?: string }[] = [
   {
     step: 'Set the repository variable',
     detail:
-      'At flip time minus 15 minutes. Settings → Secrets and variables → Actions → Variables, or from a terminal:',
-    code: 'gh variable set PUBLIC_LAUNCH_PHASE --body <next>',
+      'At flip time minus 15 minutes, set LAUNCH_PHASE; the deploy workflow hands it to the build as PUBLIC_LAUNCH_PHASE. Settings → Secrets and variables → Actions → Variables, or from a terminal:',
+    code: 'gh variable set LAUNCH_PHASE --body <next>',
   },
   {
     step: 'Redeploy',
@@ -1346,7 +1346,7 @@ export const EVENT_BASE_FIELDS = ['channel', 'phase', 'path', 'ts'] as const;
 
 export const POSITIONING = {
   statement:
-    'For people who make things on a screen for hours, Detent One is an instrument for software: the first input device whose feel changes with what you’re doing. Macro pads and stream controllers give every task the same click. Detent clicks one frame at a time in Resolve, stops dead at 0 dB in Logic, and snaps to every hunk in your diff.',
+    'For people who make things on a screen for hours, Detent One is an instrument for software: the first input device whose feel changes with what you’re doing. Macro pads and stream controllers give every task the same click. Detent clicks one frame at a time in Resolve, bumps at 0\u00a0dB in Logic, and snaps to every hunk in your diff.',
   refuse: 'A premium customizable controller for creators with beautiful design.',
   order: ['editors', 'musicians', 'developers', 'designers'] as AudienceId[],
   orderWhy: [
