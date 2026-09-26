@@ -45,11 +45,13 @@ export const FACTS = {
   knobDia: specPart('Body', 'Dimensions', /Ø\s?\d+\s?mm(?= knob)/),
   height: specPart('Body', 'Dimensions', /\d+\s?mm(?= tall)/),
   material: specPart('Body', 'Material', /^[\w-]+ aluminum/),
-  /** The full line: "32 mN·m on USB-C, 24 mN·m on battery". */
-  torque: spec('Haptics', 'Peak torque'),
   /** Just the headline number, for readouts and callouts that sit on one line. */
   torquePeak: specPart('Haptics', 'Peak torque', /^[\d.]+\s?mN·m/),
-  torqueBattery: specPart('Haptics', 'Peak torque', /([\d.]+\s?mN·m) on battery/),
+  torqueBattery: specPart('Haptics', 'Torque on battery', /^[\d.]+\s?mN·m/),
+  /** The full line: "32 mN·m on USB-C, 24 mN·m on battery". */
+  get torque(): string {
+    return `${this.torquePeak} on USB-C, ${this.torqueBattery} on battery`;
+  },
   resolution: specPart('Haptics', 'Position sensing', /[\d.]+°/),
   bits: `${bits}-bit`,
   focRate: specPart('Haptics', 'Motor', /\d+\s?kHz/),
