@@ -1,0 +1,191 @@
+---
+/**
+ * A profile's torque signature: what your fingers feel (restoring torque)
+ * across the knob's travel, computed from the profile's physics in
+ * src/data/product.ts. Detents are ripples, stops are walls, snaps are wells,
+ * a spring is a slope, Fluid is a flat line.
+ *
+ *   variant="chart": framed, with a zero line and stop ticks (in content)
+ *   variant="trace": full-bleed signature line with a one-line caption
+ */
+import { byProfile, type ProfileId } from '@/data/product';
+
+interface Props {
+  profile: ProfileId;
+  variant?: 'chart' | 'trace';
+  /** Angle span shown, in degrees either side of center. */
+  span?: number;
+  class?: string;
+}
+const { profile, variant = 'chart', span = 180, class: className } = Astro.props;
+const p = byProfile(profile);
+const ph = p.physics;
+
+const W = variant === 'trace' ? 1200 : 240;
+const H = variant === 'trace' ? 48 : 72;
+const PAD = variant === 'trace' ? 4 : 8;
+const N = variant === 'trace' ? 1440 : 480;
+
+const wrap = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
+const well = (d: number, w: number) => (d / w) * Math.exp(-((d / w) ** 2)) * 2.33;
+
+function torque(a: number): number {
+  let t = 0;
+  if (ph.stops && (a < ph.stops[0] || a > ph.stops[1])) return a < ph.stops[0] ? 1.15 : -1.15;
+  if (ph.detents) {
+    const step = 360 / ph.detents;
+    const nearest = Math.round(a / step) * step;
+    const accent = (ph.accents ?? []).some((x) => Math.abs(wrap(nearest - x)) < 0.01) ? 1.6 : 1;
+    t += -Math.sin((2 * Math.PI * a) / step) * ph.strength * accent * 0.62;
+  } else if (ph.accents?.length) {
+    for (const x of ph.accents) t += -well(wrap(a - x), 5) * ph.strength * 0.9;
+  }
+  if (ph.spring) t += (-ph.spring * a) / (ph.stops?.[1] ?? 180);
+  if (ph.snaps?.length) for (const s of ph.snaps) t += -well(wrap(a - s), 6) * ph.strength * 0.8;
+  return Math.max(-1.15, Math.min(1.15, t));
+}
+
+const x = (a: number) => PAD + ((a + span) / (2 * span)) * (W - 2 * PAD);
+const gain = variant === 'trace' ? 0.8 : 1;
+const y = (t: number) => H / 2 - ((t * gain) / 1.2) * (H / 2 - PAD);
+let d = '';
+for (let i = 0; i <= N; i++) {
+  const a = -span + (2 * span * i) / N;
+  d += `${i ? 'L' : 'M'}${x(a).toFixed(1)} ${y(torque(a)).toFixed(1)}`;
+}
+
+const facts: string[] = [];
+if (ph.detents) facts.push(`${ph.detents} detents per turn`);
+if (ph.accents?.length) facts.push(ph.detents ? 'a heavier detent at noon' : 'a bump halfway');
+if (ph.spring) facts.push('springs back to center');
+if (ph.stops) facts.push(`hard stops at ±${ph.stops[1]}°`);
+if (ph.snaps?.length) facts.push(`${ph.snaps.length} snap points`);
+if (!facts.length) facts.push('no detents, weighted glide');
+const summary = facts.join(', ').replace(/^./, (c) => c.toUpperCase());
+const label = `${p.name} torque curve: ${summary}.`;
+const turns = (2 * span) / 360;
+const turnsLabel = turns === 1.5 ? '1½ turns' : turns === 1 ? 'one turn' : `${turns} turns`;
+---
+
+{variant === 'trace' ? (
+  <figure class:list={['feel-trace', className]} style={`--feel: var(--feel-${profile})`}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <line class="feel-trace__zero" x1="0" x2={W} y1={H / 2} y2={H / 2} />
+      <path class="feel-trace__line" d={d} />
+    </svg>
+    <figcaption class="feel-trace__cap">
+      <span>
+        {p.name}, measured: restoring torque across {turnsLabel}
+      </span>
+      <span class="feel-trace__facts">{summary}</span>
+    </figcaption>
+  </figure>
+) : (
+  <figure class:list={['feel-chart', className]} style={`--feel: var(--feel-${profile})`}>
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+      <line class="feel-chart__zero" x1={PAD} x2={W - PAD} y1={H / 2} y2={H / 2} />
+      <line class="feel-chart__center" x1={x(0)} x2={x(0)} y1={PAD} y2={H - PAD} />
+      {ph.stops &&
+        ph.stops.map((s) => (
+          <line class="feel-chart__stop" x1={x(s)} x2={x(s)} y1={PAD} y2={H - PAD} />
+        ))}
+      <path class="feel-chart__curve" d={d} />
+    </svg>
+    <figcaption>
+      <span class="feel-chart__name">{p.name}</span>
+      <span class="feel-chart__facts">{summary}</span>
+    </figcaption>
+  </figure>
+)}
+
+<style>
+  .feel-trace {
+    display: grid;
+    gap: var(--space-xs);
+    margin: 0;
+  }
+  .feel-trace svg {
+    display: block;
+    inline-size: 100%;
+    block-size: 3rem;
+    overflow: visible;
+  }
+  .feel-trace__zero {
+    stroke: var(--line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+  .feel-trace__line {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 1.25;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .feel-trace__cap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem var(--space-m);
+    padding-inline: max(var(--gutter), (100% - var(--container)) / 2);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    letter-spacing: var(--tracking-mono);
+    color: var(--ink-muted);
+  }
+  /* Drawn left to right once, like a plotter pass. The end state is the default. */
+  @media (prefers-reduced-motion: no-preference) {
+    .feel-trace svg {
+      animation: trace-draw 1.2s var(--ease-out) 0.15s backwards;
+    }
+  }
+  @keyframes trace-draw {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  .feel-chart {
+    display: grid;
+    gap: var(--space-2xs);
+    margin: 0;
+  }
+  .feel-chart svg {
+    inline-size: 100%;
+    max-inline-size: 16rem;
+    block-size: auto;
+    overflow: visible;
+  }
+  .feel-chart__zero {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .feel-chart__center,
+  .feel-chart__stop {
+    stroke: var(--line);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+  }
+  .feel-chart__curve {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 1.75;
+    stroke-linejoin: round;
+  }
+  .feel-chart figcaption {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .feel-chart__name {
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .feel-chart__facts {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+</style>

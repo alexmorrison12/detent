@@ -1,0 +1,184 @@
+---
+/**
+ * The audience's apps, from INTEGRATIONS: what the dial does in each, its
+ * default feel, and how the integration ships. A spec list, not a card grid.
+ */
+import { INTEGRATIONS, byProfile, type Audience } from '@/data/product';
+import type { AudiencePage } from '@/data/audience';
+import { url } from '@/lib/url';
+
+interface Props {
+  audience: Audience;
+  page: AudiencePage;
+}
+const { audience, page } = Astro.props;
+const apps = audience.apps
+  .map((name) => INTEGRATIONS.find((i) => i.name === name))
+  .filter((i): i is NonNullable<typeof i> => Boolean(i));
+const statusLabel = { native: 'Native', plugin: 'Plugin', community: 'Community' } as const;
+---
+
+<section class="apps section" aria-labelledby="apps-title">
+  <div class="container apps__grid">
+    <div class="apps__head">
+      <h2 id="apps-title" class="display display--m">
+        {page.appsTitle}
+      </h2>
+      <p class="apps__intro">
+        Detent Studio notices which app is in front and loads its profile before your hand gets
+        there. Every other app still gets scroll, zoom, undo and volume out of the box.
+      </p>
+    </div>
+    <ul class="apps__list" role="list">
+      {apps.map((a) => {
+        const p = byProfile(a.profile);
+        return (
+          <li class="app" style={`--feel: var(--feel-${a.profile})`}>
+            <h3 class="app__name">{a.name}</h3>
+            <p class="app__does">{a.does}</p>
+            <p class="app__meta">
+              <span class="app__feel">
+                <span class="app__ring" aria-hidden="true" />
+                <span class="visually-hidden">Default feel: </span>
+                {p.name}
+              </span>
+              <span class="app__status">{statusLabel[a.status]}</span>
+            </p>
+          </li>
+        );
+      })}
+    </ul>
+    <div class="apps__foot">
+      <p class="apps__legend">
+        <strong>Native</strong> ships in Detent Studio. <strong>Plugin</strong> is a free extension
+        that installs into the app. <strong>Community</strong> profiles are open-source, written
+        with the SDK.
+      </p>
+      <a class="link-arrow" href={url('/integrations/')}>
+        All {INTEGRATIONS.length} integrations
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .apps {
+    padding-block-start: calc(var(--section-y) * 0.55);
+  }
+  .apps__grid {
+    display: grid;
+    gap: var(--space-xl);
+  }
+  @media (min-width: 64rem) {
+    .apps__grid {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+      column-gap: var(--space-2xl);
+    }
+    .apps__head {
+      position: sticky;
+      inset-block-start: calc(var(--header-h) + var(--space-l));
+      align-self: start;
+    }
+    .apps__foot {
+      grid-column: 2;
+    }
+  }
+  .apps__head {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .apps__intro {
+    color: var(--ink-muted);
+    max-inline-size: 40ch;
+  }
+
+  .apps__list {
+    display: grid;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2xs) var(--space-l);
+    padding-block: var(--space-m);
+    border-top: 1px solid var(--line);
+  }
+  .app:last-child {
+    border-bottom: 1px solid var(--line);
+  }
+  @media (min-width: 40rem) {
+    .app {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: baseline;
+    }
+    .app__does {
+      grid-column: 1;
+    }
+    .app__meta {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      align-self: center;
+      justify-content: end;
+    }
+  }
+  .app__name {
+    font-size: var(--step-2);
+    font-weight: 760;
+    font-stretch: 125%;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+  .app__does {
+    color: var(--ink);
+    max-inline-size: 56ch;
+  }
+  .app__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs);
+    font-size: var(--step--1);
+  }
+  .app__feel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-block-size: 2rem;
+    padding: 0.2rem 0.75rem 0.2rem 0.55rem;
+    border-radius: var(--r-pill);
+    background: color-mix(in oklch, var(--feel) 13%, transparent);
+    font-weight: 620;
+    color: var(--ink-strong);
+  }
+  .app__ring {
+    inline-size: 0.7rem;
+    block-size: 0.7rem;
+    border-radius: 50%;
+    border: 2px solid var(--feel);
+  }
+  .app__status {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2rem;
+    padding: 0.2rem 0.75rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-muted);
+  }
+
+  .apps__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-s) var(--space-l);
+  }
+  .apps__legend {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-inline-size: 62ch;
+  }
+  .apps__legend strong {
+    color: var(--ink);
+    font-weight: 620;
+  }
+</style>

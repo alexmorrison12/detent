@@ -1,0 +1,378 @@
+---
+/**
+ * Mock design canvas: an artboard with one selected text layer and a brush.
+ * Fluid rotates the layer with weight (0.1° readout), Ratchet steps 15°,
+ * Wall sets brush size between hard stops. Controller: scripts/demos/design.ts.
+ */
+import { START_ROTATION, START_BRUSH, formatDeg } from '@/scripts/demos/design-model';
+
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+const uid = Math.random().toString(36).slice(2, 8);
+---
+
+<div
+  class:list={['dz', compact && 'dz--compact']}
+  data-ref="design"
+  data-rot={START_ROTATION}
+  data-tool="move"
+>
+  <div class="dz__stage">
+    <div class="dz__tools" aria-hidden="true">
+      <span class="dz__tool dz__tool--move">
+        <svg viewBox="0 0 20 20" width="16" height="16">
+          <path d="M5 3l10 6.2-4.6 1 2.6 5.2-2 1-2.6-5.3L5 14z"></path>
+        </svg>
+      </span>
+      <span class="dz__tool dz__tool--brush">
+        <svg viewBox="0 0 20 20" width="16" height="16">
+          <path d="M13.6 3.2l3.2 3.2-6.9 6.9-3.2-3.2zM5.9 11.3l2.8 2.8c-.4 2.2-2.3 3.4-5.4 2.8.9-.9.6-2.1.9-3.2.3-1.1 1-2 1.7-2.4z"></path>
+        </svg>
+      </span>
+    </div>
+
+    <div class="dz__canvas">
+      <p class="dz__frame-name">Poster · 1200 × 800</p>
+      <div class="dz__board" data-ref="board">
+        <svg class="dz__art" viewBox="0 0 1200 800" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="0" y="600" width="1200" height="200" class="dz__band"></rect>
+          <path class="dz__paint" d="M860 150c60-38 150-44 196 2 38 38 18 96-40 118"></path>
+          <circle cx="1040" cy="690" r="26" class="dz__dot"></circle>
+        </svg>
+        <p class="dz__caption" aria-hidden="true">
+          Night Drive · Reel 04
+        </p>
+
+        <div class="dz__layer" data-ref="layer" style={`--rot:${START_ROTATION}deg`}>
+          <span class="dz__word" aria-hidden="true">
+            turn
+          </span>
+          <span class="dz__sel" aria-hidden="true">
+            <i></i>
+            <i></i>
+            <i></i>
+            <i></i>
+          </span>
+        </div>
+        <span class="dz__tip" data-ref="tip" aria-hidden="true">
+          {formatDeg(START_ROTATION)}
+        </span>
+        <span
+          class="dz__brush"
+          data-ref="brush"
+          style={`--size:${START_BRUSH}`}
+          aria-hidden="true"
+        ></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dz__panel">
+    <p class="dz__panel-title">Layer · turn</p>
+    <div class="dz__field">
+      <label for={`dz-rot-${uid}`}>Rotation</label>
+      <input
+        id={`dz-rot-${uid}`}
+        class="dz__input"
+        data-ref="rot"
+        type="text"
+        inputmode="decimal"
+        autocomplete="off"
+        spellcheck="false"
+        value={formatDeg(START_ROTATION)}
+      />
+    </div>
+    <div class="dz__field">
+      <span id={`dz-brush-${uid}`}>Brush</span>
+      <output class="dz__value" data-ref="size" aria-labelledby={`dz-brush-${uid}`}>
+        {START_BRUSH} px
+      </output>
+    </div>
+    <div class="dz__field dz__field--quiet">
+      <span>Font</span>
+      <span class="dz__value">Archivo 800</span>
+    </div>
+    <p class="dz__fine" data-ref="fine" hidden>
+      Fine · 10:1
+    </p>
+  </div>
+</div>
+
+<style>
+  .dz {
+    /* Selection blue of the mock app: readable on the white artboard. */
+    --dz-sel: oklch(0.55 0.16 250);
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    container-type: inline-size;
+  }
+  @container (min-width: 36rem) {
+    .dz {
+      grid-template-columns: 1fr 11.5rem;
+    }
+  }
+
+  .dz__stage {
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: var(--space-2xs);
+  }
+  @container (min-width: 30rem) {
+    .dz__canvas {
+      padding: var(--space-s) var(--space-s) var(--space-m);
+    }
+  }
+  .dz__tools {
+    display: grid;
+    align-content: start;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: var(--r-s);
+    background: var(--bg);
+  }
+  .dz__tool {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: var(--r-xs);
+    color: var(--ink-muted);
+  }
+  .dz__tool svg {
+    fill: currentColor;
+  }
+  [data-tool='move'] .dz__tool--move,
+  [data-tool='brush'] .dz__tool--brush {
+    background: var(--feel);
+    color: var(--graphite-950);
+  }
+
+  .dz__canvas {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 0.35rem;
+    padding: var(--space-xs) var(--space-2xs) var(--space-s);
+    border-radius: var(--r-s);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .dz__frame-name,
+  .dz__board {
+    inline-size: min(100%, 34rem);
+  }
+  .dz__frame-name {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .dz__board {
+    position: relative;
+    aspect-ratio: 3 / 2;
+    background: var(--alu-50);
+    container-type: inline-size;
+    overflow: hidden;
+  }
+  .dz__art {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .dz__band {
+    fill: var(--graphite-900);
+  }
+  .dz__paint {
+    fill: none;
+    stroke: var(--tally);
+    stroke-width: 26;
+    stroke-linecap: round;
+  }
+  .dz__dot {
+    fill: var(--tally);
+  }
+  .dz__caption {
+    position: absolute;
+    inset-inline-start: 5cqi;
+    inset-block-end: 6.5cqi;
+    font-size: 3cqi;
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--alu-100);
+    line-height: 1;
+  }
+
+  .dz__layer {
+    position: absolute;
+    inset-block-start: 38%;
+    inset-inline-start: 50%;
+    translate: -50% -50%;
+    rotate: var(--rot);
+    padding: 0.6cqi 1.8cqi;
+  }
+  .dz__word {
+    display: block;
+    font-size: 16cqi;
+    font-weight: 820;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+    color: var(--graphite-950);
+  }
+  .dz__sel {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--dz-sel);
+  }
+  .dz__sel i {
+    position: absolute;
+    inline-size: 7px;
+    block-size: 7px;
+    background: var(--white);
+    border: 1px solid var(--dz-sel);
+  }
+  .dz__sel i:nth-child(1) {
+    inset: -4px auto auto -4px;
+  }
+  .dz__sel i:nth-child(2) {
+    inset: -4px -4px auto auto;
+  }
+  .dz__sel i:nth-child(3) {
+    inset: auto -4px -4px auto;
+  }
+  .dz__sel i:nth-child(4) {
+    inset: auto auto -4px -4px;
+  }
+  .dz__tip {
+    position: absolute;
+    inset-block-start: 9%;
+    inset-inline-start: 64%;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--r-xs);
+    background: var(--graphite-900);
+    color: var(--alu-50);
+    font-family: var(--font-mono);
+    font-size: clamp(0.58rem, 2.4cqi, 0.75rem);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dz__brush {
+    position: absolute;
+    inset-block-start: 38%;
+    inset-inline-start: 50%;
+    inline-size: max(3px, calc(var(--size) / 1200 * 100cqi));
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    border: 1.5px solid var(--graphite-950);
+    box-shadow: 0 0 0 1px var(--white);
+    opacity: 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+    pointer-events: none;
+  }
+  [data-tool='brush'] .dz__brush {
+    opacity: 1;
+  }
+  [data-tool='brush'] .dz__sel,
+  [data-tool='brush'] .dz__tip {
+    opacity: 0;
+  }
+  .dz__brush[data-pulse='stop'] {
+    animation: dz-stop var(--dur-2) var(--ease-out);
+  }
+  .dz__brush[data-pulse='bump'] {
+    animation: dz-bump var(--dur-2) var(--ease-out);
+  }
+  @keyframes dz-stop {
+    40% {
+      border-color: var(--tally);
+      scale: 1.06;
+    }
+  }
+  @keyframes dz-bump {
+    40% {
+      box-shadow: 0 0 0 4px color-mix(in oklch, var(--feel) 60%, transparent);
+    }
+  }
+
+  /* ---- Properties panel ---------------------------------------------- */
+  .dz__panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    align-content: start;
+    gap: var(--space-2xs) var(--space-s);
+    font-size: var(--step--2);
+  }
+  @container (min-width: 36rem) {
+    .dz__panel {
+      grid-template-columns: 1fr;
+      padding: var(--space-2xs);
+      gap: var(--space-xs);
+    }
+  }
+  .dz__panel-title {
+    grid-column: 1 / -1;
+    font-weight: 650;
+    color: var(--ink-strong);
+    font-stretch: var(--stretch-ui);
+  }
+  .dz__field {
+    display: grid;
+    gap: 0.2rem;
+    color: var(--ink-muted);
+  }
+  .dz__input,
+  .dz__value {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    font-variant-numeric: tabular-nums slashed-zero;
+    color: var(--ink-strong);
+  }
+  .dz__input {
+    inline-size: 100%;
+    min-block-size: 2.25rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--r-s);
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+  }
+  .dz__input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  .dz__value {
+    min-block-size: 2.25rem;
+    display: flex;
+    align-items: center;
+  }
+  .dz__field--quiet .dz__value {
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--step--1);
+  }
+  .dz__fine {
+    grid-column: 1 / -1;
+    justify-self: start;
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--r-pill);
+    background: var(--feel);
+    color: var(--graphite-950);
+    font-weight: 650;
+    font-size: var(--step--2);
+  }
+
+  .dz--compact .dz__field--quiet {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dz__brush {
+      transition: none;
+    }
+    .dz__brush[data-pulse] {
+      animation: none;
+    }
+  }
+</style>

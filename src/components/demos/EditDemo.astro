@@ -1,0 +1,564 @@
+---
+/**
+ * Mock NLE: viewer + inspector + two-track timeline. Server-rendered at a
+ * real frame so it reads as a finished UI before (and without) JavaScript;
+ * src/scripts/demos/edit.ts drives it from the dial.
+ */
+import {
+  AUDIO,
+  BALL_RADIUS,
+  FPS,
+  GROUND_Y,
+  MARKERS,
+  POP,
+  TOTAL,
+  START_FRAME,
+  VIDEO,
+  scene,
+  sweepPath,
+  timecode,
+  waveform,
+} from '@/scripts/demos/edit-scene';
+
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+
+const start = START_FRAME;
+const s = scene(start);
+const pct = (f: number) => `${((f / TOTAL) * 100).toFixed(3)}%`;
+const seconds = Array.from({ length: TOTAL / FPS + 1 }, (_, i) => i);
+const wave = waveform(96);
+const clipAt = VIDEO.find((c) => start >= c.from && start < c.to)!;
+const leader = s.kind === 'leader' ? s : { count: 8, sweep: 0 };
+---
+
+<div class:list={['ed', compact && 'ed--compact']} data-ref="edit" data-frame={start}>
+  <div class="ed__top">
+    <div class="ed__viewer">
+      <svg class="ed__screen" viewBox="0 0 320 180" aria-hidden="true" focusable="false">
+        <rect width="320" height="180" class="ed__black"></rect>
+        <g data-ref="leader" data-scene data-on={s.kind === 'leader' ? '' : undefined}>
+          <path class="ed__sweep" data-ref="sweep" d={sweepPath(leader.sweep)}></path>
+          <line x1="0" y1="90" x2="320" y2="90" class="ed__cross"></line>
+          <line x1="160" y1="0" x2="160" y2="180" class="ed__cross"></line>
+          <circle cx="160" cy="90" r="66" class="ed__ring"></circle>
+          <circle cx="160" cy="90" r="56" class="ed__ring ed__ring--in"></circle>
+          <text
+            x="160"
+            y="90"
+            class="ed__count"
+            data-ref="count"
+            dominant-baseline="central"
+            text-anchor="middle"
+          >
+            {leader.count}
+          </text>
+        </g>
+        <g data-ref="pop" data-scene data-on={s.kind === 'pop' ? '' : undefined}>
+          <circle cx="160" cy="90" r="66" class="ed__ring"></circle>
+          <text x="160" y="90" class="ed__count" dominant-baseline="central" text-anchor="middle">
+            2
+          </text>
+        </g>
+        <g
+          data-ref="title"
+          data-scene
+          data-on={s.kind === 'title' ? '' : undefined}
+          opacity={s.kind === 'title' ? s.opacity : 1}
+        >
+          <text x="160" y="86" class="ed__title" text-anchor="middle">
+            Night Drive
+          </text>
+          <text x="160" y="110" class="ed__subtitle" text-anchor="middle">
+            Reel 04
+          </text>
+        </g>
+        <g data-ref="bounce" data-scene data-on={s.kind === 'bounce' ? '' : undefined}>
+          <line x1="20" y1={GROUND_Y} x2="300" y2={GROUND_Y} class="ed__ground"></line>
+          <ellipse
+            data-ref="shadow"
+            cx="46"
+            cy={GROUND_Y + 3}
+            rx="12"
+            ry="2.6"
+            class="ed__shadow"
+          ></ellipse>
+          <g data-ref="ball" transform={`translate(46 ${GROUND_Y - 60})`}>
+            <circle r={BALL_RADIUS} class="ed__ball"></circle>
+          </g>
+        </g>
+      </svg>
+      <span class="ed__burnin" data-ref="burnin" aria-hidden="true">
+        {timecode(start)}
+      </span>
+    </div>
+
+    <dl class="ed__inspector">
+      <div class="ed__tc">
+        <dt class="visually-hidden">Timecode</dt>
+        <dd class="readout" data-ref="tc">
+          {timecode(start)}
+        </dd>
+      </div>
+      <div class="ed__row">
+        <dt>Clip</dt>
+        <dd data-ref="clip">{clipAt.name}</dd>
+      </div>
+      <div class="ed__row">
+        <dt>Shuttle</dt>
+        <dd class="readout" data-ref="shuttle">
+          Stopped
+        </dd>
+      </div>
+      <div class="ed__row ed__row--inout">
+        <dt>In / Out</dt>
+        <dd class="readout" data-ref="inout">
+          Press the dial
+        </dd>
+      </div>
+      <div class="ed__markers">
+        <dt>Markers</dt>
+        <dd>
+          <ol role="list">
+            {MARKERS.map((m, i) => (
+              <li data-ref="mk-row" data-i={i}>
+                <span class="readout">{timecode(m.frame).slice(3)}</span>
+                <span>{m.label}</span>
+              </li>
+            ))}
+          </ol>
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="ed__timeline" aria-hidden="true">
+    <div class="ed__labels">
+      <span></span>
+      <span>V1</span>
+      <span>A1</span>
+    </div>
+    <div class="ed__lanes">
+      <div class="ed__ruler">
+        {seconds.map((sec) => (
+          <span
+            class:list={[
+              'ed__sec',
+              sec % 4 === 0 && 'ed__sec--label',
+              sec % 8 === 0 && 'ed__sec--major',
+              sec % 2 === 0 && 'ed__sec--even',
+            ]}
+            style={`left:${pct(sec * FPS)}`}
+          >
+            {sec % 4 === 0 && sec <= 12 && (
+              <span class="readout">{timecode(sec * FPS).slice(0, 8)}</span>
+            )}
+          </span>
+        ))}
+        {MARKERS.map((m, i) => (
+          <span
+            class="ed__marker"
+            data-ref="mk"
+            data-i={i}
+            style={`left:${pct(m.frame)}`}
+            title={m.label}
+          />
+        ))}
+      </div>
+      <div class="ed__track">
+        {VIDEO.map((c) => (
+          <span
+            class={`ed__clip ed__clip--${c.kind}`}
+            style={`left:${pct(c.from)};width:${pct(c.to - c.from)}`}
+          >
+            <span class="ed__clip-name">{c.name}</span>
+          </span>
+        ))}
+      </div>
+      <div class="ed__track ed__track--audio">
+        {AUDIO.map((c) => (
+          <span
+            class={`ed__clip ed__clip--${c.kind}`}
+            style={`left:${pct(c.from)};width:${pct(c.to - c.from)}`}
+          >
+            {c.kind === 'tone' && (
+              <svg class="ed__wave" viewBox={`0 0 ${wave.length} 20`} preserveAspectRatio="none">
+                <path d={wave.map((a, i) => `M${i + 0.5} ${10 - a * 8}V${10 + a * 8}`).join('')} />
+              </svg>
+            )}
+          </span>
+        ))}
+      </div>
+      <span class="ed__range" data-ref="range" hidden></span>
+      <span class="ed__ph" data-ref="playhead" style={`--p:${(start / TOTAL).toFixed(5)}`}>
+        <span></span>
+      </span>
+    </div>
+  </div>
+  <span hidden data-pop={POP}></span>
+</div>
+
+<style>
+  .ed {
+    --ed-lane: 2.1rem;
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    container-type: inline-size;
+  }
+
+  /* ---- Viewer + inspector ------------------------------------------- */
+  .ed__top {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  @container (min-width: 34rem) {
+    .ed__top {
+      grid-template-columns: minmax(0, 1.55fr) minmax(12rem, 1fr);
+      align-items: stretch;
+    }
+  }
+  /* Wide: cap the viewer so the whole editor fits the first viewport. */
+  @container (min-width: 50rem) {
+    .ed__top {
+      grid-template-columns: minmax(0, 28rem) minmax(0, 1fr);
+      column-gap: var(--space-m);
+    }
+  }
+  .ed__viewer {
+    position: relative;
+    align-self: start;
+    min-inline-size: 0;
+    border-radius: var(--r-s);
+    overflow: hidden;
+    background: #0b0a0b;
+    aspect-ratio: 16 / 9;
+  }
+  .ed__screen {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .ed__black {
+    fill: #0b0a0b;
+  }
+  [data-scene]:not([data-on]) {
+    display: none;
+  }
+  .ed__sweep {
+    fill: var(--graphite-700);
+  }
+  .ed__cross {
+    stroke: var(--alu-400);
+    stroke-width: 0.8;
+    opacity: 0.55;
+  }
+  .ed__ring {
+    fill: none;
+    stroke: var(--alu-200);
+    stroke-width: 2.2;
+  }
+  .ed__ring--in {
+    stroke-width: 1;
+    opacity: 0.6;
+  }
+  .ed__count {
+    fill: var(--alu-50);
+    font: 760 76px var(--font-sans);
+    font-stretch: 100%;
+  }
+  .ed__title {
+    fill: var(--alu-50);
+    font: 780 26px var(--font-sans);
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+  }
+  .ed__subtitle {
+    fill: var(--alu-400);
+    font: 450 9px var(--font-mono);
+    letter-spacing: 0.08em;
+  }
+  .ed__ground {
+    stroke: var(--graphite-600);
+    stroke-width: 1;
+  }
+  .ed__shadow {
+    fill: oklch(0 0 0 / 0.6);
+  }
+  .ed__ball {
+    fill: var(--alu-100);
+  }
+  .ed__burnin {
+    position: absolute;
+    inset-block-end: 6%;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+    padding: 0.1em 0.45em;
+    background: oklch(0 0 0 / 0.72);
+    color: var(--alu-50);
+    font-family: var(--font-mono);
+    font-size: clamp(0.56rem, 2.6cqi, 0.72rem);
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: 0.02em;
+    border-radius: var(--r-xs);
+  }
+
+  .ed__inspector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+    gap: 0.35rem var(--space-s);
+    font-size: var(--step--2);
+  }
+  .ed__inspector dt {
+    color: var(--ink-muted);
+  }
+  .ed__inspector dd {
+    color: var(--ink-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ed__tc {
+    grid-column: 1 / -1;
+  }
+  .ed__tc dd {
+    font-size: clamp(1rem, 5.2cqi, 1.45rem);
+    font-weight: 500;
+    color: var(--ink-strong);
+    letter-spacing: 0;
+  }
+  .ed__row {
+    display: grid;
+    gap: 0.05rem;
+    min-width: 0;
+  }
+  .ed__row .readout {
+    font-size: var(--step--2);
+  }
+  .ed__markers {
+    display: none;
+  }
+
+  @container (min-width: 34rem) {
+    .ed__inspector {
+      grid-template-columns: 1fr;
+      padding: var(--space-2xs) var(--space-2xs) 0;
+      gap: 0.5rem;
+    }
+    .ed__row {
+      grid-template-columns: 4.5rem 1fr;
+      align-items: baseline;
+    }
+    .ed__markers {
+      display: grid;
+      gap: 0.3rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--line);
+    }
+    .ed__markers ol {
+      display: grid;
+      gap: 0.1rem;
+    }
+    .ed__markers li {
+      display: grid;
+      grid-template-columns: 5.4rem 1fr;
+      gap: 0.5rem;
+      padding: 0.08rem 0.35rem;
+      margin-inline: -0.35rem;
+      border-radius: var(--r-xs);
+      color: var(--ink-muted);
+      transition:
+        background-color var(--dur-1) var(--ease-out),
+        color var(--dur-1) var(--ease-out);
+    }
+    .ed__markers li .readout {
+      font-size: var(--step--2);
+    }
+    .ed__markers li[data-active] {
+      background: color-mix(in oklch, var(--feel) 22%, transparent);
+      color: var(--ink-strong);
+    }
+  }
+
+  /* ---- Timeline ------------------------------------------------------ */
+  .ed__timeline {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    gap: 0.35rem;
+    font-size: 0.62rem;
+    user-select: none;
+  }
+  .ed__labels {
+    display: grid;
+    grid-template-rows: 1.15rem var(--ed-lane) calc(var(--ed-lane) * 0.8);
+    gap: 3px;
+    color: var(--ink-muted);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    align-items: center;
+  }
+  .ed__lanes {
+    position: relative;
+    display: grid;
+    grid-template-rows: 1.15rem var(--ed-lane) calc(var(--ed-lane) * 0.8);
+    gap: 3px;
+    overflow: clip;
+  }
+  .ed__ruler {
+    position: relative;
+    border-bottom: 1px solid var(--line);
+  }
+  .ed__sec {
+    position: absolute;
+    inset-block-end: 0;
+    inline-size: 1px;
+    block-size: 3px;
+    background: var(--line-strong);
+  }
+  .ed__sec--even {
+    block-size: 5px;
+  }
+  .ed__sec--label {
+    block-size: 100%;
+  }
+  .ed__sec .readout {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 4px;
+    font-size: 0.56rem;
+    line-height: 1;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  @container (max-width: 26rem) {
+    .ed__sec--label:not(.ed__sec--major) .readout {
+      display: none;
+    }
+  }
+  .ed__marker {
+    position: absolute;
+    inset-block-end: 1px;
+    inline-size: 7px;
+    block-size: 8px;
+    translate: -50% 0;
+    background: var(--alu-300);
+    clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);
+    transition: background-color var(--dur-1) var(--ease-out);
+  }
+  [data-profile='magnet'] .ed__marker {
+    background: var(--feel);
+  }
+  .ed__marker[data-active] {
+    background: var(--ink-strong);
+  }
+  [data-profile='magnet'] .ed__marker[data-active] {
+    background: var(--ink-strong);
+    scale: 1.35;
+  }
+
+  .ed__track {
+    position: relative;
+    background: color-mix(in oklch, var(--bg) 60%, transparent);
+    border-radius: var(--r-xs);
+  }
+  .ed__clip {
+    position: absolute;
+    inset-block: 0;
+    display: flex;
+    align-items: flex-start;
+    padding: 0.2rem 0.3rem;
+    border-radius: var(--r-xs);
+    overflow: hidden;
+    box-shadow: inset 1px 0 0 oklch(0 0 0 / 0.5);
+  }
+  .ed__clip-name {
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: oklch(0.94 0.01 250);
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+  .ed__clip--leader {
+    background: oklch(0.36 0.012 250);
+  }
+  .ed__clip--title {
+    background: oklch(0.45 0.05 250);
+  }
+  .ed__clip--shot {
+    background: oklch(0.49 0.07 245);
+  }
+  .ed__clip--tone {
+    background: oklch(0.42 0.05 165);
+    padding: 0;
+  }
+  .ed__clip--pop {
+    min-inline-size: 2px;
+    background: oklch(0.8 0.1 165);
+    padding: 0;
+  }
+  .ed__wave {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .ed__wave path {
+    stroke: oklch(0.86 0.07 165);
+    stroke-width: 0.55;
+    vector-effect: non-scaling-stroke;
+  }
+  .ed__range {
+    position: absolute;
+    inset-block: 1.15rem 0;
+    inset-inline-start: calc(var(--a, 0) * 100%);
+    inline-size: calc((var(--b, 0) - var(--a, 0)) * 100%);
+    min-inline-size: 2px;
+    background: color-mix(in oklch, var(--ink-strong) 16%, transparent);
+    border-inline: 1px solid var(--ink-strong);
+    pointer-events: none;
+  }
+  .ed__ph {
+    position: absolute;
+    inset: 0;
+    translate: calc(var(--p, 0) * 100%) 0;
+    pointer-events: none;
+  }
+  .ed__ph > span {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -1px;
+    inline-size: 2px;
+    background: var(--feel);
+  }
+  .ed__ph > span::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: -4px;
+    inline-size: 10px;
+    block-size: 10px;
+    background: var(--feel);
+    clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+  }
+
+  @container (min-width: 50rem) {
+    .ed__inspector {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      column-gap: var(--space-m);
+      padding: var(--space-2xs) 0 0;
+    }
+    .ed__row {
+      grid-template-columns: 1fr;
+    }
+    .ed__markers {
+      grid-column: 1 / -1;
+    }
+    .ed__markers ol {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: var(--space-m);
+    }
+  }
+  .ed--compact .ed__markers {
+    display: none;
+  }
+</style>

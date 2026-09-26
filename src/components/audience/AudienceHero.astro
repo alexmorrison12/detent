@@ -1,0 +1,141 @@
+---
+/**
+ * Audience hero: message-match headline, the offer line, and the matching
+ * app demo front and center, so the "aha" happens in the first viewport.
+ */
+import type { Audience } from '@/data/product';
+import type { AudiencePage } from '@/data/audience';
+import AppDemo from '@/components/demos/AppDemo.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import FeelCurve from './FeelCurve.astro';
+
+interface Props {
+  audience: Audience;
+  page: AudiencePage;
+}
+const { audience, page } = Astro.props;
+
+// Split the headline around the accent word (first match, case-insensitive).
+const h = audience.headline;
+const at = h.toLowerCase().indexOf(page.accentWord.toLowerCase());
+const parts =
+  at < 0
+    ? [h, '', '']
+    : [
+        h.slice(0, at),
+        h.slice(at, at + page.accentWord.length),
+        h.slice(at + page.accentWord.length),
+      ];
+// Short headlines are set larger and broken onto two lines, like a poster.
+const short = h.length <= 20;
+// "Designers & 3D artists" -> "designers & 3D artists" (keep acronyms).
+const who = audience.label.replace(/^./, (c) => c.toLowerCase());
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="container hero__head">
+    <p class="hero__for">
+      <span class="hero__ring" aria-hidden="true"></span>
+      <span>Detent One for {who}</span>
+      <span class="hero__spec readout">{page.spec}</span>
+    </p>
+    <!-- prettier-ignore -->
+    <h1 id="hero-title" class:list={['display', 'hero__title', short && 'hero__title--short']}>{parts[0]}<span class="hero__accent">{parts[1]}</span>{parts[2]}</h1>
+    <div class="hero__sub">
+      <p class="lede">{audience.subhead}</p>
+      <PhaseCTA placement={`for-${audience.id}-hero`} size="lg" />
+    </div>
+  </div>
+
+  <div class="container hero__demo" id="demo">
+    <AppDemo app={page.demo} profile={audience.profile} />
+  </div>
+
+  <div class="hero__trace">
+    <FeelCurve profile={audience.profile} variant="trace" span={270} />
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-block: clamp(1.25rem, 0.75rem + 1.6vw, 2.5rem) 0;
+  }
+  .hero__head {
+    display: grid;
+    gap: var(--space-m);
+  }
+  /* Wide screens: headline left, the offer line and CTA seated at its baseline. */
+  @media (min-width: 75rem) {
+    .hero__head {
+      grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+      align-items: end;
+      column-gap: var(--space-xl);
+    }
+    .hero__for {
+      grid-column: 1 / -1;
+    }
+    .hero__title:not(.hero__title--short) {
+      max-inline-size: none;
+    }
+    .hero__sub {
+      grid-template-columns: 1fr;
+      padding-block-end: 0.4rem;
+    }
+    .hero__sub .lede {
+      font-size: var(--step-0);
+    }
+  }
+  .hero__for {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+  }
+  .hero__ring {
+    inline-size: 0.8rem;
+    block-size: 0.8rem;
+    border-radius: 50%;
+    border: 2px solid var(--feel);
+  }
+  .hero__spec {
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+  }
+  .hero__title {
+    font-size: clamp(2.6rem, 1.2rem + 5.2vw, 5.25rem);
+    max-inline-size: 18ch;
+  }
+  .hero__title--short {
+    font-size: clamp(2.8rem, 1.2rem + 6.4vw, 6rem);
+    max-inline-size: 10ch;
+  }
+  .hero__accent {
+    color: var(--feel);
+  }
+  .hero__sub {
+    display: grid;
+    gap: var(--space-m);
+    align-items: end;
+  }
+  @media (min-width: 60rem) and (max-width: 74.99rem) {
+    .hero__sub {
+      grid-template-columns: minmax(0, 50ch) auto;
+      justify-content: space-between;
+    }
+  }
+  .hero__sub .lede {
+    color: var(--ink);
+  }
+  .hero__demo {
+    margin-block-start: clamp(2rem, 1rem + 2.4vw, 3rem);
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  /* The profile's torque signature closes the hero, full bleed. */
+  .hero__trace {
+    margin-block-start: var(--section-y);
+  }
+</style>

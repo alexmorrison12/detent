@@ -1,0 +1,270 @@
+---
+/**
+ * The offer, in the day world: both editions with real prices (launch price
+ * only in the phases that have one), the risk reversal, and the phase CTA.
+ * Every number comes from src/data/product.ts or src/config/launch.ts.
+ */
+import { EDITIONS, FINISHES, PAYMENT, formatUsd, type AudienceId } from '@/data/product';
+import { LAUNCH } from '@/config/launch';
+import { SITE } from '@/config/site';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+
+interface Props {
+  id: AudienceId;
+  title: string;
+  line: string;
+}
+const { id, title, line } = Astro.props;
+const [one, founders] = EDITIONS as [(typeof EDITIONS)[number], (typeof EDITIONS)[number]];
+const finishesOf = (ids: string[]) => FINISHES.filter((f) => ids.includes(f.id));
+const hasLaunchPrice = one.launchPriceUsd < one.priceUsd;
+const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0');
+---
+
+<section class="offer section" data-world="day" aria-labelledby="offer-title">
+  <div class="container offer__inner">
+    <div class="offer__head">
+      <h2 id="offer-title" class="display display--m">
+        {title}
+      </h2>
+      <p class="lede">{line}</p>
+    </div>
+
+    <div class="offer__sheet">
+      <div class="ed">
+        <h3 class="ed__name">{one.name}</h3>
+        <div class="ed__price">
+          {hasLaunchPrice && (
+            <p data-phase-only="waitlist reserve launch">
+              <span class="ed__now">{formatUsd(one.launchPriceUsd)}</span>
+              <s class="ed__was">
+                <span class="visually-hidden">Regular price </span>
+                {formatUsd(one.priceUsd)}
+              </s>
+              <span class="ed__tag">Launch price</span>
+            </p>
+          )}
+          <p data-phase-only={hasLaunchPrice ? 'tease live' : undefined}>
+            <span class="ed__now">{formatUsd(one.priceUsd)}</span>
+          </p>
+        </div>
+        <p class="ed__summary">{one.summary}</p>
+        <ul class="ed__finishes" role="list" aria-label="Finishes">
+          {finishesOf(one.finishes).map((f) => (
+            <li>
+              <span class="ed__swatch" style={`background:${f.body}`} aria-hidden="true" />
+              {f.name}
+            </li>
+          ))}
+        </ul>
+        <p class="ed__fine" data-phase-only="launch">
+          {PAYMENT.installmentLabel(one.launchPriceUsd)}
+        </p>
+        <p class="ed__fine" data-phase-only="live">
+          {PAYMENT.installmentLabel(one.priceUsd)}
+        </p>
+      </div>
+
+      <div class="ed ed--founders">
+        <h3 class="ed__name">{founders.name}</h3>
+        <div class="ed__price">
+          <p>
+            <span class="ed__now">{formatUsd(founders.priceUsd)}</span>
+            <span class="ed__tag ed__tag--quiet">0001 to {serialTo}</span>
+          </p>
+        </div>
+        <p class="ed__summary">{founders.summary}</p>
+        <ul class="ed__finishes" role="list" aria-label="Finish">
+          {finishesOf(founders.finishes).map((f) => (
+            <li>
+              <span class="ed__swatch" style={`background:${f.body}`} aria-hidden="true" />
+              {f.name}, numbered
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    <div class="offer__close">
+      <div class="offer__cta">
+        <PhaseCTA placement={`for-${id}-offer`} size="lg" showSecondary />
+        <p class="concept-note">{SITE.conceptNotice}</p>
+      </div>
+      <ul class="offer__terms" role="list">
+        <li data-phase-only="reserve">
+          <strong>{formatUsd(LAUNCH.depositUsd)} deposit</strong>, fully refundable until your
+          Detent ships
+        </li>
+        <li data-phase-only="waitlist reserve">
+          <strong>Batch 1 ships {LAUNCH.firstShipBatch}</strong>, Batch 2 in{' '}
+          {LAUNCH.secondShipBatch}
+        </li>
+        <li>
+          <strong>{PAYMENT.trialDays}-day studio trial</strong>, prepaid return label
+        </li>
+        <li>
+          <strong>{PAYMENT.warrantyYears}-year warranty</strong>, parts and labor
+        </li>
+        <li>
+          <strong>Free shipping</strong>, duties included
+        </li>
+        <li>
+          <strong>Four Torx screws</strong> to open it; battery and foot sold as parts
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .offer__inner {
+    display: grid;
+    gap: var(--space-xl);
+  }
+  .offer__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 44rem;
+  }
+  .offer__head .lede {
+    color: var(--ink-muted);
+  }
+
+  .offer__sheet {
+    display: grid;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-l);
+    overflow: hidden;
+  }
+  @media (min-width: 52rem) {
+    .offer__sheet {
+      grid-template-columns: 1.25fr 1fr;
+    }
+    .ed--founders {
+      border-inline-start: 1px solid var(--line-strong);
+    }
+  }
+  .ed {
+    display: grid;
+    align-content: start;
+    gap: var(--space-s);
+    padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+  }
+  .ed--founders {
+    background: var(--bg-raised);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  @media (min-width: 52rem) {
+    .ed--founders {
+      border-block-start: 0;
+    }
+  }
+  .ed__name {
+    font-size: var(--step-1);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .ed__price p {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem var(--space-s);
+  }
+  .ed__now {
+    font-size: var(--step-5);
+    font-weight: 780;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--ink-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .ed--founders .ed__now {
+    font-size: var(--step-4);
+  }
+  .ed__was {
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+    text-decoration-thickness: 1.5px;
+  }
+  .ed__tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.65rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--step--1);
+    font-weight: 650;
+  }
+  .ed__tag--quiet {
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-weight: 450;
+    font-size: var(--step--2);
+  }
+  .ed__summary {
+    color: var(--ink);
+    max-inline-size: 42ch;
+  }
+  .ed__finishes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-m);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .ed__finishes li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .ed__swatch {
+    inline-size: 1.1rem;
+    block-size: 1.1rem;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.18);
+  }
+  .ed__fine {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .offer {
+    padding-block-end: var(--space-2xl);
+  }
+  .offer__close {
+    display: grid;
+    gap: var(--space-xl) var(--space-2xl);
+    align-items: start;
+  }
+  @media (min-width: 60rem) {
+    .offer__close {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    }
+  }
+  .offer__terms {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-s) var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .offer__terms li {
+    padding-block-start: var(--space-xs);
+    border-top: 1px solid var(--line);
+  }
+  .offer__terms strong {
+    color: var(--ink-strong);
+  }
+  .offer__cta {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+  }
+  .offer__cta .concept-note {
+    max-inline-size: 70ch;
+  }
+</style>

@@ -1,0 +1,488 @@
+---
+/**
+ * Mock mixer: six channel strips with faders, meters and mutes. Wall rides
+ * the selected fader (stops at −∞ and +6 dB, bump at unity); Clock picks the
+ * channel. Controller: src/scripts/demos/mix.ts.
+ */
+import {
+  BPM,
+  CHANNELS,
+  SCALE,
+  START_BAR,
+  START_CHANNEL,
+  UNITY_P,
+  dbToP,
+  formatDb,
+  meterPos,
+} from '@/scripts/demos/mix-model';
+
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+
+<div class:list={['mx', compact && 'mx--compact']} data-mix>
+  <div class="mx__bar">
+    <button class="mx__transport" type="button" data-ref="transport" aria-pressed="true" hidden>
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <path class="mx__icon-pause" d="M4 3h3v10H4zM9 3h3v10H9z"></path>
+        <path class="mx__icon-play" d="M4.5 2.8v10.4L13 8z"></path>
+      </svg>
+      <span data-ref="transport-label">Pause meters</span>
+    </button>
+    <span class="readout mx__pos" data-ref="pos">
+      Bar {START_BAR} · 1
+    </span>
+    <span class="readout mx__bpm">{BPM} BPM</span>
+  </div>
+
+  <div class="mx__desk">
+    <div class="mx__scale" aria-hidden="true">
+      {SCALE.map((m) => (
+        <span
+          class:list={['mx__mark', m.db === 0 && 'mx__mark--unity']}
+          style={`--p:${dbToP(m.db).toFixed(4)}`}
+        >
+          {m.label}
+        </span>
+      ))}
+    </div>
+    <ul class="mx__strips" role="list" style={`--unity:${UNITY_P}`}>
+      {CHANNELS.map((c, i) => {
+        const p = dbToP(c.db);
+        const lvl = meterPos(c.rms + c.db);
+        return (
+          <li
+            class:list={['strip', c.extra && 'strip--extra']}
+            data-ref="strip"
+            data-i={i}
+            data-selected={i === START_CHANNEL ? '' : undefined}
+          >
+            <button
+              class="strip__mute"
+              type="button"
+              data-ref="mute"
+              data-i={i}
+              aria-pressed="false"
+              aria-label={`Mute ${c.name}`}
+            >
+              M
+            </button>
+            <div class="strip__body">
+              <span class="strip__meter" aria-hidden="true">
+                <span class="strip__lvl" data-ref="lvl" style={`--l:${lvl.toFixed(3)}`} />
+                <span class="strip__peak" data-ref="peak" style={`--l:${lvl.toFixed(3)}`} />
+                <span class="strip__clip" data-ref="clip" />
+              </span>
+              <span class="strip__travel" aria-hidden="true">
+                <span class="strip__slot" />
+                <span class="strip__slider" data-ref="cap" style={`--p:${p.toFixed(4)}`}>
+                  <span class="strip__cap" />
+                </span>
+              </span>
+            </div>
+            <span class="strip__db readout" data-ref="db">
+              {formatDb(c.db)}
+            </span>
+            <button
+              class="strip__name"
+              type="button"
+              data-ref="select"
+              data-i={i}
+              aria-pressed={i === START_CHANNEL ? 'true' : 'false'}
+              aria-label={`Select ${c.name}`}
+            >
+              <span>{c.name}</span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+    <div class="mx__bus" aria-hidden="true">
+      <span class="mx__bus-head">M</span>
+      <span class="mx__bus-meters">
+        <span class="mx__bus-m">
+          <span class="strip__lvl" data-ref="bus-lvl" style="--l:0.8" />
+        </span>
+        <span class="mx__bus-m">
+          <span class="strip__lvl" data-ref="bus-lvl" style="--l:0.79" />
+        </span>
+      </span>
+      <span class="mx__bus-db readout" data-ref="bus-db">
+        −6.0
+      </span>
+      <span class="mx__bus-name">Mix bus</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .mx {
+    --mx-h: 12.5rem;
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+    container-type: inline-size;
+  }
+  .mx--compact {
+    --mx-h: 10.5rem;
+  }
+  @container (min-width: 40rem) {
+    .mx__desk {
+      --mx-h: 15rem;
+    }
+  }
+
+  .mx__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    min-height: 2rem;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .mx__pos {
+    margin-inline-start: auto;
+    color: var(--ink-strong);
+    font-size: var(--step--2);
+  }
+  .mx__bpm {
+    font-size: var(--step--2);
+  }
+  .mx__transport {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2rem;
+    padding: 0.2rem 0.7rem 0.2rem 0.55rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .mx__transport:hover {
+    border-color: var(--ink);
+  }
+  .mx__transport:active {
+    transform: translateY(1px);
+  }
+  .mx__transport svg {
+    fill: currentColor;
+  }
+  .mx__transport[aria-pressed='true'] .mx__icon-play,
+  .mx__transport[aria-pressed='false'] .mx__icon-pause {
+    display: none;
+  }
+
+  .mx__desk {
+    display: grid;
+    grid-template-columns: 1.7rem 1fr;
+    gap: 0.25rem;
+  }
+  .mx__bus {
+    display: none;
+  }
+  @container (min-width: 40rem) {
+    .mx__desk {
+      grid-template-columns: 1.7rem minmax(0, 1fr) 4.5rem;
+      gap: 0.25rem var(--space-s);
+    }
+    .mx__bus {
+      display: grid;
+      grid-template-rows: auto var(--mx-h) auto auto;
+      justify-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.1rem 0.25rem var(--space-s);
+      border: 1px solid transparent;
+      border-inline-start-color: var(--line);
+    }
+  }
+  .mx__bus-head {
+    display: grid;
+    place-items: center;
+    block-size: 1.5rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: transparent;
+  }
+  .mx__bus-meters {
+    display: grid;
+    grid-template-columns: 6px 6px;
+    gap: 3px;
+    padding-block: 0.5rem;
+  }
+  .mx__bus-m {
+    position: relative;
+    border-radius: 1px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .mx__bus-m .strip__lvl {
+    background: var(--alu-200);
+  }
+  .mx__bus-db {
+    font-size: 0.6rem;
+    color: var(--ink-strong);
+  }
+  .mx__bus-name {
+    min-block-size: 1.75rem;
+    display: grid;
+    place-items: center;
+    font-size: 0.68rem;
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .mx__scale {
+    position: relative;
+    block-size: var(--mx-h);
+    /* strip padding + border + mute button + row gap: aligns with the fader body */
+    margin-block-start: calc(0.3rem + 1px + 1.5rem + 0.35rem);
+  }
+  .mx__mark {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-end: calc(var(--p) * (100% - 1rem) + 0.5rem);
+    translate: 0 50%;
+    font-family: var(--font-mono);
+    font-size: 0.56rem;
+    line-height: 1;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .mx__mark--unity {
+    color: var(--ink-strong);
+    font-weight: 600;
+  }
+
+  .mx__strips {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+  .strip {
+    display: grid;
+    grid-template-rows: auto var(--mx-h) auto auto;
+    justify-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.1rem 0.25rem;
+    border-radius: var(--r-s);
+    border: 1px solid transparent;
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out);
+  }
+  .strip--extra {
+    display: none;
+  }
+  @container (min-width: 40rem) {
+    .strip--extra {
+      display: grid;
+    }
+  }
+  .strip[data-selected] {
+    background: color-mix(in oklch, var(--feel) 10%, var(--surface));
+    border-color: color-mix(in oklch, var(--feel) 70%, transparent);
+  }
+  .strip[data-pulse] {
+    animation: strip-pick var(--dur-3) var(--ease-out);
+  }
+  @keyframes strip-pick {
+    from {
+      background: color-mix(in oklch, var(--feel) 30%, var(--surface));
+    }
+  }
+
+  .strip__mute {
+    inline-size: 1.75rem;
+    block-size: 1.5rem;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--line-strong);
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--ink-muted);
+    transition:
+      background-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+  .strip__mute[aria-pressed='true'] {
+    background: var(--feel-clock);
+    border-color: var(--feel-clock);
+    color: var(--graphite-950);
+  }
+
+  .strip__body {
+    position: relative;
+    display: grid;
+    grid-template-columns: 5px 1.6rem;
+    gap: 0.35rem;
+    block-size: 100%;
+    justify-content: center;
+  }
+
+  .strip__meter {
+    position: relative;
+    margin-block: 0.5rem;
+    border-radius: 1px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .strip__lvl {
+    position: absolute;
+    inset: 0;
+    background: var(--ink-muted);
+    transform-origin: 50% 100%;
+    transform: scaleY(var(--l, 0));
+  }
+  .strip[data-selected] .strip__lvl {
+    background: var(--feel);
+  }
+  .strip__peak {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: calc(var(--l, 0) * 100%);
+    block-size: 2px;
+    background: var(--ink-strong);
+  }
+  .strip__clip {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 0;
+    block-size: 4px;
+    background: transparent;
+  }
+  .strip__clip[data-on] {
+    background: var(--tally);
+  }
+
+  .strip__travel {
+    position: relative;
+  }
+  /* The unity line crosses every fader, so 0 dB reads at a glance. */
+  .strip__travel::before {
+    content: '';
+    position: absolute;
+    inset-inline: -0.2rem;
+    inset-block-end: calc(var(--unity) * (100% - 1rem) + 0.5rem);
+    block-size: 1px;
+    background: var(--line-strong);
+  }
+  .strip__slot {
+    position: absolute;
+    inset-block: 0.5rem;
+    inset-inline-start: 50%;
+    inline-size: 3px;
+    translate: -50% 0;
+    border-radius: 2px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .strip__slider {
+    position: absolute;
+    inset: 0.5rem 0;
+    translate: 0 calc((1 - var(--p)) * 100%);
+    pointer-events: none;
+  }
+  .strip__cap {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: 1rem;
+    translate: 0 -50%;
+    border-radius: 3px;
+    background: var(--alu-300);
+    box-shadow: var(--shadow-1);
+  }
+  .strip__cap::after {
+    content: '';
+    position: absolute;
+    inset-inline: 2px;
+    inset-block-start: 50%;
+    block-size: 2px;
+    translate: 0 -50%;
+    background: var(--graphite-950);
+  }
+  .strip[data-selected] .strip__cap {
+    background: var(--alu-50);
+  }
+  .strip[data-selected] .strip__cap::after {
+    background: var(--feel);
+    block-size: 3px;
+  }
+  .strip__slider[data-pulse='unity'] .strip__cap {
+    animation: cap-bump var(--dur-2) var(--ease-out);
+  }
+  .strip__slider[data-pulse='stop'] .strip__cap {
+    animation: cap-stop var(--dur-2) var(--ease-out);
+  }
+  @keyframes cap-bump {
+    40% {
+      scale: 1.18 1.18;
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--feel) 55%, transparent);
+    }
+  }
+  @keyframes cap-stop {
+    30% {
+      translate: 0 calc(-50% + var(--stop-dir, 1) * 2px);
+    }
+  }
+
+  .strip__db {
+    font-size: 0.6rem;
+    color: var(--ink-muted);
+    letter-spacing: 0;
+  }
+  .strip[data-selected] .strip__db {
+    color: var(--ink-strong);
+  }
+  .strip__name {
+    inline-size: 100%;
+    min-block-size: 1.75rem;
+    padding-inline: 0.1rem;
+    border-radius: var(--r-xs);
+    font-size: 0.68rem;
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+  }
+  .strip__name span {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .strip__name:hover {
+    background: var(--surface-2);
+  }
+
+  /* Touch: grow the hit areas to 44px without changing the console's look. */
+  @media (pointer: coarse) {
+    .strip__mute,
+    .strip__name {
+      position: relative;
+    }
+    .strip__mute::after,
+    .strip__name::after {
+      content: '';
+      position: absolute;
+      inset: -0.6rem -0.2rem;
+    }
+    .mx__transport {
+      min-block-size: 2.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .strip[data-pulse],
+    .strip__slider[data-pulse] .strip__cap {
+      animation: none;
+    }
+  }
+</style>
