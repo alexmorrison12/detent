@@ -9,8 +9,9 @@
  * window that opens with reservations, so it is only offered before then.
  */
 import { PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
-import { dotDate, toTime } from '@/scripts/launch/format';
+import { dotDate } from '@/scripts/launch/format';
 import { IS_DEMO } from '@/lib/waitlist';
+import { PRIORITY_WINDOW, REFERRAL_REWARDS } from '@/data/referrals';
 
 interface Props {
   headingId: string;
@@ -19,35 +20,13 @@ const { headingId } = Astro.props;
 
 const MAX = 25;
 const pos = (n: number) => Math.sqrt(n / MAX) * 100;
-const PRIORITY_HOURS = 72;
-const windowOpens = dotDate(PHASES.reserve.starts);
-const windowCloses = dotDate(
-  new Date(toTime(PHASES.reserve.starts) + PRIORITY_HOURS * 3_600_000).toISOString(),
+const windowOpens = dotDate(PRIORITY_WINDOW.opens);
+const windowCloses = dotDate(new Date(PRIORITY_WINDOW.closesMs).toISOString());
+const rewards: { n: number; name: string; detail: string; phases?: Phase[] }[] = REFERRAL_REWARDS.map((r) =>
+  r.n === 3
+    ? { ...r, detail: `${r.detail.replace(/\.$/, '')}: ${windowOpens} to ${windowCloses}.`, phases: ['tease', 'waitlist'] }
+    : r,
 );
-const rewards: { n: number; name: string; detail: string; phases?: Phase[] }[] = [
-  {
-    n: 1,
-    name: 'Referral Ratchet',
-    detail:
-      'A feel profile you can’t get any other way: Ratchet with a heavier click every fifth detent.',
-  },
-  {
-    n: 3,
-    name: 'Founders priority window',
-    detail: `Reserve a numbered Founders Edition ${PRIORITY_HOURS} hours before everyone else: ${windowOpens} to ${windowCloses}.`,
-    phases: ['tease', 'waitlist'],
-  },
-  {
-    n: 10,
-    name: 'Your handle at first boot',
-    detail: 'The display greets you by your handle the first time your Detent powers on.',
-  },
-  {
-    n: 25,
-    name: 'Engraved knob ring',
-    detail: 'Your mark, laser-engraved into the knurled ring.',
-  },
-];
 const only = (phases?: Phase[]) => phases?.join(' ');
 const except = (phases?: Phase[]) =>
   phases ? PHASE_ORDER.filter((p) => !phases.includes(p)).join(' ') : undefined;

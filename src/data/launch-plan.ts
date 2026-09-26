@@ -9,6 +9,7 @@
  */
 import { LAUNCH, PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
 import { AUDIENCES, PAYMENT, byEdition, formatUsd, type AudienceId } from '@/data/product';
+import { referralSummary } from '@/data/referrals';
 
 const one = byEdition('one');
 const founders = byEdition('founders');
@@ -412,7 +413,7 @@ export const PHASE_PLANS: Record<Phase, PhasePlan> = {
     objective:
       'Turn curiosity into a line: 15,000 confirmed waitlisters by 11.09, about a quarter of them brought in by a friend.',
     offer:
-      'Free. Move up the line with every friend who joins. One friend gets the Referral Ratchet profile, three get the Founders priority window, ten get a display face with your handle at first boot, 25 get the early firmware channel for life.',
+      `Free. Every friend who confirms earns you a reward. ${referralSummary()}`,
     audience:
       'Everyone the reveal reaches, routed by the one-tap question “What will you turn?” into editors, producers, designers and developers.',
     channels: [

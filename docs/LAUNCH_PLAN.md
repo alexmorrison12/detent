@@ -104,7 +104,7 @@ Streamers are a signup segment (“What will you turn?” → Streaming) but not
 | Phase                     | Dates                            | Flips at             | Landing page   | Primary CTA          | Offer line                                          |
 | ------------------------- | -------------------------------- | -------------------- | -------------- | -------------------- | --------------------------------------------------- |
 | **Tease** (`tease`)       | Tue, Oct 6 → Mon, Oct 19 (14 d)  | 09:00 PT / 16:00 UTC | `/l/tease/`    | “Get the first look” | One email on reveal day. Nothing else.              |
-| **Waitlist** (`waitlist`) | Tue, Oct 20 → Mon, Nov 9 (21 d)  | 09:00 PT / 16:00 UTC | `/l/waitlist/` | “Join the waitlist”  | Free. Move up the line with every friend who joins. |
+| **Waitlist** (`waitlist`) | Tue, Oct 20 → Mon, Nov 9 (21 d)  | 09:00 PT / 16:00 UTC | `/l/waitlist/` | “Join the waitlist”  | Free. Every friend who confirms earns you a reward. |
 | **Reserve** (`reserve`)   | Tue, Nov 10 → Mon, Nov 30 (21 d) | 09:00 PT / 17:00 UTC | `/l/reserve/`  | “Reserve for $20”    | Fully refundable. Locks the $299 launch price.      |
 | **Launch day** (`launch`) | Tue, Dec 1 → Thu, Dec 3 (3 d)    | 09:00 PT / 17:00 UTC | `/l/launch/`   | “Order Detent One”   | $299 launch price for 72 hours. Free shipping.      |
 | **Live** (`live`)         | Fri, Dec 4 → open                | 09:00 PT / 17:00 UTC | `/`            | “Buy Detent One”     | Free shipping. 60-day studio trial.                 |
@@ -171,12 +171,12 @@ Each phase owns one landing page and one primary action, rendered by `<PhaseCTA>
 ### 6.2 Waitlist · Tue 20 Oct → Mon 9 Nov · `/l/waitlist/`
 
 - **Objective.** Turn curiosity into a line: 15,000 confirmed waitlisters by 11.09, about a quarter of them brought in by a friend.
-- **Primary CTA.** “Join the waitlist”. Note: _Free. Move up the line with every friend who joins._
+- **Primary CTA.** “Join the waitlist”. Note: _Free. Every friend who confirms earns you a reward._
 - **Offer and referral milestones.** Rewards are craft and identity, never discounts, and only confirmed friends count:
   - 1 friend: the **Referral Ratchet** feel profile, playable on the site now and on the device later.
   - 3 friends: the **Founders priority window**, 72 hours of first pick of numbered serials from 10 Nov.
   - 10 friends: a **display face with your handle** at first boot.
-  - 25 friends: the **early firmware channel for life**, even on Detent One.
+  - 25 friends: an **engraved knob ring** (your mark, laser-engraved into the knurl).
   - In demo mode (no endpoint configured) the site shows no queue position and no counts, ever.
 - **Who we talk to.** Everyone the reveal reaches, routed by “What will you turn?” into editors, producers, designers and developers.
 - **Channels.**
