@@ -22,7 +22,7 @@ import Closing from '@/components/home/Closing.astro';
 import { EDITION_ONE, FACTS, HOME_FAQS } from '@/components/home/data';
 
 const detents = byProfile('ratchet').physics.detents;
-const description = `Detent One is a machined aluminum dial with software-defined haptics: ${detents} crisp clicks in Resolve, a hard stop at 0 dB in Logic, a snap to every diff hunk. ${FACTS.weight}, open firmware, from ${formatUsd(EDITION_ONE.priceUsd)}.`;
+const description = `Detent One is a machined aluminum dial with software-defined haptics: ${detents} crisp clicks in Resolve, a bump at 0 dB in Logic, a snap to every diff hunk. ${FACTS.weight}, open firmware, from ${formatUsd(EDITION_ONE.priceUsd)}.`;
 
 const prices = EDITIONS.map((e) => e.priceUsd);
 const product: Record<string, unknown> = {

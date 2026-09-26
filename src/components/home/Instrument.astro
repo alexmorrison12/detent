@@ -2,8 +2,10 @@
 /**
  * The night chapter. One grid, one sticky stage, one live dial driving:
  *   hero headline width/weight → feel switcher → exploded mechanism → app demos.
- * Desktop: text column left, stage pinned right. Mobile: headline, then the
- * stage docks under the header while the chapter scrolls beneath it.
+ * Side layout (≥ 64rem, and landscape phones): text column left, stage pinned
+ * right. Stack layout (portrait phones and tablets): headline and a one-line
+ * definition, then the stage docks under the header while the chapter scrolls
+ * beneath it (Stage.astro compacts it once the hero is behind you).
  */
 import PhaseCTA from '@/components/PhaseCTA.astro';
 import { SITE } from '@/config/site';
@@ -17,11 +19,11 @@ import TorqueDefs from './TorqueDefs.astro';
 const words = SITE.tagline.split(' ');
 const lines = words.length === 4 ? [words[0], `${words[1]} ${words[2]}`, words[3]] : words;
 const ratchet = byProfile('ratchet').physics.detents;
+/** What it is, in one sentence: under the headline on phones, opening the lede on the side layout. */
+const definition = 'A machined aluminum dial with a motor where the clicks used to be.';
 ---
 
 <div class="instrument" data-instrument data-scene="hero" data-world="night">
-  <TorqueDefs />
-
   <div class="hero-head" data-scene-id="hero">
     <h1 class="hero-title" data-headline>
       {lines.map((l, i) => (
@@ -31,15 +33,15 @@ const ratchet = byProfile('ratchet').physics.detents;
         </span>
       ))}
     </h1>
+    <p class="hero-sub">{definition}</p>
   </div>
 
   <Stage />
 
   <div class="hero-foot" data-scene-id="hero">
     <p class="hero-lede">
-      A machined aluminum dial with a motor where the clicks used to be. It steps {ratchet} crisp
-      clicks a turn in Resolve, stops dead at 0&nbsp;dB in Logic and snaps to every hunk in your
-      diff.
+      <span class="hero-lede__def">{definition} </span>It steps {ratchet} crisp clicks a turn in
+      Resolve, bumps at 0&nbsp;dB in Logic and snaps to every hunk in your diff.
     </p>
     <PhaseCTA placement="hero" size="lg" showNote showSecondary class="hero-cta" />
   </div>
@@ -47,6 +49,10 @@ const ratchet = byProfile('ratchet').physics.detents;
   <FeelSwitcher />
   <Mechanism />
   <ContextDemo />
+
+  {/* Torque curves for every glyph and plot above (<use href> resolves anywhere),
+      placed after the content so the headline and LCP image come first. */}
+  <TorqueDefs />
 </div>
 
 <script>
@@ -101,13 +107,15 @@ const ratchet = byProfile('ratchet').physics.detents;
   .hero-head {
     display: grid;
     align-content: end;
-    gap: var(--space-s);
+    gap: var(--space-xs);
     padding-block: var(--space-m) var(--space-xs);
   }
   .hero-title {
     --wdth: 125;
     --wght: 780;
-    font-size: clamp(3rem, 1.1rem + 9.2vw, 6rem);
+    /* The vw cap keeps "Software" inside a 320px screen at full width; the
+       svh cap keeps three lines from filling a landscape phone. */
+    font-size: clamp(2.25rem, min(1.1rem + 9.2vw, 15vw - 0.35rem, 13svh), 6rem);
     font-stretch: calc(var(--wdth) * 1%);
     font-weight: var(--wght);
     letter-spacing: -0.02em;
@@ -120,11 +128,23 @@ const ratchet = byProfile('ratchet').physics.detents;
     display: block;
     white-space: nowrap;
   }
+  .hero-sub {
+    font-size: var(--step-0);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 34ch;
+    text-wrap: pretty;
+  }
   .hero-lede {
     font-size: var(--step-0);
     line-height: 1.5;
     color: var(--ink-muted);
     max-inline-size: 46ch;
+  }
+  /* Stack layout: the definition sits under the headline, so the lede
+     after the CTA carries on from it instead of repeating it. */
+  .hero-lede__def {
+    display: none;
   }
   .hero-foot {
     display: flex;
@@ -151,15 +171,22 @@ const ratchet = byProfile('ratchet').physics.detents;
     }
   }
 
-  /* Phones: in-page jumps land below the docked stage, not under it. */
-  @media (max-width: 63.99rem) {
+  /* Stack layout: the docking stage changes size with the scroll, so the
+     browser must not re-anchor the scroll position against it. In-page
+     jumps land below the docked, compact stage. */
+  @media (max-width: 63.99rem) and (orientation: portrait),
+    (max-width: 63.99rem) and (min-height: 30.01rem),
+    (max-width: 39.99rem) {
+    .instrument {
+      overflow-anchor: none;
+    }
     .instrument > :global(section) {
-      scroll-margin-top: calc(var(--header-h) + 31svh + 7rem);
+      scroll-margin-top: calc(var(--header-h) + clamp(7rem, 15svh, 8rem) + 4.5rem);
     }
   }
 
-  /* ---- Desktop: text left, pinned stage right ------------------------- */
-  @media (min-width: 64rem) {
+  /* ---- Side layout: text left, pinned stage right --------------------- */
+  @media (min-width: 64rem), (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) {
     .instrument {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
       column-gap: clamp(2rem, 5vw, 6rem);
@@ -177,7 +204,13 @@ const ratchet = byProfile('ratchet').physics.detents;
       padding-block: var(--space-2xl) 0;
     }
     .hero-title {
-      font-size: clamp(3.5rem, 1rem + 5.4vw, 6rem);
+      font-size: clamp(2.5rem, min(1rem + 5.4vw, 13svh), 6rem);
+    }
+    .hero-sub {
+      display: none;
+    }
+    .hero-lede__def {
+      display: inline;
     }
     .hero-lede {
       font-size: var(--step-1);
@@ -190,6 +223,25 @@ const ratchet = byProfile('ratchet').physics.detents;
     }
     .hero-foot > :global(.hero-cta) {
       order: 0;
+    }
+  }
+
+  /* Landscape phones: the side layout on a short screen. */
+  @media (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) and (max-width: 63.99rem) {
+    .instrument {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+      column-gap: var(--space-l);
+    }
+    .hero-head {
+      min-block-size: 0;
+      padding-block: var(--space-m) 0;
+    }
+    .hero-lede {
+      font-size: var(--step-0);
+    }
+    .hero-foot {
+      gap: var(--space-m);
+      padding-block: var(--space-m) var(--space-2xl);
     }
   }
 </style>

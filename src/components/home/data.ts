@@ -17,6 +17,8 @@ import {
 } from '@/data/product';
 import { LAUNCH } from '@/config/launch';
 import type { DemoApp } from '@/components/demos/AppDemo.astro';
+import type { DialPartId } from '@/scripts/dial/types';
+import { PROFILE_FORMAT } from '@/scripts/feel/json';
 
 /** Full spec value by group + label. Throws at build time if the data moves. */
 export function spec(group: string, label: string): string {
@@ -67,6 +69,8 @@ export interface Part {
   name: string;
   /** Text for the knob's round display while this part is in focus (≤ 10 chars). */
   display: string;
+  /** The model part the stage callout points at (dial.partAnchors()). */
+  anchor: DialPartId;
   figure: string;
   unit?: string;
   body: string;
@@ -75,6 +79,7 @@ export interface Part {
 export const PARTS: Part[] = [
   {
     id: 'display',
+    anchor: 'display',
     name: 'Display',
     display: 'DISPLAY',
     figure: FACTS.displaySize,
@@ -83,6 +88,7 @@ export const PARTS: Part[] = [
   },
   {
     id: 'knob',
+    anchor: 'knob',
     name: 'Knob ring',
     display: 'KNOB',
     figure: FACTS.knobDia,
@@ -91,6 +97,7 @@ export const PARTS: Part[] = [
   },
   {
     id: 'motor',
+    anchor: 'stator',
     name: 'Motor',
     display: 'MOTOR',
     figure: FACTS.torque,
@@ -99,6 +106,7 @@ export const PARTS: Part[] = [
   },
   {
     id: 'encoder',
+    anchor: 'encoder',
     name: 'Encoder',
     display: 'ENCODER',
     figure: FACTS.resolution,
@@ -107,6 +115,7 @@ export const PARTS: Part[] = [
   },
   {
     id: 'battery',
+    anchor: 'battery',
     name: 'Battery',
     display: 'BATTERY',
     figure: FACTS.battery,
@@ -115,6 +124,7 @@ export const PARTS: Part[] = [
   },
   {
     id: 'base',
+    anchor: 'base',
     name: 'Base',
     display: 'BASE',
     figure: FACTS.weight,
@@ -193,25 +203,33 @@ export const CONTEXT_TABS: ContextTab[] = [
 /* Open: a real-looking profile file, built from the Magnet physics.        */
 /* ---------------------------------------------------------------------- */
 
-const magnet = byProfile('magnet').physics;
-export const PROFILE_FILE_NAME = 'vscode-review.detent.json';
+// Same file format the feel library exports (format, name, app, base, color,
+// physics): physics here overrides the base profile, and the app bindings
+// (turn, press, display) ride along. Press levels use the SDK's names:
+// a light press stages the hunk, a hard press reverts it.
+const magnet = byProfile('magnet');
+export const PROFILE_FILE_NAME = 'code-review.detent.json';
 export const PROFILE_FILE = {
-  $schema: 'detent/profile@1',
+  format: PROFILE_FORMAT,
   name: 'Code review',
   app: 'com.microsoft.VSCode',
   when: 'isInDiffEditor',
-  feel: {
-    base: 'magnet',
-    strength: magnet.strength,
-    damping: magnet.damping,
-    snapTo: 'diff.hunks',
+  base: magnet.id,
+  color: magnet.color,
+  physics: {
+    strength: magnet.physics.strength,
+    damping: magnet.physics.damping,
+    snaps: { source: 'diff.hunks' },
   },
   turn: {
     cw: 'workbench.action.compareEditor.nextChange',
     ccw: 'workbench.action.compareEditor.previousChange',
   },
-  press: { '1': 'git.stageSelectedRanges', '3': 'git.revertSelectedRanges' },
-  display: { ring: byProfile('magnet').color, text: '{hunk} of {hunks}' },
+  press: {
+    light: 'git.stageSelectedRanges',
+    hard: 'git.revertSelectedRanges',
+  },
+  display: { text: '{hunk} of {hunks}' },
 };
 
 /* ---------------------------------------------------------------------- */

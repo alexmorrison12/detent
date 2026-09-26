@@ -189,6 +189,14 @@ import { CONTEXT_TABS, FACTS } from './data';
   }
 
   @media (max-width: 30rem) {
+    /* Size each tab to its name so "Design" never runs into the next dot. */
+    .ctx__tabs {
+      grid-template-columns: repeat(4, auto);
+      justify-content: space-between;
+    }
+    .ctx__tab {
+      padding-inline: 0.25rem;
+    }
     .ctx__tab-app {
       display: none;
     }

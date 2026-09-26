@@ -1,9 +1,11 @@
 /**
  * Home night chapter controller. One dial (#home-dial) drives the page:
  *   - hero headline width + weight follow the knob angle (the signature),
- *   - a mono readout and the engraved scale follow every detent,
+ *   - a mono readout and the engraved scale follow every detent: the mark under
+ *     the pointer is lit, and marks the knob crosses light and fade behind it,
  *   - the feel picker switches the dial's profile and the chapter's color,
- *   - scroll through the mechanism explodes the dial (static when reduced),
+ *   - scroll through the mechanism explodes the dial (static when reduced) and
+ *     a callout names the part in focus on the model (side layout),
  *   - the app tabs switch the dial's feel the way the real product does.
  *
  * Talks to the dial only through the public contract in ../dial/types.ts.
@@ -28,7 +30,10 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     Array.from(root.querySelectorAll<T>(sel));
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const desktop = matchMedia('(min-width: 64rem)');
+  // The side layout (stage pinned beside the text); see Stage.astro.
+  const side = matchMedia(
+    '(min-width: 64rem), (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem)',
+  );
 
   const stage = $('[data-stage]')!;
   const headline = $('[data-headline]')!;
@@ -45,10 +50,24 @@ function init(root: HTMLElement, dial: DetentDialElement) {
   const plotDot = $('[data-plot-dot]');
   const radios = $$<HTMLInputElement>('input[name="home-profile"]');
   const parts = $$('[data-part]');
+  const callout = $('[data-callout]');
+  const calloutName = $('[data-callout-name]');
+  const calloutFigure = $('[data-callout-figure]');
+  const rings = new Map(
+    $$<SVGGElement>('[data-ring]').map((g) => [
+      g.dataset.ring as ProfileId,
+      Array.from(g.querySelectorAll<SVGPathElement>('[data-deg]')).map((el) => ({
+        el,
+        deg: Number(el.dataset.deg),
+        detent: el.dataset.detent === undefined ? -1 : Number(el.dataset.detent),
+      })),
+    ]),
+  );
   const tabs = $$<HTMLButtonElement>('[role="tab"]');
   const panels = $$('[role="tabpanel"]');
   const sceneEls = $$('[data-scene-id]').map((el) => ({ el, id: el.dataset.sceneId as SceneId }));
   const mechEl = sceneEls.find((s) => s.id === 'mech')?.el;
+  const heroHead = sceneEls.find((s) => s.id === 'hero')?.el;
 
   const state = {
     scene: 'hero' as SceneId,
@@ -75,8 +94,10 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     state.dialProfile = id;
     dial.setAttribute('profile', id);
     stage.dataset.profile = id;
+    resetRing();
     paintReadout();
     paintPlot();
+    paintRing();
   }
 
   function setDisplay(text: string | null) {
@@ -115,6 +136,69 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     marker?.setAttribute('transform', `rotate(${a.toFixed(2)})`);
     paintDetent();
     paintPlot();
+    paintRing();
+  }
+
+  /* ------------------------------------------------------------ the ring */
+  // The engraved scale stays quiet; only the mark under the pointer is lit.
+  // Marks the knob crosses light for a frame and fade back (CSS transition),
+  // so a fast spin leaves a short trail. Reduced motion: no trail.
+  let litMark: SVGPathElement | null = null;
+  let lastDetent = Number.NaN;
+
+  function resetRing() {
+    litMark?.removeAttribute('data-lit');
+    litMark = null;
+    lastDetent = Number.NaN;
+  }
+
+  function flash(el: SVGPathElement) {
+    if (el === litMark) return;
+    el.setAttribute('data-lit', '');
+    // Two frames: let the lit state paint, then start the fade.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (el !== litMark) el.removeAttribute('data-lit');
+      }),
+    );
+  }
+
+  function paintRing() {
+    const marks = rings.get(state.dialProfile);
+    if (!marks?.length) return;
+    const ph = byProfile(state.dialProfile).physics;
+    let next: SVGPathElement | null = null;
+    if (ph.detents > 0) {
+      const n = ph.detents;
+      const step = 360 / n;
+      const idx = Math.round(state.angle / step);
+      const at = (k: number) => marks.find((m) => m.detent === ((k % n) + n) % n)?.el ?? null;
+      if (!reduced.matches && Number.isFinite(lastDetent) && Math.abs(idx - lastDetent) > 1) {
+        const dir = Math.sign(idx - lastDetent);
+        const span = Math.min(Math.abs(idx - lastDetent) - 1, n - 1);
+        for (let k = 1; k <= span; k++) {
+          const el = at(lastDetent + dir * k);
+          if (el) flash(el);
+        }
+      }
+      lastDetent = idx;
+      next = at(idx);
+    } else {
+      // Stops, snaps and accents light when the pointer is on them.
+      const w = wrap(state.angle);
+      let best = Infinity;
+      for (const m of marks) {
+        const d = Math.abs(wrap(w - m.deg));
+        if (d < 5 && d < best) {
+          best = d;
+          next = m.el;
+        }
+      }
+    }
+    if (next === litMark) return;
+    litMark?.removeAttribute('data-lit');
+    litMark = next;
+    litMark?.setAttribute('data-lit', '');
   }
 
   function paintDetent() {
@@ -278,6 +362,29 @@ function init(root: HTMLElement, dial: DetentDialElement) {
       else delete p.dataset.active;
     });
     if (state.scene === 'mech') setDisplay(partDisplay(id));
+    const el = parts.find((p) => p.dataset.part === id);
+    if (calloutName) calloutName.textContent = el?.dataset.name ?? '';
+    if (calloutFigure) calloutFigure.textContent = el?.dataset.figure ?? '';
+    placeCallout();
+  }
+
+  // Pin the callout to the active part's right edge on the model. The dial
+  // draws in its own frame; read its anchors on the next one, and again once
+  // the camera and explode transitions settle.
+  let calloutFrame = 0;
+  let settling = false;
+  function placeCallout() {
+    if (!callout || calloutFrame) return;
+    calloutFrame = requestAnimationFrame(() => {
+      calloutFrame = 0;
+      const anchorId = parts.find((p) => p.dataset.part === state.part)?.dataset.anchor;
+      const a = anchorId ? dial.partAnchors?.().find((x) => x.id === anchorId) : undefined;
+      const on = state.scene === 'mech' && side.matches && !!a?.visible && state.explode > 0.2;
+      callout.toggleAttribute('data-on', on);
+      if (!on || !a) return;
+      callout.style.left = `${a.x.toFixed(1)}px`;
+      callout.style.top = `${a.y.toFixed(1)}px`;
+    });
   }
 
   const smooth = (e0: number, e1: number, x: number) => {
@@ -285,13 +392,36 @@ function init(root: HTMLElement, dial: DetentDialElement) {
     return t * t * (3 - 2 * t);
   };
 
+  /* ---------------------------------------------------------------- dock */
+  // Stack layout: once the stage sticks under the header it compacts with
+  // the scroll (0 → 1 over 40% of a screen), so the demos it drives get the
+  // room. Driven by the headline block above the stage, which moves exactly
+  // with the scroll whatever size the stage is: no feedback loop.
+  let dockT = -1;
+  function paintDock() {
+    let t = 0;
+    if (!side.matches && heroHead) {
+      const top = parseFloat(getComputedStyle(stage).insetBlockStart) || 0;
+      const past = top - heroHead.getBoundingClientRect().bottom;
+      t = Math.min(1, Math.max(0, past / (innerHeight * 0.4)));
+      t = Math.round(t * 500) / 500;
+    }
+    if (t === dockT) return;
+    dockT = t;
+    if (t > 0) stage.style.setProperty('--dock-t', String(t));
+    else stage.style.removeProperty('--dock-t');
+    stage.toggleAttribute('data-docking', t > 0);
+    stage.toggleAttribute('data-docked', t >= 1);
+  }
+
   let scrollFrame = 0;
   function measure() {
     scrollFrame = 0;
+    paintDock();
     const vh = innerHeight;
-    // The line where a scene becomes "current": mid-screen on desktop,
+    // The line where a scene becomes "current": mid-screen on the side layout,
     // lower on mobile because the docked stage owns the top of the screen.
-    const line = vh * (desktop.matches ? 0.5 : 0.7);
+    const line = vh * (side.matches ? 0.5 : 0.7);
     let current: SceneId = state.scene;
     for (const s of sceneEls) {
       const r = s.el.getBoundingClientRect();
@@ -311,6 +441,16 @@ function init(root: HTMLElement, dial: DetentDialElement) {
       for (const el of parts)
         if (el.getBoundingClientRect().top <= line) active = el.dataset.part ?? active;
       setPart(active);
+      placeCallout();
+      if (!settling && dial.whenSettled) {
+        settling = true;
+        dial.whenSettled().then(() => {
+          settling = false;
+          placeCallout();
+        });
+      }
+    } else if (callout?.hasAttribute('data-on')) {
+      callout.removeAttribute('data-on');
     }
   }
   const onScroll = () => {

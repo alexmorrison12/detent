@@ -4,6 +4,16 @@
  * scale that re-engraves itself for the active feel profile, plus a mono
  * readout. Sticky across hero → feel → mechanism → context, so the page runs
  * a single WebGL context for the whole night chapter.
+ *
+ * The scale is engraved, not lit: at rest only the detent under the tally
+ * pointer glows. Turning the knob lights each detent it crosses and lets it
+ * fade, so the ring records the gesture (see paintRing in instrument.ts).
+ *
+ * Two layouts (the queries are repeated in Instrument.astro and instrument.ts):
+ *   side   ≥ 64rem, or a landscape phone: text left, stage pinned right.
+ *   stack  portrait phones and tablets: the stage docks under the header and,
+ *          as the hero scrolls away, compacts to a small dial and one readout
+ *          row so the demos it drives stay on screen (--dock-t, instrument.ts).
  */
 import DialStage from '@/components/dial/DialStage.astro';
 import { PROFILES, byProfile } from '@/data/product';
@@ -38,11 +48,18 @@ const numerals = [0, 90, 180, 270].map((deg) => {
   return { deg, x: f(x), y: f(y) };
 });
 
-// Per-profile engraving: where this feel has something to say.
+// Per-profile engraving: where this feel has something to say. One element
+// per mark so each can light on its own. Detent marks come first, in order,
+// so mark i is detent i.
+interface Mark {
+  d: string;
+  deg: number;
+  heavy: boolean;
+  detent?: number;
+}
 const rings = PROFILES.map((p) => {
   const ph = p.physics;
-  let fine = '';
-  let heavy = '';
+  const marks: Mark[] = [];
   let guide = '';
   if (ph.detents > 0) {
     const step = 360 / ph.detents;
@@ -51,22 +68,21 @@ const rings = PROFILES.map((p) => {
       const accent = (ph.accents ?? []).some(
         (a) => Math.abs((((deg - a) % 360) + 360) % 360) < 1e-6,
       );
-      if (accent) heavy += tick(deg, 95, 110);
-      else fine += tick(deg, 100, 109);
+      marks.push({ d: accent ? tick(deg, 95, 110) : tick(deg, 100, 109), deg, heavy: accent, detent: i });
     }
   } else if (ph.accents?.length) {
-    for (const a of ph.accents) fine += tick(a, 100, 109);
+    for (const a of ph.accents) marks.push({ d: tick(a, 100, 109), deg: a, heavy: false });
   }
   if (ph.stops) {
     guide += arc(ph.stops[0], ph.stops[1], 105);
-    heavy += tick(ph.stops[0], 95, 112) + tick(ph.stops[1], 95, 112);
-    if (ph.spring > 0) fine += tick(0, 99, 109);
+    for (const s of ph.stops) marks.push({ d: tick(s, 95, 112), deg: s, heavy: true });
+    if (ph.spring > 0) marks.push({ d: tick(0, 99, 109), deg: 0, heavy: false });
   }
   if (ph.snaps?.length) {
-    for (const s of ph.snaps) heavy += tick(s, 97, 110);
+    for (const s of ph.snaps) marks.push({ d: tick(s, 97, 110), deg: s, heavy: true });
   }
-  if (!fine && !heavy && !guide) guide = arc(0, 359.9, 105);
-  return { id: p.id, fine, heavy, guide };
+  if (!marks.length && !guide) guide = arc(0, 359.9, 105);
+  return { id: p.id, marks, guide };
 });
 
 const initial = byProfile('ratchet');
@@ -83,10 +99,16 @@ const initial = byProfile('ratchet');
         </text>
       ))}
       {rings.map((r) => (
-        <g class={`ring ring--${r.id}`} style={`--ring-c: var(--feel-${r.id})`}>
+        <g class={`ring ring--${r.id}`} data-ring={r.id} style={`--ring-c: var(--feel-${r.id})`}>
           {r.guide && <path class="ring__guide" d={r.guide} />}
-          {r.fine && <path class="ring__fine" d={r.fine} />}
-          {r.heavy && <path class="ring__heavy" d={r.heavy} />}
+          {r.marks.map((m) => (
+            <path
+              class:list={['ring__mark', { 'ring__mark--heavy': m.heavy }]}
+              d={m.d}
+              data-deg={f(m.deg)}
+              data-detent={m.detent}
+            />
+          ))}
         </g>
       ))}
       <g class="scale__marker" data-marker>
@@ -103,9 +125,20 @@ const initial = byProfile('ratchet');
         profile={initial.id}
         camera="hero"
         label="Detent One. Drag it in a circle, or use the arrow keys, to turn it."
+        sizes="(min-width: 64rem) 36vw, 56vw"
       />
+      <p class="stage__callout" data-callout aria-hidden="true">
+        <span class="stage__callout-name" data-callout-name></span>
+        <span class="stage__callout-figure readout" data-callout-figure></span>
+      </p>
     </div>
+  </div>
 
+  <div class="stage__meta">
+    <p class="stage__hint" data-hint>
+      <span class="stage__hint-fine">Drag it around, or tab to it and use the arrow keys.</span>
+      <span class="stage__hint-coarse">Drag the knob in a circle.</span>
+    </p>
     <button class="sound-chip" type="button" data-sound-chip aria-pressed="false">
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path>
@@ -118,14 +151,9 @@ const initial = byProfile('ratchet');
           stroke-linecap="round"
         ></path>
       </svg>
-      <span data-sound-label>Hear the detents?</span>
+      <span class="sound-chip__label" data-sound-label>Hear the detents?</span>
     </button>
   </div>
-
-  <p class="stage__hint" data-hint>
-    <span class="stage__hint-fine">Drag it around, or tab to it and use the arrow keys.</span>
-    <span class="stage__hint-coarse">Drag the knob in a circle.</span>
-  </p>
 
   <dl class="stage__readout" aria-label="Dial readout">
     <div>
@@ -146,7 +174,7 @@ const initial = byProfile('ratchet');
         {initial.name}
       </dd>
     </div>
-    <div>
+    <div class="stage__ro-width">
       <dt>Headline</dt>
       <dd class="readout" data-ro-width>
         125%
@@ -159,6 +187,8 @@ const initial = byProfile('ratchet');
 
 <style>
   .stage {
+    /* The docked, compact dial on phones and tablets. */
+    --dock-dial: clamp(7rem, 15svh, 8rem);
     position: sticky;
     inset-block-start: var(--header-h);
     z-index: var(--z-raised);
@@ -198,7 +228,7 @@ const initial = byProfile('ratchet');
 
   .stage__dial {
     position: relative;
-    inline-size: min(66vw, 31svh, 26rem);
+    inline-size: min(72vw, 34svh, 26rem);
     aspect-ratio: 1;
   }
 
@@ -210,6 +240,7 @@ const initial = byProfile('ratchet');
     overflow: visible;
     fill: none;
     stroke-linecap: round;
+    transition: opacity var(--dur-3) var(--ease-out);
   }
   .scale__minor {
     stroke: var(--ink-faint);
@@ -229,7 +260,6 @@ const initial = byProfile('ratchet');
   }
   .ring {
     display: none;
-    stroke: var(--ring-c);
   }
   .stage[data-profile='ratchet'] .ring--ratchet,
   .stage[data-profile='fluid'] .ring--fluid,
@@ -240,14 +270,29 @@ const initial = byProfile('ratchet');
     display: inline;
   }
   .ring__guide {
+    stroke: var(--ring-c);
     stroke-width: 0.8;
-    stroke-opacity: 0.55;
+    stroke-opacity: 0.45;
   }
-  .ring__fine {
+  /* Engraved, not lit: the feel color is reserved for the mark under the
+     pointer and the ones the knob just crossed, which fade back. */
+  .ring__mark {
+    stroke: var(--ink-faint);
+    stroke-opacity: 0.6;
     stroke-width: 1.3;
+    transition:
+      stroke var(--dur-4) var(--ease-out),
+      stroke-opacity var(--dur-4) var(--ease-out);
   }
-  .ring__heavy {
+  .ring__mark--heavy {
+    stroke: color-mix(in oklch, var(--ring-c) 45%, var(--ink-faint));
+    stroke-opacity: 0.9;
     stroke-width: 3;
+  }
+  .ring__mark[data-lit] {
+    stroke: var(--ring-c);
+    stroke-opacity: 1;
+    transition-duration: 0s;
   }
   .scale__marker {
     fill: var(--accent);
@@ -271,14 +316,29 @@ const initial = byProfile('ratchet');
     outline-offset: 6px;
   }
 
+  /* Taking it apart: the scale belongs to the assembled knob, so it steps
+     back and a callout names the part in focus on the model itself. */
+  :global([data-instrument][data-scene='mech']) .scale {
+    opacity: 0;
+  }
+  .stage__callout {
+    display: none;
+  }
+
+  .stage__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2xs) var(--space-s);
+    margin-block-start: calc(-1 * var(--space-2xs));
+  }
   .stage__hint {
-    margin-block: calc(-1 * var(--space-2xs)) 0;
     text-align: center;
     font-size: var(--step--1);
     font-stretch: var(--stretch-ui);
     color: var(--ink-muted);
     pointer-events: none;
-    transition: opacity var(--dur-3) var(--ease-out);
   }
   .stage__hint-coarse {
     display: none;
@@ -291,30 +351,30 @@ const initial = byProfile('ratchet');
       display: inline;
     }
   }
-  :global(html:not([data-js])) .stage__hint {
+  :global(html:not([data-js])) .stage__meta {
     display: none;
   }
   /* Once the knob has been turned the hint has done its job. */
-  :global([data-instrument][data-touched]) .stage__hint {
+  :global([data-instrument][data-touched]) .stage__hint,
+  :global([data-instrument][data-scene='mech']) .stage__hint {
     display: none;
   }
 
   .sound-chip {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-end: 0;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.45em;
     min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
     padding: 0.4em 0.95em;
     border-radius: var(--r-pill);
     border: 1px solid var(--line-strong);
     font-size: var(--step--1);
     font-weight: 600;
     font-stretch: var(--stretch-ui);
+    white-space: nowrap;
     color: var(--ink);
-    background: color-mix(in oklch, var(--instrument-bg, var(--bg)) 70%, transparent);
     transition:
       border-color var(--dur-2) var(--ease-out),
       color var(--dur-2) var(--ease-out);
@@ -336,9 +396,6 @@ const initial = byProfile('ratchet');
   .sound-chip[aria-pressed='true'] .sound-chip__wave {
     opacity: 1;
     stroke: var(--accent-text);
-  }
-  :global(html:not([data-js])) .sound-chip {
-    display: none;
   }
 
   .stage__readout {
@@ -373,11 +430,22 @@ const initial = byProfile('ratchet');
   }
 
   @media (max-width: 22.5rem) {
-    .stage__readout > div:last-child {
+    .stage__ro-width {
       display: none;
     }
     .stage__readout {
       grid-template-columns: repeat(3, auto);
+    }
+    /* Icon only: the label stays as the button's name. */
+    .sound-chip {
+      padding-inline: 0;
+    }
+    .sound-chip__label {
+      position: absolute;
+      clip-path: inset(50%);
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
     }
   }
 
@@ -385,16 +453,70 @@ const initial = byProfile('ratchet');
     .scale__num {
       display: none;
     }
-    .sound-chip {
-      inset-inline-end: calc(-1 * var(--space-2xs));
-      padding-inline: 0.75em;
-    }
     .stage__hint {
       font-size: var(--step--2);
     }
   }
 
-  @media (min-width: 64rem) {
+  /* ---- Stack layout: docks under the header, compacts as you scroll ---
+     instrument.ts sets --dock-t from 0 (just stuck) to 1 (compact) as the
+     hero scrolls away, so the stage shrinks with the scroll instead of
+     jumping; data-docking / data-docked mark the in-between and the end.
+     Spacing lives on the children so nothing snaps when a row goes away. */
+  @media (max-width: 63.99rem) and (orientation: portrait),
+    (max-width: 63.99rem) and (min-height: 30.01rem),
+    (max-width: 39.99rem) {
+    .stage {
+      --t: var(--dock-t, 0);
+      --dial-full: min(72vw, 34svh, 26rem);
+      gap: 0;
+      padding-block: calc(var(--space-xs) - (var(--space-xs) - var(--space-2xs)) * var(--t))
+        var(--space-xs);
+    }
+    .stage__dial {
+      inline-size: calc(var(--dial-full) + (var(--dock-dial) - var(--dial-full)) * var(--t));
+    }
+    .stage__meta {
+      margin-block-start: calc(var(--space-xs) * (1 - var(--t)));
+      max-block-size: calc(3rem * (1 - var(--t)));
+      opacity: calc(1 - 2 * var(--t));
+    }
+    .stage[data-docking] .stage__meta {
+      overflow: clip;
+    }
+    .stage__readout {
+      margin-block-start: calc(var(--space-s) - (var(--space-s) - var(--space-2xs)) * var(--t));
+    }
+    .stage[data-docked] .scale__num,
+    .stage[data-docked] .stage__meta,
+    .stage[data-docked] .stage__ro-width {
+      display: none;
+    }
+    .stage[data-docked] .stage__readout {
+      grid-template-columns: repeat(3, auto);
+      column-gap: var(--space-l);
+    }
+    .stage[data-docked] .stage__readout > div {
+      gap: 0;
+    }
+    .stage[data-docked] .stage__readout dd,
+    .stage[data-docked] .stage__profile {
+      font-size: var(--step--2);
+    }
+  }
+  /* Phones: until the knob moves, the readout would only print zeros, so it
+     waits for the first turn, or unfolds as the stage docks. */
+  @media (max-width: 39.99rem) {
+    :global([data-instrument]:not([data-touched])) .stage__readout {
+      max-block-size: calc(3rem * var(--t));
+      margin-block-start: calc(var(--space-2xs) * var(--t));
+      opacity: var(--t);
+      overflow: clip;
+    }
+  }
+
+  /* ---- Side layout: text left, stage pinned right ---------------------- */
+  @media (min-width: 64rem), (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) {
     .stage {
       block-size: calc(100svh - var(--header-h));
       align-content: center;
@@ -407,8 +529,75 @@ const initial = byProfile('ratchet');
     .stage__scrim {
       display: none !important;
     }
+    /* 16.5rem leaves room for the hint row and readout, and keeps the readout
+       clear of the fold under the announcement bar on the first screen. */
     .stage__dial {
-      inline-size: min(100%, calc(100svh - var(--header-h) - 13rem), 46rem);
+      inline-size: min(100%, calc(100svh - var(--header-h) - 16.5rem), 46rem);
+    }
+
+    .stage__callout {
+      position: absolute;
+      display: flex;
+      align-items: baseline;
+      gap: 0.6em;
+      margin: 0;
+      padding-inline-start: var(--space-xl);
+      translate: 0 -50%;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--dur-2) var(--ease-out);
+    }
+    .stage__callout::before {
+      content: '';
+      position: absolute;
+      inset-inline-start: 0;
+      inset-block-start: 50%;
+      inline-size: calc(var(--space-xl) - var(--space-2xs));
+      border-block-start: 1px solid var(--accent);
+    }
+    .stage__callout::after {
+      content: '';
+      position: absolute;
+      inset-inline-start: -0.2rem;
+      inset-block-start: calc(50% - 0.2rem);
+      inline-size: 0.4rem;
+      block-size: 0.4rem;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .stage__callout-name {
+      font-size: var(--step-0);
+      font-weight: 680;
+      font-stretch: var(--stretch-ui);
+      color: var(--ink-strong);
+    }
+    .stage__callout-figure {
+      color: var(--ink-muted);
+    }
+    :global([data-instrument][data-scene='mech']) .stage__callout[data-on] {
+      opacity: 1;
+    }
+  }
+
+  /* Landscape phones: the side layout, fitted into a short screen. */
+  @media (orientation: landscape) and (max-height: 30rem) and (min-width: 40rem) and (max-width: 63.99rem) {
+    .stage {
+      align-content: start;
+      gap: var(--space-2xs);
+      padding-block: var(--space-xs);
+    }
+    .stage__dial {
+      inline-size: min(100%, calc(100svh - var(--header-h) - 7.5rem));
+    }
+    .scale__num,
+    .stage__meta,
+    .stage__callout,
+    .stage__ro-width {
+      display: none;
+    }
+    .stage__readout {
+      grid-template-columns: repeat(3, auto);
     }
   }
 
@@ -417,6 +606,11 @@ const initial = byProfile('ratchet');
     .stage[data-ticked] .scale__marker path {
       transition: none;
       transform: none;
+    }
+    .ring__mark,
+    .stage__dial,
+    .scale {
+      transition: none;
     }
   }
 </style>
