@@ -9,10 +9,15 @@ import { hexToOklch, numberWord } from '@/scripts/info/format';
 
 const one = EDITIONS.find((e) => e.id === 'one')!;
 
-/** The text journalists paste. Both versions say it is a concept, because the pasted copy travels without the notes above it. */
+/**
+ * The text journalists paste. Both versions open by saying it is a concept,
+ * because the pasted copy travels without the notes above it. The 0 dB line
+ * is the Wall feel in Logic: a bump at unity gain, hard stops at the ends.
+ */
+const concept = `${SITE.product} is a concept product: a design and engineering demonstration by ${SITE.legalName}, not for sale.`;
 export const BOILERPLATE = {
-  short: `${SITE.product} is a machined aluminum desktop dial with software-defined haptics. A brushless motor lets firmware decide how the knob feels in each app: clicks, a fluid glide, a spring back to center, hard end stops, or snaps to markers. ${SITE.product} is a concept product, a design and engineering demonstration that is not for sale.`,
-  long: `${SITE.legalName} makes ${SITE.product}, a desktop dial machined from one billet of 6061 aluminum. Instead of a mechanical click, a brushless gimbal motor and a 14-bit magnetic encoder let firmware decide how the knob feels, and change it in about a millisecond when you switch apps: ${numberWord(PROFILES.length)} feel profiles from crisp frame-by-frame clicks to hard end stops at 0 dB. A round AMOLED display in the knob shows what it controls. ${SITE.product} is local-first, needs no account, and ships with open-source firmware and an open SDK. It is a concept product, priced at ${formatUsd(one.priceUsd)} on paper and not for sale.`,
+  short: `${concept} It is a machined aluminum desktop dial with software-defined haptics. A brushless motor lets firmware decide how the knob feels in each app: clicks, a fluid glide, a spring back to center, hard end stops, or snaps to markers.`,
+  long: `${concept} It is a desktop dial machined from one billet of 6061 aluminum. Instead of a mechanical click, a brushless gimbal motor and a 14-bit magnetic encoder let firmware decide how the knob feels, and change it in about a millisecond when you switch apps. ${numberWord(PROFILES.length, true)} feel profiles run from crisp frame-by-frame clicks in a video editor to a fader with a bump at 0 dB and hard stops at both ends. A round AMOLED display in the knob shows what it controls. ${SITE.product} is local-first, needs no account, and has open-source firmware and an open SDK. On paper it costs ${formatUsd(one.priceUsd)}.`,
 } as const;
 
 const tally = FINISHES.find((f) => f.id === 'tally')!;

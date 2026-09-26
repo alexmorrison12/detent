@@ -4,7 +4,7 @@
  * the mechanical-vs-software comparison. Anything product.ts already states
  * (price, weight, torque, resolution) is read from there, not repeated.
  */
-import { SPECS } from './product';
+import { SPECS, SYSTEM_SET } from './product';
 import { MM } from '@/scripts/dial/model';
 
 /** Pull a number out of a SPECS row, e.g. specNumber('Haptics', 'Peak torque') -> 32. */
@@ -115,7 +115,8 @@ export const PLATFORMS = ['macOS 13+', 'Windows 11', 'Linux', 'iPadOS'] as const
 
 export const COMPATIBILITY: { feature: string; cells: { s: Support; note?: string }[] }[] = [
   {
-    feature: 'Scroll, volume and media over USB-C',
+    // The system set is plain HID: it needs no app, so it works everywhere.
+    feature: `${SYSTEM_SET.charAt(0).toUpperCase()}${SYSTEM_SET.slice(1)} over USB-C`,
     cells: [{ s: 'yes' }, { s: 'yes' }, { s: 'yes' }, { s: 'yes' }],
   },
   {
@@ -166,7 +167,7 @@ export const LIMITS: Limit[] = [
   },
   {
     title: 'Tell browser tabs apart.',
-    body: 'To Detent, your browser is one app. Figma in a tab gets its profile through the Figma plugin; other web apps get scroll, volume and undo.',
+    body: `To Detent, your browser is one app. Figma in a tab gets its profile through the Figma plugin; other web apps get the system set: ${SYSTEM_SET}.`,
     status: 'Planned: browser extension, Studio 1.3',
     planned: true,
   },

@@ -3,6 +3,7 @@
  * on DVT units and now run on the 500 PVT units testers have on their desks.
  * Newest first. /changelog/ and /changelog/rss.xml both read from here.
  */
+import { PROFILE_FORMAT } from '@/scripts/feel/json';
 
 export type Stream = 'Firmware' | 'Studio' | 'SDK';
 export type ChangeKind = 'New' | 'Improved' | 'Fixed' | 'Changed' | 'Known issue';
@@ -123,7 +124,7 @@ export const RELEASES: Release[] = [
     summary: 'The TypeScript SDK and the profile format are open, Apache-2.0, on the same day as the firmware source.',
     changes: [
       { kind: 'New', text: 'SDK repository public under Apache-2.0, with examples for VS Code, Blender and a MIDI bridge.' },
-      { kind: 'New', text: 'Profile JSON schema v1 published. Profiles are plain files you can diff, review and version.' },
+      { kind: 'New', text: `Profile format ${PROFILE_FORMAT} published. A profile is one plain JSON file (base feel, physics, press bindings) you can diff, review and version.` },
       { kind: 'New', text: 'Firmware source public, with signed builds so a modified dial can still be told apart.' },
     ],
   },

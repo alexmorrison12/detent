@@ -142,8 +142,10 @@ const physicsJson = JSON.stringify(
       border-color var(--dur-2) var(--ease-out),
       background-color var(--dur-2) var(--ease-out);
   }
-  .chip:hover {
-    border-color: var(--ink-muted);
+  @media (hover: hover) {
+    .chip:hover {
+      border-color: var(--ink-muted);
+    }
   }
   .chip input {
     position: absolute;

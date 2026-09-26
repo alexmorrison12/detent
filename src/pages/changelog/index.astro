@@ -198,8 +198,10 @@ const ld = {
     color: var(--accent-text);
     text-decoration: none;
   }
-  .rss:hover {
-    text-decoration: underline;
+  @media (hover: hover) {
+    .rss:hover {
+      text-decoration: underline;
+    }
   }
   .log {
     padding-block-end: var(--section-y);
@@ -320,9 +322,13 @@ const ld = {
     margin-block-start: 0.15rem;
     transition: scale var(--dur-2) var(--ease-out);
   }
-  .dscale__marks a:hover .dmark,
   .dscale__marks a:focus-visible .dmark {
     scale: 1.4;
+  }
+  @media (hover: hover) {
+    .dscale__marks a:hover .dmark {
+      scale: 1.4;
+    }
   }
   .dscale__legend {
     display: flex;
@@ -390,10 +396,12 @@ const ld = {
     letter-spacing: var(--tracking-display);
     line-height: 1.02;
   }
-  .release__anchor:hover .release__name {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 0.15em;
+  @media (hover: hover) {
+    .release__anchor:hover .release__name {
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 0.15em;
+    }
   }
   .release__summary {
     font-size: var(--step-1);

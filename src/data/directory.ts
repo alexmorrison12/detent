@@ -4,7 +4,8 @@
  * themselves (name, category, behavior, profile, status) live in
  * INTEGRATIONS in product.ts.
  */
-import { INTEGRATIONS, type Integration } from './product';
+import { INTEGRATIONS, byProfile, type Integration } from './product';
+import { PROFILE_FORMAT, profileFileName } from '@/scripts/feel/json';
 
 /**
  * The apps with their own profile. INTEGRATIONS also lists "System" (volume,
@@ -35,7 +36,43 @@ const SHORT: Record<string, string> = {
 /** Label for the knob's round display (the dial contract allows ≤ 10 chars). */
 export const displayLabel = (name: string): string => (SHORT[name] ?? name.toUpperCase()).slice(0, 10);
 
-/** The SDK sample: a real-looking profile for one app, and what the dial stores. */
+/*
+ * The SDK sample: a profile written in TypeScript, and the file it becomes.
+ * The file is the one profile format the whole site shows (the home page's
+ * code panel, the feel library's export): format, name, app, base, color,
+ * physics that override the base feel, then the app bindings. Press keys are
+ * the SDK's names for the three pressure levels: light, firm, hard. The feel
+ * numbers are the Magnet profile's, from product.ts.
+ */
+const magnet = byProfile('magnet');
+const REVIEW = {
+  app: 'com.microsoft.VSCode',
+  name: 'Review',
+  display: 'REVIEW',
+  press: {
+    light: 'git.stageSelectedRanges',
+    firm: 'workbench.action.editor.nextChange',
+    hard: 'git.revertSelectedRanges',
+  },
+} as const;
+
+/** What the dial stores: plain JSON in the shared profile format. */
+const REVIEW_FILE = {
+  format: PROFILE_FORMAT,
+  name: REVIEW.name,
+  app: REVIEW.app,
+  base: magnet.id,
+  color: magnet.color,
+  physics: {
+    strength: magnet.physics.strength,
+    damping: magnet.physics.damping,
+    // The profile's own code, running in Detent Studio, sends the snap positions.
+    snaps: { source: 'studio' },
+  },
+  press: REVIEW.press,
+  display: { text: REVIEW.display },
+};
+
 export const SDK_SAMPLE = {
   file: 'review.profile.ts',
   code: `import { defineProfile, feel } from '@detent/sdk';
@@ -43,10 +80,10 @@ export const SDK_SAMPLE = {
 // Code review in VS Code: the dial snaps to every changed hunk,
 // a light press stages the one you're on.
 export default defineProfile({
-  app: 'com.microsoft.VSCode',
-  name: 'Review',
-  display: 'REVIEW',
-  feel: feel.magnet({ strength: 0.9, width: 7 }),
+  app: '${REVIEW.app}',
+  name: '${REVIEW.name}',
+  display: { text: '${REVIEW.display}' },
+  feel: feel.${magnet.id}({ strength: ${magnet.physics.strength}, damping: ${magnet.physics.damping} }),
 
   // Runs in Detent Studio, not on the dial. Re-read when the diff changes.
   snaps: async ({ editor }) => {
@@ -57,26 +94,12 @@ export default defineProfile({
   onSnap: ({ editor, value }) => editor.revealLine(value, { center: true }),
 
   press: {
-    light: 'git.stageSelectedRanges',
-    firm: 'workbench.action.editor.nextChange',
-    hard: 'git.revertSelectedRanges',
+    light: '${REVIEW.press.light}',
+    firm: '${REVIEW.press.firm}',
+    hard: '${REVIEW.press.hard}',
   },
 });
 `,
-  jsonFile: 'review.detent.json',
-  json: `{
-  "schema": 1,
-  "app": "com.microsoft.VSCode",
-  "name": "Review",
-  "display": { "label": "REVIEW", "ring": "#ff7a59" },
-  "feel": {
-    "type": "magnet",
-    "strength": 0.9,
-    "width": 7,
-    "damping": 0.12
-  },
-  "snaps": { "source": "host" },
-  "press": ["light", "firm", "hard"]
-}
-`,
-} as const;
+  jsonFile: profileFileName(REVIEW.name),
+  json: `${JSON.stringify(REVIEW_FILE, null, 2)}\n`,
+};

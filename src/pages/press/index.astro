@@ -18,6 +18,9 @@ const founders = EDITIONS.find((e) => e.id === 'founders')!;
 const words = (s: string) => s.trim().split(/\s+/).length;
 const resolution = specValue('Haptics', 'Position sensing').match(/([\d.]+)°/)?.[1];
 const monoSample = `${resolution}° · ${DIMENSIONS.weightG} g · ${specNumber('Haptics', 'Peak torque')} mN·m`;
+/** The launch price window: launch day to LAUNCH.launchPriceEnds (72 hours). */
+const launchPriceHours = Math.round((Date.parse(LAUNCH.launchPriceEnds) - Date.parse(LAUNCH.launchDate)) / 3_600_000);
+const launchPriceEnds = formatDate(LAUNCH.launchPriceEnds.slice(0, 10), { month: 'long', day: 'numeric' });
 
 const facts: [string, string][] = [
   ['Product', `${SITE.product}, a desktop dial with software-defined haptics`],
@@ -25,7 +28,7 @@ const facts: [string, string][] = [
   ['Status', 'Concept product. Not for sale.'],
   ['Price', `${formatUsd(one.priceUsd)} in Raw, Graphite or Glacier`],
   ['Founders Edition', `${formatUsd(founders.priceUsd)}. ${founders.summary}`],
-  ['Launch price', `${formatUsd(one.launchPriceUsd)} for reservations and launch week`],
+  ['Launch price', `${formatUsd(one.launchPriceUsd)} for reservations, and for orders in the first ${launchPriceHours} hours after launch, until ${launchPriceEnds}`],
   ['Reservations', `${formatUsd(LAUNCH.depositUsd)} deposit, fully refundable (Founders ${formatUsd(LAUNCH.foundersDepositUsd)})`],
   ['Launch day', formatDate(LAUNCH.launchDate.slice(0, 10), { month: 'long', day: 'numeric', year: 'numeric' })],
   ['Shipping', `Batch 1 in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}`],
