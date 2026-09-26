@@ -93,7 +93,7 @@ const editionCtas = (id: 'one' | 'founders') => [
     placement="launch-notice"
     notices={{
       tease: `You’re looking at launch day early: it’s ${launchDot}. The reveal comes first, on ${dotDate(PHASES.waitlist.starts)}.`,
-      waitlist: `Launch day is ${launchDot}. Until then, the waitlist gets the ${usd(one.launchPriceUsd)} price.`,
+      waitlist: `Launch day is ${launchDot}. Reservations open ${dotDate(PHASES.reserve.starts)} and lock the same ${usd(one.launchPriceUsd)}.`,
       reserve: `Launch day is ${launchDot}. Reservations are open now and lock the same ${usd(one.launchPriceUsd)}.`,
       live: `The launch price ended ${endDot}. ${SITE.product} is in the store at ${usd(one.priceUsd)}.`,
     }}

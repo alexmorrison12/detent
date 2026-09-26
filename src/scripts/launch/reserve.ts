@@ -12,6 +12,11 @@
  * The shop and /products.json hand a build over as ?edition=&finish= (the
  * configurator's own field names); the form starts on it. Values that aren't
  * a real edition or finish, or a finish that edition doesn't come in, are ignored.
+ * Audience pages add ?segment=&feel= (PhaseCTA's `query`): the dial takes that
+ * feel, a line says what it does there, and the reservation keeps it.
+ *
+ * A browser can hold several reservations: the panel shows the latest, names
+ * the others, and cancelling one brings the next one up.
  *
  * Deposits are taken only in the reserve phase. In any other phase the form
  * is hidden by CSS (data-phase-only) and this script leaves it unwired, so a
@@ -20,22 +25,30 @@
 import {
   EDITIONS,
   FINISHES,
+  PROFILES,
   byEdition,
   byFinish,
+  byProfile,
   formatUsd,
   type EditionId,
   type FinishId,
+  type ProfileId,
 } from '@/data/product';
 import { LAUNCH } from '@/config/launch';
 import { track } from '@/lib/analytics';
 import {
+  SEGMENTS,
   cancelReservation,
   getEntry,
   getReservation,
+  getReservations,
+  isSegment,
   referralUrl,
   reserve,
   type Reservation,
+  type Segment,
 } from '@/lib/waitlist';
+import { SEGMENT_COPY } from '@/components/launch/segments';
 import type { DetentDialElement } from '@/scripts/dial/types';
 import { initLanding, goToForm, setStickyEnabled, whenDial } from './common';
 import { buzz, prefersReducedMotion, thud } from './feedback';
@@ -82,6 +95,29 @@ function buildFromLink(): { edition: EditionId; finish: FinishId } | null {
   return finish && home ? { edition: home.id, finish: finish.id } : null;
 }
 
+const isProfile = (v: unknown): v is ProfileId => PROFILES.some((p) => p.id === v);
+
+/**
+ * The feel an audience page sent: ?feel=, or the segment's own feel when only
+ * ?segment= came. With it, the line that says what that feel does there.
+ */
+function feelFromLink(): { feel: ProfileId; segment: Segment | null } | null {
+  const q = new URLSearchParams(location.search);
+  const seg = q.get('segment');
+  const segment = isSegment(seg) ? seg : null;
+  const feel = q.get('feel');
+  const own = SEGMENTS.find((s) => s.id === segment)?.profile;
+  const picked = isProfile(feel) ? feel : own;
+  return picked ? { feel: picked, segment } : null;
+}
+
+/** "Hard stops at 0 and 100, …" for the segment's own feel; the feel's own use otherwise. */
+function feelLine(feel: ProfileId, segment: Segment | null): string {
+  const own = segment && SEGMENTS.find((s) => s.id === segment)?.profile === feel;
+  const line = own ? SEGMENT_COPY[segment].line : byProfile(feel).use;
+  return `${line.charAt(0).toUpperCase()}${line.slice(1)}`;
+}
+
 async function init(hero: HTMLElement) {
   initLanding({ formTarget: '#reserve-email', doneTarget: '.rv__done-title' });
   const reduced = prefersReducedMotion();
@@ -100,7 +136,20 @@ async function init(hero: HTMLElement) {
   const finishLine = hero.querySelector<HTMLElement>('[data-finish-line]')!;
   const label = submit.querySelector<HTMLElement>('[data-label]')!;
   const stickyLabel = document.querySelector<HTMLElement>('[data-sticky-go]');
+  const feelNote = hero.querySelector<HTMLElement>('[data-feel-line]');
   liveClear(email);
+  // The feel an audience page sent (the dial starts in it; the reservation keeps it).
+  const arrived = feelFromLink();
+  if (arrived && feelNote) {
+    const p = byProfile(arrived.feel);
+    feelNote.querySelector('[data-feel-name]')!.textContent = `First feel: ${p.name}.`;
+    feelNote.querySelector('[data-feel-text]')!.textContent = feelLine(
+      arrived.feel,
+      arrived.segment,
+    );
+    feelNote.style.setProperty('--feel', p.color);
+    feelNote.hidden = false;
+  }
 
   /** The live dial, once its engine arrives (it loads lazily; the form doesn't wait for it). */
   let dial: DetentDialElement | null = null;
@@ -177,12 +226,27 @@ async function init(hero: HTMLElement) {
   }
 
   /* ---- Submit ------------------------------------------------------------- */
+  /** The reservation the panel shows (the latest held, until it is cancelled). */
+  let shown = null as Reservation | null;
   const showDone = (r: Reservation, announce: boolean) => {
+    shown = r;
     const ed = byEdition(r.edition);
     const dep = deposit(r.edition);
     done.querySelector('[data-res-id]')!.textContent = r.id;
     done.querySelector('[data-res-edition]')!.textContent = ed.name;
     done.querySelector('[data-res-finish]')!.textContent = byFinish(r.finish).name;
+    const feelRow = done.querySelector<HTMLElement>('[data-res-feel-row]')!;
+    feelRow.hidden = !r.feel;
+    if (r.feel) done.querySelector('[data-res-feel]')!.textContent = byProfile(r.feel).name;
+    // Any others held in this browser, named so none goes missing.
+    const others = getReservations().filter((x) => x.id !== r.id);
+    const othersNote = done.querySelector<HTMLElement>('[data-res-others]')!;
+    othersNote.hidden = !others.length;
+    othersNote.textContent = others.length
+      ? `Also held in this browser: ${others
+          .map((x) => `${x.id}, ${byEdition(x.edition).name} in ${byFinish(x.finish).name}`)
+          .join('; ')}.`
+      : '';
     done.querySelector('[data-res-deposit]')!.textContent = formatUsd(dep);
     done.querySelector('[data-res-balance]')!.textContent = formatUsd(ed.launchPriceUsd - dep);
     done.querySelector('[data-res-balance-note]')!.textContent =
@@ -193,6 +257,7 @@ async function init(hero: HTMLElement) {
     hero.dataset.done = '';
     if (dial) {
       dial.finish = r.finish;
+      dial.profile = r.feel ?? 'ratchet';
       dial.setAttribute('display', 'RESERVED');
       dial.removeAttribute('interactive');
     }
@@ -209,6 +274,7 @@ async function init(hero: HTMLElement) {
         email: email.value,
         edition,
         finish,
+        feel: arrived?.feel,
         source: armed ? 'reserve-ritual' : 'reserve',
       }),
     );
@@ -237,14 +303,16 @@ async function init(hero: HTMLElement) {
     );
   });
 
-  /* ---- Tell a friend: this page, with your referral code if you're on the list -- */
+  /* ---- Tell a friend: this page, with your referral code on it ------------------ */
+  // One code per person: the waitlist entry's if they're on the list (so it
+  // counts toward their pass), else the reservation's own.
   const status = done.querySelector<HTMLElement>('[data-done-status]')!;
   const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
   done.querySelector('[data-share-reservation]')?.addEventListener('click', async () => {
-    const r = getReservation();
-    const entry = getEntry();
-    const link = entry
-      ? referralUrl(entry, '/l/reserve/')
+    const r = shown ?? getReservation();
+    const code = getEntry()?.code ?? r?.code;
+    const link = code
+      ? referralUrl({ code }, '/l/reserve/')
       : `${location.origin}${location.pathname}`;
     const build = r ? `${byEdition(r.edition).name} in ${byFinish(r.finish).name}` : 'Detent One';
     const text = `I reserved a ${build}. ${formatUsd(LAUNCH.depositUsd)} holds one, fully refundable:`;
@@ -260,7 +328,7 @@ async function init(hero: HTMLElement) {
     }
     try {
       await navigator.clipboard.writeText(`${text} ${link}`);
-      status.textContent = entry ? 'Link copied, with your referral code on it.' : 'Link copied.';
+      status.textContent = code ? 'Link copied, with your referral code on it.' : 'Link copied.';
     } catch {
       status.textContent = `Copy this link: ${link}`;
     }
@@ -268,20 +336,31 @@ async function init(hero: HTMLElement) {
   });
 
   done.querySelector('[data-cancel]')?.addEventListener('click', async () => {
-    const r = getReservation();
-    const res = await cancelReservation();
+    const r = shown;
+    const res = await cancelReservation(r?.id);
     if (!res.ok) {
       status.textContent = res.error;
       return;
     }
+    const back = formatUsd(deposit(res.data.edition));
+    const refunded = `${back} refunded in full${res.demo ? ' (in a real reservation; this demo charged nothing)' : ''}`;
+    // Another reservation still held here: it takes the panel.
+    const next = getReservation();
+    if (next) {
+      showDone(next, false);
+      status.textContent = `Cancelled ${res.data.id}. ${refunded}. Showing ${next.id}.`;
+      return;
+    }
+    shown = null;
+    status.textContent = '';
     done.hidden = true;
     formParts.forEach((el) => (el.hidden = false));
     setStickyEnabled(true);
     delete hero.dataset.done;
+    if (dial) dial.profile = arrived?.feel ?? 'ratchet';
     dial?.setAttribute('interactive', '');
     dial?.setAttribute('display', armed ? 'ARMED' : 'TURN');
-    const back = r ? formatUsd(deposit(r.edition)) : 'The deposit';
-    summary.textContent = `Cancelled. ${back} refunded in full${res.demo ? ' (in a real reservation; this demo charged nothing)' : ''}. You can reserve again any time.`;
+    summary.textContent = `Cancelled. ${refunded}. You can reserve again any time.`;
     submit.focus();
   });
 
@@ -307,12 +386,18 @@ async function init(hero: HTMLElement) {
   if (!d) return;
   dial = d;
   d.finish = state().finish;
+  // An audience page's feel names the knob; the ritual keeps its own three clean
+  // clicks (no accents or snaps from that feel to catch the knob between them).
+  const feel = shown ? shown.feel : arrived?.feel;
+  if (feel) d.profile = feel;
   d.physics = {
     detents: RITUAL.detents,
     strength: 1,
     damping: 0.25,
     spring: 0,
     stops: [0, RITUAL.stop],
+    accents: [],
+    snaps: [],
   };
   d.setAngle(0, { instant: true });
   // What a screen reader hears, asked by the engine with the destination the

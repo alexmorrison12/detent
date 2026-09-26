@@ -89,9 +89,11 @@ const { watch, hideOver, label, target, note, only } = Astro.props;
   .sticky-cta :global(.phase-cta__buttons) {
     justify-content: flex-end;
   }
+  /* Out of the layout, not just invisible: the header's other actions close
+     up against the edge instead of floating beside an empty slot. */
   @media (max-width: 48rem) {
     :global(html:has(.sticky-cta[data-visible]) .site-header__cta) {
-      visibility: hidden;
+      display: none;
     }
   }
   @keyframes sticky-in {

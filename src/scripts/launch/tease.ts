@@ -13,6 +13,7 @@ import { initLanding, whenDial, rafThrottle } from './common';
 import { buzz, chime, prefersReducedMotion, thud } from './feedback';
 import { checkEmail, focusRegion, liveClear, withBusy } from './forms';
 import { downloadIcs } from './ics';
+import { clockDist, tuneAt } from './tease-tune';
 
 const root = document.querySelector<HTMLElement>('[data-tease]');
 if (root) void init(root);
@@ -36,13 +37,32 @@ async function init(root: HTMLElement) {
   const startedAt = performance.now();
 
   /* ---- Opening the signal section (solve, skip, or #signal) --------- */
+  /**
+   * Focus the heading, and scroll so the section starts at the top of the
+   * screen, or, when the section is taller than the screen, so its action
+   * (the email form before the reveal, the phase's CTA after) is still on it.
+   * Most people arrive here from a "Get launch news" button: the field and
+   * the button are what they came for.
+   */
+  const bringIntoView = (heading: HTMLElement | null) => {
+    if (!heading) return;
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+    heading.focus({ preventScroll: true });
+    const action = [...signal.querySelectorAll<HTMLElement>('[data-signal-action]')].find(
+      (el) => el.getClientRects().length > 0,
+    );
+    const padTop = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    const top = signal.getBoundingClientRect().top + scrollY - padTop;
+    const end = action ? action.getBoundingClientRect().bottom + scrollY + 24 - innerHeight : top;
+    scrollTo({ top: Math.max(0, top, end), behavior: reduced ? 'auto' : 'smooth' });
+  };
   const open = (how: 'solved' | 'skipped') => {
     if (signal.dataset.open !== undefined) return;
     signal.dataset.open = how;
     root.dataset.state = how === 'solved' ? 'set' : 'skipped';
     const heading = signal.querySelector<HTMLElement>('[data-signal-heading]');
     if (heading) heading.textContent = heading.dataset[how] ?? heading.textContent;
-    setTimeout(() => focusRegion(heading, reduced), how === 'solved' && !reduced ? 900 : 0);
+    setTimeout(() => bringIntoView(heading), how === 'solved' && !reduced ? 900 : 0);
   };
 
   document.querySelectorAll<HTMLAnchorElement>('a[href$="#signal"]').forEach((a) =>
@@ -79,10 +99,7 @@ async function init(root: HTMLElement) {
       text: `${String(h).padStart(2, '0')}.${String(m % 60).padStart(2, '0')}`,
     };
   };
-  const dist = (a: number) => {
-    const d = Math.abs(norm(a) - target) % 360;
-    return d > 180 ? 360 - d : d;
-  };
+  const dist = (a: number) => clockDist(a, target);
   // What a screen reader hears: the time the knob points at (or is heading to:
   // the engine asks with the destination the moment a key is pressed).
   const revealTime = revealDot.replace('.', ':');
@@ -149,7 +166,7 @@ async function init(root: HTMLElement) {
       current = idx;
     }
     if (!solved) {
-      const tune = Math.max(0, 1 - dist(angle) / 150) ** 1.6;
+      const tune = tuneAt(angle, target);
       root.style.setProperty('--tune', tune.toFixed(3));
       trace?.set(tune, false);
     }
@@ -201,7 +218,8 @@ async function init(root: HTMLElement) {
   // Starting point: 12:00, so the display reads a time from the first frame.
   dial.setAngle(0, { instant: true });
   paint(0);
-  root.style.setProperty('--tune', String(Math.max(0, 1 - dist(0) / 150) ** 1.6));
+  // The page painted this same value (--tune-start); setting it inline keeps it once JS owns it.
+  root.style.setProperty('--tune', tuneAt(0, target).toFixed(3));
 
   /* ---- The form -------------------------------------------------------- */
   initForm(revealIso, revealDot, reduced);

@@ -8,6 +8,8 @@
  *
  * Referral codes are random (crypto), never derived from the email.
  * ?ref=CODE on any landing is captured by captureRef() and credited on join.
+ * Reservations are a list: a browser can hold more than one (the shop says
+ * "Reserving this build adds another"), and each can be cancelled.
  */
 import { read, write, remove } from './storage';
 import { track } from './analytics';
@@ -58,6 +60,13 @@ export interface Reservation {
   email: string;
   edition: EditionId;
   finish: FinishId;
+  /** The feel it starts in, when the reserver came from an audience page (?feel=). */
+  feel?: ProfileId;
+  /**
+   * This reserver's own referral code: the link they share carries it.
+   * Absent on reservations stored before codes existed.
+   */
+  code?: string;
   /** Referral code captured from ?ref= on arrival, credited like a waitlist join. */
   referredBy?: string;
   createdAt: number;
@@ -76,26 +85,60 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 }
 
-/** Store ?ref= from the current URL (call once per landing page). */
+/**
+ * This browser's own referral codes: its waitlist entry, its reservations and
+ * the last demo order (checkout keeps it in sessionStorage under
+ * "shop:last-order"; read by key so this module doesn't import the shop).
+ */
+function ownCodes(): Set<string> {
+  const order = read<{ referral?: string } | null>('shop:last-order', null, 'session');
+  return new Set(
+    [getEntry()?.code, ...getReservations().map((r) => r.code), order?.referral].filter(
+      (c): c is string => !!c,
+    ),
+  );
+}
+
+/**
+ * The friend's code this visitor came in on (call once per landing page).
+ * ?ref= on the current URL is stored the first time only: a later link never
+ * takes the credit from the friend who sent them first. A code of their own
+ * (opening their own share link to check it) is never stored or credited.
+ */
 export function captureRef(): string | undefined {
+  const own = ownCodes();
+  const stored = read<string | undefined>('ref', undefined);
+  const friend = stored && !own.has(stored) ? stored : undefined;
+  if (friend) return friend;
   try {
     const ref = new URLSearchParams(location.search).get('ref')?.toUpperCase();
-    if (ref && /^[0-9A-Z]{6,12}$/.test(ref)) {
+    if (ref && /^[0-9A-Z]{6,12}$/.test(ref) && !own.has(ref)) {
       write('ref', ref);
       return ref;
     }
   } catch {
     /* ignore */
   }
-  return read<string | undefined>('ref', undefined);
+  // An own code stored before this rule existed is dropped, not credited.
+  if (stored) remove('ref');
+  return undefined;
 }
 
 export function getEntry(): WaitlistEntry | null {
   return read<WaitlistEntry | null>('waitlist', null);
 }
 
+/** Every reservation held in this browser, oldest first. */
+export function getReservations(): Reservation[] {
+  // Stored as a list; a single object is a reservation from before that.
+  const stored = read<Reservation | Reservation[] | null>('reservation', null);
+  return !stored ? [] : Array.isArray(stored) ? stored : [stored];
+}
+
+/** The latest reservation held in this browser. */
 export function getReservation(): Reservation | null {
-  return read<Reservation | null>('reservation', null);
+  const all = getReservations();
+  return all[all.length - 1] ?? null;
 }
 
 /**
@@ -121,10 +164,10 @@ export function updateEntry(
   return next;
 }
 
-/** Share URL that credits this entry's referral code. */
-export function referralUrl(entry: WaitlistEntry, path = '/l/waitlist/'): string {
+/** Share URL that credits a referral code (a waitlist entry's or a reservation's). */
+export function referralUrl(holder: { code: string }, path = '/l/waitlist/'): string {
   const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
-  return new URL(`${base}${path}?ref=${entry.code}`, location.origin).toString();
+  return new URL(`${base}${path}?ref=${holder.code}`, location.origin).toString();
 }
 
 async function post<T>(action: string, body: unknown): Promise<T> {
@@ -181,6 +224,7 @@ export async function reserve(input: {
   email: string;
   edition: EditionId;
   finish: FinishId;
+  feel?: ProfileId;
   source: string;
 }): Promise<Result<Reservation>> {
   const email = input.email.trim().toLowerCase();
@@ -195,10 +239,12 @@ export async function reserve(input: {
           email,
           edition: input.edition,
           finish: input.finish,
+          feel: input.feel,
+          code: randomCode(),
           referredBy,
           createdAt: Date.now(),
         };
-    write('reservation', r);
+    write('reservation', [...getReservations(), r]);
     track('reserve_submit', {
       source: input.source,
       edition: input.edition,
@@ -215,15 +261,18 @@ export async function reserve(input: {
 }
 
 /**
- * One-click cancel. Live: asks the endpoint to refund the deposit.
- * Demo: forgets the reservation stored in this browser.
+ * One-click cancel of one reservation (the latest if no id is given).
+ * Live: asks the endpoint to refund the deposit. Demo: forgets it in this browser.
  */
-export async function cancelReservation(): Promise<Result<Reservation>> {
-  const r = getReservation();
+export async function cancelReservation(id?: string): Promise<Result<Reservation>> {
+  const all = getReservations();
+  const r = id ? all.find((x) => x.id === id) : all[all.length - 1];
   if (!r) return { ok: false, error: 'There is no reservation in this browser to cancel.' };
   try {
     if (ENDPOINT) await post('cancel', { id: r.id, email: r.email });
-    remove('reservation');
+    const rest = all.filter((x) => x.id !== r.id);
+    if (rest.length) write('reservation', rest);
+    else remove('reservation');
     track('reserve_cancel', { edition: r.edition });
     return { ok: true, data: r, demo: IS_DEMO };
   } catch {
