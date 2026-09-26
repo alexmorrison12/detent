@@ -79,7 +79,7 @@ The site ships no third-party scripts. Every interaction goes through `track(eve
 | `banner_click`      | Announcement bar link                     | (none)                                      | in code |
 | `lead_submit`       | Waitlist or tease signup succeeds         | source, segment, referred                   | in code |
 | `reserve_submit`    | A reservation is placed                   | source, edition, finish                     | in code |
-| `phase_preview`     | Someone previews a phase on /launch-plan/ | phase, via (dial\|link)                     | in code |
+| `phase_preview`     | Someone previews a phase on /launch-plan/ | phase, via (dial\|link\|reset)              | in code |
 | `email_verified`    | Double opt-in link clicked                | segment, referred                           | backend |
 | `balance_paid`      | A deposit becomes an order at ship time   | edition, batch                              | backend |
 | `deposit_refund`    | A deposit is cancelled                    | reason, days_held                           | backend |
