@@ -1,0 +1,129 @@
+---
+/**
+ * Shell for /legal/* pages: the title, the update date, a one-paragraph
+ * summary that is the whole policy for most readers, then the detail.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { ogPath } from '@/config/og';
+import { LEGAL_UPDATED } from '@/data/legal';
+import { formatDate } from '@/scripts/info/format';
+import { url } from '@/lib/url';
+
+interface Props {
+  title: string;
+  heading: string;
+  description: string;
+  summary: string;
+  other: { label: string; href: string };
+}
+const { title, heading, description, summary, other } = Astro.props;
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: title,
+  description,
+  dateModified: LEGAL_UPDATED,
+};
+---
+
+<BaseLayout title={title} description={description} world="day" ogImage={ogPath('default')} jsonLd={ld}>
+  <article class="legal container">
+    <header class="legal__head">
+      <p class="legal__rule">
+        <span>Legal</span>
+        <span class="readout">Updated <time datetime={LEGAL_UPDATED}>{formatDate(LEGAL_UPDATED)}</time></span>
+      </p>
+      <h1 class="display display--l">{heading}</h1>
+      <p class="legal__summary">{summary}</p>
+    </header>
+    <div class="legal__body">
+      <slot />
+      <p class="legal__other">
+        See also: <a href={url(other.href)}>{other.label}</a>
+      </p>
+    </div>
+  </article>
+</BaseLayout>
+
+<style>
+  .legal {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: start;
+    padding-block: clamp(2rem, 1rem + 4vw, 4.5rem) var(--section-y);
+  }
+  .legal__head {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-l));
+    display: grid;
+    gap: var(--space-m);
+  }
+  .legal__rule {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+    padding-block-end: var(--space-xs);
+    border-bottom: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .legal__rule .readout {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+  .legal__summary {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-strong);
+    max-inline-size: 36ch;
+  }
+  .legal__body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 64ch;
+    padding-block-start: 2.6rem;
+  }
+  .legal__body :global(h2) {
+    font-size: var(--step-2);
+    font-weight: 760;
+    font-stretch: 112%;
+    letter-spacing: -0.012em;
+    margin-block-start: var(--space-l);
+    padding-block-start: var(--space-m);
+    border-top: 1px solid var(--line);
+  }
+  .legal__body :global(h2:first-child) {
+    margin-block-start: 0;
+    padding-block-start: 0;
+    border-top: 0;
+  }
+  .legal__body :global(p),
+  .legal__body :global(li) {
+    color: var(--ink);
+  }
+  .legal__body :global(ul) {
+    display: grid;
+    gap: var(--space-2xs);
+    padding-inline-start: 1.2rem;
+  }
+  .legal__other {
+    margin-block-start: var(--space-xl);
+    padding-block-start: var(--space-m);
+    border-top: 1px solid var(--line-strong);
+    font-weight: 600;
+  }
+  @media (max-width: 56rem) {
+    .legal {
+      grid-template-columns: 1fr;
+    }
+    .legal__head {
+      position: static;
+    }
+    .legal__body {
+      padding-block-start: 0;
+    }
+  }
+</style>

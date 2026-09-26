@@ -1,0 +1,366 @@
+---
+/**
+ * FAQ grouped by topic, as exclusive <details name="faq"> accordions, with an
+ * instant client-side search that hides non-matching answers, highlights
+ * the match in the question and announces the count.
+ */
+import { FAQS } from '@/data/product';
+import { CARE_FAQS } from '@/data/support';
+import { slug } from '@/scripts/info/format';
+
+const ORDER = ['Launch', 'Buying', 'Shipping', 'Product', 'Software', 'Care'] as const;
+const all = [...FAQS, ...CARE_FAQS.map((f) => ({ ...f, topic: 'Care' as const }))];
+const groups = ORDER.map((t) => ({ topic: t, id: `faq-${slug(t)}`, items: all.filter((f) => f.topic === t) })).filter((g) => g.items.length);
+const total = all.length;
+---
+
+<div class="faq" data-faq data-total={total}>
+  <div class="faq__tools">
+    <div class="faq__search" data-js-only>
+      <label for="faq-q" class="visually-hidden">Search the answers</label>
+      <svg class="faq__icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+        <path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+      </svg>
+      <input id="faq-q" type="search" class="faq__input" placeholder="Search: battery, refund, Linux…" autocomplete="off" data-q />
+    </div>
+    <p class="faq__count" aria-live="polite" aria-atomic="true" data-count><span class="readout">{total}</span> answers</p>
+    <nav class="faq__topics" aria-label="FAQ topics">
+      {
+        groups.map((g) => (
+          <a href={`#${g.id}`} data-topic-link={g.id}>
+            {g.topic} <span class="readout">{g.items.length}</span>
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+
+  <div class="faq__groups">
+    {
+      groups.map((g) => (
+        <section class="faq-group" id={g.id} aria-labelledby={`${g.id}-h`} data-group>
+          <h2 class="faq-group__title" id={`${g.id}-h`}>
+            {g.topic}
+          </h2>
+          <div class="faq-group__items">
+            {g.items.map((f) => (
+              <details class="qa" name="faq" id={`q-${slug(f.q)}`} data-qa data-text={`${f.q} ${f.a}`.toLowerCase()}>
+                <summary>
+                  <span class="qa__q" data-q-text>
+                    {f.q}
+                  </span>
+                  <span class="qa__knob" aria-hidden="true" />
+                </summary>
+                <div class="qa__a">
+                  <p>{f.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+    <div class="faq__none" hidden data-none>
+      <p class="faq__none-title">No answer for “<span data-none-q></span>” yet.</p>
+      <p>Write to us instead. A person reads every email; the contact details are further down this page.</p>
+      <a class="link-arrow" href="#contact">Contact support</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { track } from '@/lib/analytics';
+
+  document.querySelectorAll<HTMLElement>('[data-faq]').forEach((root) => {
+    const input = root.querySelector<HTMLInputElement>('[data-q]');
+    const count = root.querySelector<HTMLElement>('[data-count]')!;
+    const none = root.querySelector<HTMLElement>('[data-none]')!;
+    const noneQ = root.querySelector<HTMLElement>('[data-none-q]')!;
+    const total = Number(root.dataset.total);
+    const items = [...root.querySelectorAll<HTMLDetailsElement>('[data-qa]')];
+    const groups = [...root.querySelectorAll<HTMLElement>('[data-group]')];
+    const originals = new Map(items.map((d) => [d, d.querySelector<HTMLElement>('[data-q-text]')!.textContent ?? '']));
+
+    function highlight(d: HTMLDetailsElement, terms: string[]) {
+      const el = d.querySelector<HTMLElement>('[data-q-text]')!;
+      const text = originals.get(d) ?? '';
+      el.textContent = '';
+      if (!terms.length) {
+        el.textContent = text;
+        return;
+      }
+      const re = new RegExp(`(${terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+      for (const part of text.split(re)) {
+        if (!part) continue;
+        if (terms.some((t) => t === part.toLowerCase())) {
+          const m = document.createElement('mark');
+          m.textContent = part;
+          el.append(m);
+        } else el.append(part);
+      }
+    }
+
+    let timer = 0;
+    function run() {
+      const q = (input?.value ?? '').trim().toLowerCase().slice(0, 60);
+      const terms = q.split(/\s+/).filter((t) => t.length > 1);
+      let shown = 0;
+      for (const d of items) {
+        const ok = terms.every((t) => (d.dataset.text ?? '').includes(t));
+        d.hidden = !ok;
+        if (ok) shown++;
+        highlight(d, ok ? terms : []);
+      }
+      for (const g of groups) {
+        const any = g.querySelector('[data-qa]:not([hidden])');
+        g.hidden = !any;
+        root.querySelector<HTMLElement>(`[data-topic-link="${g.id}"]`)?.toggleAttribute('data-empty', !any);
+      }
+      count.innerHTML = shown === total ? `<span class="readout">${total}</span> answers` : `<span class="readout">${shown}</span> of ${total} answers`;
+      none.hidden = shown > 0;
+      noneQ.textContent = input?.value.trim() ?? '';
+      if (q.length > 2) {
+        clearTimeout(timer);
+        timer = window.setTimeout(() => track('faq_search', { q, results: shown }), 800);
+      }
+    }
+    input?.addEventListener('input', run);
+
+    // Deep links (#q-...) open their answer.
+    const open = () => {
+      const target = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+      if (target instanceof HTMLDetailsElement) target.open = true;
+    };
+    open();
+    addEventListener('hashchange', open);
+    root.addEventListener('toggle', (e) => {
+      const d = e.target as HTMLDetailsElement;
+      if (d.open) track('faq_open', { id: d.id });
+    }, true);
+  });
+</script>
+
+<style>
+  .faq {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  :global(html:not([data-js])) [data-js-only] {
+    display: none !important;
+  }
+  .faq__tools {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .faq__search {
+    position: relative;
+  }
+  .faq__icon {
+    position: absolute;
+    inset-inline-start: 1.1rem;
+    top: 50%;
+    translate: 0 -50%;
+    color: var(--ink-muted);
+    pointer-events: none;
+  }
+  .faq__input {
+    inline-size: 100%;
+    min-block-size: 4.25rem;
+    padding: 0.5rem 1.25rem 0.5rem 3.4rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+    color: var(--ink-strong);
+    font-size: var(--step-2);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+  .faq__input::placeholder {
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .faq__input:hover {
+    border-color: var(--ink-muted);
+  }
+  .faq__input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .faq__count {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .faq__count .readout {
+    color: var(--ink-strong);
+    font-size: var(--step-0);
+  }
+  .faq__topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .faq__topics a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-block-size: 2.75rem;
+    padding: 0.35rem 0.95rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    text-decoration: none;
+    color: var(--ink);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      opacity var(--dur-2) var(--ease-out);
+  }
+  .faq__topics a:hover {
+    border-color: var(--ink-strong);
+  }
+  .faq__topics a[data-empty] {
+    opacity: 0.4;
+  }
+  .faq__topics .readout {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  .faq__groups {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  .faq-group {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-s) var(--space-2xl);
+    align-items: start;
+    scroll-margin-top: calc(var(--header-h) + var(--space-m));
+  }
+  .faq-group__title {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-m));
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.02;
+    padding-block-start: 0.9rem;
+  }
+  .faq-group__items {
+    border-top: 1px solid var(--line-strong);
+  }
+  .qa {
+    border-bottom: 1px solid var(--line);
+    scroll-margin-top: calc(var(--header-h) + var(--space-m));
+  }
+  .qa summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-m);
+    padding-block: 1.05rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: var(--step-1);
+    font-weight: 620;
+    font-stretch: 104%;
+    line-height: 1.3;
+    color: var(--ink-strong);
+  }
+  .qa summary::-webkit-details-marker {
+    display: none;
+  }
+  .qa summary:hover .qa__knob {
+    border-color: var(--ink-strong);
+  }
+  .qa__q :global(mark) {
+    background: color-mix(in oklch, var(--tally) 22%, transparent);
+    color: inherit;
+    border-radius: var(--r-xs);
+    padding-inline: 0.08em;
+  }
+  /* The marker is a tiny dial: its indicator turns a quarter when open. */
+  .qa__knob {
+    position: relative;
+    flex: none;
+    inline-size: 1.6rem;
+    block-size: 1.6rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--line-strong);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out),
+      rotate var(--dur-3) var(--ease-out);
+  }
+  .qa__knob::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: 50%;
+    top: 0.2rem;
+    inline-size: 2px;
+    block-size: 0.45rem;
+    margin-inline-start: -1px;
+    border-radius: 1px;
+    background: var(--accent);
+  }
+  .qa[open] .qa__knob {
+    rotate: 90deg;
+    background: var(--ink-strong);
+    border-color: var(--ink-strong);
+  }
+  .qa__a {
+    padding-block-end: var(--space-m);
+    max-inline-size: 62ch;
+    color: var(--ink);
+  }
+  @supports selector(::details-content) {
+    .qa::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size var(--dur-3) var(--ease-out),
+        content-visibility var(--dur-3) allow-discrete;
+    }
+    .qa[open]::details-content {
+      block-size: auto;
+    }
+  }
+  .faq__none {
+    display: grid;
+    gap: var(--space-xs);
+    justify-items: start;
+    padding-block: var(--space-l);
+    color: var(--ink-muted);
+  }
+  .faq__none-title {
+    font-size: var(--step-2);
+    font-weight: 740;
+    font-stretch: 112%;
+    color: var(--ink-strong);
+  }
+  @media (max-width: 52rem) {
+    .faq-group {
+      grid-template-columns: 1fr;
+    }
+    .faq-group__title {
+      position: static;
+      font-size: var(--step-2);
+      padding: 0;
+    }
+    .qa summary {
+      font-size: var(--step-0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qa__knob {
+      transition: none;
+    }
+    .qa::details-content {
+      transition: none;
+    }
+  }
+</style>

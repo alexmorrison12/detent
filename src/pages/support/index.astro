@@ -1,0 +1,327 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SheetHead from '@/components/info/SheetHead.astro';
+import FaqSearch from '@/components/info/FaqSearch.astro';
+import RepairDrawing from '@/components/info/RepairDrawing.astro';
+import { SITE } from '@/config/site';
+import { ogPath } from '@/config/og';
+import { FAQS, PAYMENT, formatUsd } from '@/data/product';
+import { CARE_FAQS, CONTACT, PARTS, POLICIES, REPAIR_STEPS } from '@/data/support';
+import { url } from '@/lib/url';
+import { numberWord } from '@/scripts/info/format';
+
+const answers = FAQS.length + CARE_FAQS.length;
+const description = `Detent One support: answers on reservations, shipping, the ${PAYMENT.trialDays}-day studio trial, the ${PAYMENT.warrantyYears}-year warranty, firmware and repair. A person replies within ${CONTACT.firstReply}.`;
+const repair = POLICIES.find((p) => p.id === 'repair')!;
+const policies = POLICIES.filter((p) => p.id !== 'repair');
+
+const faqLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [...FAQS, ...CARE_FAQS].map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+};
+---
+
+<BaseLayout title="Support and FAQ" description={description} world="day" ogImage={ogPath('support')} ogImageAlt="Detent support: answers, not adjectives" jsonLd={faqLd}>
+  <SheetHead
+    title="Answers, not adjectives."
+    sheet="Support"
+    fact={`${answers} answers · first reply within ${CONTACT.firstReply}`}
+    lede="Search first. If the answer is not here, write to us and a person who helped build the thing will reply."
+  />
+
+  <section class="container faq-section" aria-label="Frequently asked questions">
+    <FaqSearch />
+  </section>
+
+  <section class="section container" aria-labelledby="policies-h">
+    <h2 id="policies-h" class="display display--m policies__title">The promises, in writing.</h2>
+    <div class="policies">
+      {
+        policies.map((p) => (
+          <article class="policy" id={p.id} aria-labelledby={`${p.id}-h`}>
+            <h3 id={`${p.id}-h`} class="policy__head">
+              {p.headline}
+            </h3>
+            <ul class="policy__points" role="list">
+              {p.points.map((pt) => (
+                <li>{pt}</li>
+              ))}
+            </ul>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="repair" data-world="night" id="repair" aria-labelledby="repair-h">
+    <div class="container section repair__grid">
+      <div class="repair__copy">
+        <h2 id="repair-h" class="display display--m">{repair.headline}</h2>
+        {repair.points.map((pt) => <p class="repair__lede">{pt}</p>)}
+
+        <h3 class="repair__sub">{numberWord(REPAIR_STEPS.length, true)} steps, one driver</h3>
+        <ol class="repair__steps">
+          {REPAIR_STEPS.map((s) => <li>{s}</li>)}
+        </ol>
+      </div>
+
+      <div class="repair__side">
+        <figure class="repair__figure">
+          <RepairDrawing />
+          <figcaption class="repair__cap">Bottom view. Dashed: what the foot hides.</figcaption>
+        </figure>
+        <div class="parts">
+          <h3 class="repair__sub">Parts</h3>
+          <table class="parts__table">
+            <caption class="visually-hidden">Replacement parts and prices</caption>
+            <thead>
+              <tr><th scope="col">Part</th><th scope="col"><span class="visually-hidden">Note</span></th><th scope="col" class="num">Price</th></tr>
+            </thead>
+            <tbody>
+              {
+                PARTS.map((p) => (
+                  <tr>
+                    <th scope="row">{p.name}</th>
+                    <td class="parts__note">{p.note}</td>
+                    <td class="num readout">{formatUsd(p.priceUsd)}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section container contact" id="contact" aria-labelledby="contact-h">
+    <div class="contact__main">
+      <h2 id="contact-h" class="display display--m">Still stuck? Write to a person.</h2>
+      <a class="contact__email" href={`mailto:${SITE.email}`} data-track="support_email">{SITE.email}</a>
+      <dl class="contact__facts">
+        <div><dt>First reply</dt><dd>Within {CONTACT.firstReply}</dd></div>
+        <div><dt>Hours</dt><dd>{CONTACT.hours}</dd></div>
+        <div><dt>Press</dt><dd><a href={url('/press/')}>Press kit and press contact</a></dd></div>
+      </dl>
+      <p class="concept-note">
+        Detent is a concept product, so this is a placeholder address on a reserved domain and it does not receive mail.
+      </p>
+    </div>
+    <div class="contact__include">
+      <h3 class="repair__sub">Save a round trip: include</h3>
+      <ul role="list">
+        {CONTACT.include.map((i) => <li>{i}</li>)}
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .faq-section {
+    padding-block-end: var(--space-xl);
+  }
+  .policies__title {
+    margin-block-end: var(--space-xl);
+    max-inline-size: 16ch;
+  }
+  .policies {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-xl) var(--space-l);
+    border-top: 1px solid var(--line-strong);
+    padding-block-start: var(--space-m);
+  }
+  .policy {
+    display: grid;
+    gap: var(--space-s);
+    align-content: start;
+  }
+  .policy__head {
+    font-size: var(--step-2);
+    font-weight: 760;
+    font-stretch: 112%;
+    letter-spacing: -0.012em;
+    line-height: 1.1;
+  }
+  .policy__points {
+    display: grid;
+    gap: var(--space-xs);
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+  .policy__points li {
+    padding-block-start: var(--space-xs);
+    border-top: 1px solid var(--line);
+  }
+
+  .repair__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-2xl);
+    align-items: start;
+  }
+  .repair__copy {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .repair__lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+  .repair__sub {
+    font-size: var(--step--1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    margin-block: var(--space-l) var(--space-xs);
+  }
+  .repair__steps {
+    list-style: none;
+    padding: 0;
+    counter-reset: step;
+    border-top: 1px solid var(--line);
+  }
+  .repair__steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    gap: var(--space-s);
+    padding-block: 0.8rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .repair__steps li::before {
+    content: counter(step);
+    display: grid;
+    place-items: center;
+    inline-size: 1.7rem;
+    block-size: 1.7rem;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-strong);
+  }
+  .repair__side {
+    display: grid;
+    gap: var(--space-l);
+  }
+  .repair__figure {
+    display: grid;
+    gap: var(--space-xs);
+    max-inline-size: 30rem;
+    justify-self: center;
+    inline-size: 100%;
+  }
+  .repair__cap {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-align: center;
+  }
+  .parts__table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+  }
+  .parts__table th,
+  .parts__table td {
+    padding: 0.7rem 0.75rem 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+    text-align: start;
+  }
+  .parts__table thead th {
+    font-weight: 600;
+    color: var(--ink-muted);
+    border-bottom-color: var(--line-strong);
+  }
+  .parts__table tbody th {
+    font-weight: 600;
+    color: var(--ink-strong);
+  }
+  .parts__note {
+    color: var(--ink-muted);
+  }
+  .parts__table .num {
+    text-align: end;
+    padding-inline-end: 0;
+    color: var(--ink-strong);
+  }
+  .parts__foot {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-block-start: var(--space-xs);
+  }
+
+  .contact {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: end;
+  }
+  .contact__main {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+  }
+  .contact__email {
+    font-size: var(--step-3);
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: -0.01em;
+    color: var(--accent-text);
+    text-decoration-thickness: 2px;
+    overflow-wrap: anywhere;
+  }
+  .contact__facts {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .contact__facts div {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: var(--space-s);
+  }
+  .contact__facts dt {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    padding-block-start: 0.15em;
+  }
+  .contact__include ul {
+    display: grid;
+    border-top: 1px solid var(--line-strong);
+  }
+  .contact__include li {
+    padding-block: 0.75rem;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .contact__include .repair__sub {
+    margin-block-start: 0;
+  }
+
+  @media (max-width: 64rem) {
+    .policies {
+      grid-template-columns: 1fr;
+    }
+    .repair__grid,
+    .contact {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 30rem) {
+    .contact__facts div {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .parts__note {
+      display: none;
+    }
+  }
+</style>

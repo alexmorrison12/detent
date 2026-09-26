@@ -1,0 +1,210 @@
+---
+/**
+ * GitHub Pages serves dist/404.html for any unknown path under the site, so
+ * every link here goes through url(). The dial starts at 5 o'clock in Clock
+ * (12 detents, a deeper one at noon); turning it back to noon takes you home.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import { ogPath } from '@/config/og';
+import { url } from '@/lib/url';
+import { PROFILES } from '@/data/product';
+import { numberWord } from '@/scripts/info/format';
+
+const START = 150;
+const links = [
+  { href: '/specs/', label: 'Tech specs', line: 'Every number, and what it can’t do yet.' },
+  { href: '/profiles/', label: 'Feel library', line: `${numberWord(PROFILES.length, true)} feels you can turn in the browser.` },
+  { href: '/integrations/', label: 'Integrations', line: 'What the dial does in your apps.' },
+  { href: '/support/', label: 'Support', line: 'Answers, warranty, repair.' },
+  { href: '/changelog/', label: 'Changelog', line: 'What changed, and when.' },
+];
+---
+
+<BaseLayout title="Page not found" description="This page does not exist. Turn the dial back to noon to go home." world="night" ogImage={ogPath('404')} noindex>
+  <section class="lost container">
+    <div class="lost__copy">
+      <p class="lost__code readout">404</p>
+      <h1 class="display display--xl lost__title">Lost the detent.</h1>
+      <p class="lede">
+        This page slipped between two clicks. <span data-js-only>Turn the dial back to noon, where the click is deepest, and you are home.</span>
+      </p>
+      <p class="lost__path readout" data-path hidden></p>
+      <div class="lost__actions">
+        <a class="btn btn--primary btn--lg" href={url('/')} data-track="404_home">Take me home</a>
+        <p class="lost__readout readout" aria-live="polite" data-js-only data-readout>{START}° from home</p>
+      </div>
+    </div>
+
+    <div class="lost__dial" data-start={START} data-home={url('/')}>
+      <DialStage id="lost-dial" interactive finish="graphite" profile="clock" display="404" label="Turn to noon to go home" />
+      <span class="lost__noon" aria-hidden="true">Home</span>
+    </div>
+  </section>
+
+  <nav class="container lost__nav" aria-labelledby="lost-nav-h">
+    <h2 id="lost-nav-h" class="lost__nav-title">Or pick up somewhere useful</h2>
+    <ul role="list">
+      {
+        links.map((l) => (
+          <li>
+            <a href={url(l.href)}>
+              <span class="lost__nav-label">{l.label}</span>
+              <span class="lost__nav-line">{l.line}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</BaseLayout>
+
+<script>
+  import { track } from '@/lib/analytics';
+
+  const wrap = document.querySelector<HTMLElement>('.lost__dial');
+  const dial = document.getElementById('lost-dial') as HTMLElementTagNameMap['detent-dial'] | null;
+  const readout = document.querySelector<HTMLElement>('[data-readout]');
+  const pathEl = document.querySelector<HTMLElement>('[data-path]');
+  const start = Number(wrap?.dataset.start ?? 150);
+  const home = wrap?.dataset.home ?? '/';
+  let armed = false;
+  let leaving = false;
+
+  if (pathEl) {
+    pathEl.textContent = `${decodeURIComponent(location.pathname)} is not a page here.`;
+    pathEl.hidden = false;
+  }
+
+  const arm = () => (armed = true);
+  function place() {
+    dial?.setAngle(start, { instant: true });
+  }
+  if (dial) {
+    if (dial.renderer && dial.renderer !== 'none') place();
+    dial.addEventListener('detent:ready', place, { once: true });
+    customElements.whenDefined('detent-dial').then(place);
+    dial.addEventListener('pointerdown', arm);
+    dial.addEventListener('keydown', arm);
+    dial.addEventListener('wheel', arm, { passive: true });
+
+    dial.addEventListener('detent:change', (e) => {
+      const a = ((e.detail.angle % 360) + 360) % 360;
+      const off = Math.round(a > 180 ? 360 - a : a);
+      if (readout) readout.textContent = off === 0 ? 'Home. Taking you there.' : `${off}° from home`;
+      if (!armed || leaving || off > 4) return;
+      leaving = true;
+      track('404_dial_home');
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.setTimeout(() => location.assign(home), reduce ? 150 : 650);
+    });
+  }
+</script>
+
+<style>
+  :global(html:not([data-js])) [data-js-only] {
+    display: none !important;
+  }
+  .lost {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: center;
+    min-block-size: min(78dvh, 52rem);
+    padding-block: var(--space-2xl);
+  }
+  .lost__copy {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+  }
+  .lost__code {
+    color: var(--accent-text);
+    font-size: var(--step-0);
+  }
+  .lost__title {
+    max-inline-size: 9ch;
+  }
+  .lost__path {
+    color: var(--ink-muted);
+    overflow-wrap: anywhere;
+  }
+  .lost__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s) var(--space-l);
+    margin-block-start: var(--space-s);
+  }
+  .lost__readout {
+    color: var(--ink-muted);
+    min-inline-size: 16ch;
+  }
+  .lost__dial {
+    position: relative;
+    inline-size: min(100%, 28rem);
+    justify-self: center;
+    padding-block-start: 2rem;
+  }
+  .lost__noon {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+    font-size: var(--step--1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--accent-text);
+  }
+  .lost__nav {
+    padding-block: var(--space-xl) var(--section-y);
+  }
+  .lost__nav-title {
+    font-size: var(--step--1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    margin-block-end: var(--space-s);
+  }
+  .lost__nav ul {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    border-top: 1px solid var(--line-strong);
+  }
+  .lost__nav a {
+    display: grid;
+    gap: 0.2rem;
+    padding: var(--space-s) var(--space-s) var(--space-s) 0;
+    text-decoration: none;
+    min-block-size: 2.75rem;
+  }
+  .lost__nav-label {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: 112%;
+    color: var(--ink-strong);
+  }
+  .lost__nav a:hover .lost__nav-label {
+    color: var(--accent-text);
+  }
+  .lost__nav-line {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  @media (max-width: 60rem) {
+    .lost {
+      grid-template-columns: 1fr;
+      min-block-size: 0;
+    }
+    .lost__dial {
+      inline-size: min(80vw, 20rem);
+      order: -1;
+    }
+    .lost__nav ul {
+      grid-template-columns: 1fr;
+    }
+    .lost__nav li {
+      border-bottom: 1px solid var(--line);
+    }
+  }
+</style>

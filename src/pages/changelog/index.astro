@@ -1,0 +1,455 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SheetHead from '@/components/info/SheetHead.astro';
+import { SITE } from '@/config/site';
+import { ogPath } from '@/config/og';
+import { RELEASES, STREAMS, releaseId, releaseName } from '@/data/changelog';
+import { absoluteUrl, url } from '@/lib/url';
+import { formatDate } from '@/scripts/info/format';
+
+const latest = RELEASES[0]!;
+const description = `${SITE.product} release notes: firmware, Detent Studio and SDK betas, newest first. Latest: ${releaseName(latest)}, ${latest.title.toLowerCase()}. Subscribe by RSS.`;
+
+// Date scale: first day of the earliest month to the last day of the latest.
+const day = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+const first = new Date(day(RELEASES.at(-1)!.date));
+const last = new Date(day(latest.date));
+const start = Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1);
+const end = Date.UTC(last.getUTCFullYear(), last.getUTCMonth() + 1, 1);
+const pos = (t: number) => ((t - start) / (end - start)) * 100;
+const months: { label: string; x: number }[] = [];
+for (let m = new Date(start); m.getTime() < end; m.setUTCMonth(m.getUTCMonth() + 1)) {
+  months.push({ label: m.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }), x: pos(m.getTime()) });
+}
+const weeks: number[] = [];
+for (let t = start; t < end; t += 7 * 86400000) weeks.push(pos(t));
+
+const kindOrder = ['New', 'Improved', 'Changed', 'Fixed', 'Known issue'];
+
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'CollectionPage',
+  name: `${SITE.product} changelog`,
+  url: absoluteUrl('/changelog/', Astro.site),
+  hasPart: RELEASES.map((r) => ({
+    '@type': 'SoftwareApplication',
+    name: releaseName(r),
+    softwareVersion: r.version,
+    datePublished: r.date,
+    applicationCategory: r.stream === 'Firmware' ? 'Firmware' : 'DeveloperApplication',
+    releaseNotes: `${r.title}. ${r.summary}`,
+  })),
+};
+---
+
+<BaseLayout title="Changelog" description={description} world="day" ogImage={ogPath('changelog')} ogImageAlt="Detent changelog: what changed" jsonLd={ld}>
+  <link slot="head" rel="alternate" type="application/rss+xml" title={`${SITE.product} changelog`} href={url('/changelog/rss.xml')} />
+
+  <SheetHead
+    title="What changed."
+    sheet="Changelog"
+    fact={`Latest release ${formatDate(latest.date)}`}
+    lede="Firmware, Detent Studio and the SDK, newest first. Betas run on the testers’ production-validation units; Founders Edition owners keep this early channel for life."
+  >
+    <a class="rss" href={url('/changelog/rss.xml')} data-track="changelog_rss">
+      <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+        <circle cx="4.5" cy="15.5" r="2" fill="currentColor"></circle>
+        <path d="M3 9a8 8 0 0 1 8 8M3 3.5A13.5 13.5 0 0 1 16.5 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      </svg>
+      Subscribe by RSS
+    </a>
+  </SheetHead>
+
+  <section class="container log" aria-label="Releases" data-log>
+    <div class="log__bar">
+      <div class="streams" role="group" aria-label="Show releases for" data-js-only>
+        <button type="button" class="stream-btn" data-stream="" aria-pressed="true">All <span class="readout">{RELEASES.length}</span></button>
+        {
+          STREAMS.map((s) => (
+            <button type="button" class="stream-btn" data-stream={s} aria-pressed="false">
+              {s} <span class="readout">{RELEASES.filter((r) => r.stream === s).length}</span>
+            </button>
+          ))
+        }
+      </div>
+
+      <nav class="dscale" aria-label="Releases by date">
+        <div class="dscale__track" aria-hidden="true">
+          {weeks.map((x) => <span class="dscale__week" style={`left:${x}%`} />)}
+          {
+            months.map((m) => (
+              <span class="dscale__month" style={`left:${m.x}%`}>
+                <span class="readout">{m.label}</span>
+              </span>
+            ))
+          }
+        </div>
+        <ul class="dscale__marks" role="list">
+          {
+            RELEASES.map((r) => (
+              <li style={`left:${pos(day(r.date))}%`} data-stream-item={r.stream}>
+                <a href={`#${releaseId(r)}`} class="dscale__link">
+                  <span class={`dmark dmark--${r.stream.toLowerCase()}`} aria-hidden="true" />
+                  <span class="visually-hidden">
+                    {releaseName(r)}, {formatDate(r.date)}
+                  </span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="dscale__legend">
+          <span><span class="dmark dmark--firmware" aria-hidden="true"></span> Firmware</span>
+          <span><span class="dmark dmark--studio" aria-hidden="true"></span> Studio</span>
+          <span><span class="dmark dmark--sdk" aria-hidden="true"></span> SDK</span>
+        </p>
+      </nav>
+    </div>
+
+    <p class="visually-hidden" aria-live="polite" data-log-count></p>
+
+    <ol class="releases" role="list">
+      {
+        RELEASES.map((r) => (
+          <li class="release" id={releaseId(r)} data-stream-item={r.stream}>
+            <div class="release__meta">
+              <time class="readout release__date" datetime={r.date}>
+                {formatDate(r.date)}
+              </time>
+              <span class={`release__stream release__stream--${r.stream.toLowerCase()}`}>
+                <span class={`dmark dmark--${r.stream.toLowerCase()}`} aria-hidden="true" />
+                {r.stream === 'Studio' ? 'Detent Studio' : r.stream}
+              </span>
+            </div>
+            <div class="release__body">
+              <h2 class="release__title">
+                <a href={`#${releaseId(r)}`} class="release__anchor">
+                  <span class="readout release__version">{r.version}</span>
+                  <span class="release__name">{r.title}</span>
+                </a>
+              </h2>
+              <p class="release__summary">{r.summary}</p>
+              <ul class="changes" role="list">
+                {[...r.changes]
+                  .sort((a, b) => kindOrder.indexOf(a.kind) - kindOrder.indexOf(b.kind))
+                  .map((c) => (
+                    <li class="change">
+                      <span class:list={['change__kind', `change__kind--${c.kind.toLowerCase().replace(' ', '-')}`]}>{c.kind}</span>
+                      <span>{c.text}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+</BaseLayout>
+
+<script>
+  import { track } from '@/lib/analytics';
+
+  const root = document.querySelector<HTMLElement>('[data-log]');
+  if (root) {
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-stream]')];
+    const items = [...root.querySelectorAll<HTMLElement>('[data-stream-item]')];
+    const live = root.querySelector<HTMLElement>('[data-log-count]');
+
+    const apply = (stream: string, announce: boolean) => {
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.stream === stream)));
+      let n = 0;
+      for (const el of items) {
+        const show = !stream || el.dataset.streamItem === stream;
+        el.hidden = !show;
+        if (show && el.classList.contains('release')) n++;
+      }
+      if (announce && live) live.textContent = `${n} release${n === 1 ? '' : 's'}${stream ? ` for ${stream}` : ''}`;
+      const u = new URL(location.href);
+      if (stream) u.searchParams.set('stream', stream);
+      else u.searchParams.delete('stream');
+      history.replaceState(history.state, '', u);
+    };
+
+    const initial = new URLSearchParams(location.search).get('stream') ?? '';
+    apply(buttons.some((b) => b.dataset.stream === initial) ? initial : '', false);
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        apply(b.dataset.stream ?? '', true);
+        track('changelog_filter', { stream: b.dataset.stream || 'all' });
+      }),
+    );
+  }
+</script>
+
+<style>
+  :global(html:not([data-js])) [data-js-only] {
+    display: none !important;
+  }
+  .rss {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 2.75rem;
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--accent-text);
+    text-decoration: none;
+  }
+  .rss:hover {
+    text-decoration: underline;
+  }
+  .log {
+    padding-block-end: var(--section-y);
+  }
+  .log__bar {
+    display: grid;
+    gap: var(--space-l);
+    padding-block: var(--space-m) var(--space-xl);
+  }
+  .streams {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .stream-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-block-size: 2.75rem;
+    padding: 0.35rem 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .stream-btn .readout {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .stream-btn[aria-pressed='true'] {
+    background: var(--ink-strong);
+    border-color: var(--ink-strong);
+    color: var(--bg);
+  }
+  .stream-btn[aria-pressed='true'] .readout {
+    color: var(--bg);
+  }
+  .stream-btn:active {
+    transform: translateY(1px);
+  }
+
+  /* An engraved date scale: weeks are minor ticks, months are major. */
+  .dscale {
+    position: relative;
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .dscale__track {
+    position: relative;
+    block-size: 2.6rem;
+    border-bottom: 1px solid var(--ink-strong);
+  }
+  .dscale__week {
+    position: absolute;
+    bottom: 0;
+    inline-size: 1px;
+    block-size: 0.45rem;
+    background: var(--ink-faint);
+  }
+  .dscale__month {
+    position: absolute;
+    bottom: 0;
+    block-size: 100%;
+    border-inline-start: 1px solid var(--ink-strong);
+  }
+  .dscale__month .readout {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0.4rem;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .dscale__marks {
+    position: relative;
+    block-size: 2.75rem;
+    margin-block-start: -0.5rem;
+  }
+  .dscale__marks li {
+    position: absolute;
+    top: 0;
+    translate: -50% 0;
+  }
+  .dscale__marks a {
+    display: grid;
+    place-items: start center;
+    inline-size: 1.5rem;
+    block-size: 2.75rem;
+  }
+  .dmark {
+    display: inline-block;
+    flex: none;
+  }
+  .dmark--firmware {
+    inline-size: 0.7rem;
+    block-size: 0.7rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  .dmark--studio {
+    inline-size: 0.7rem;
+    block-size: 0.7rem;
+    border-radius: 50%;
+    border: 2px solid var(--ink-strong);
+    background: var(--bg);
+  }
+  .dmark--sdk {
+    inline-size: 0.62rem;
+    block-size: 0.62rem;
+    background: var(--ink-strong);
+    rotate: 45deg;
+  }
+  .dscale__marks a .dmark {
+    margin-block-start: 0.15rem;
+    transition: scale var(--dur-2) var(--ease-out);
+  }
+  .dscale__marks a:hover .dmark,
+  .dscale__marks a:focus-visible .dmark {
+    scale: 1.4;
+  }
+  .dscale__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .dscale__legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .releases {
+    border-top: 1px solid var(--line-strong);
+  }
+  .release {
+    display: grid;
+    grid-template-columns: minmax(10rem, 3fr) minmax(0, 9fr);
+    gap: var(--space-s) var(--space-2xl);
+    padding-block: var(--space-xl);
+    border-bottom: 1px solid var(--line);
+    scroll-margin-top: calc(var(--header-h) + var(--space-m));
+  }
+  .release:target .release__version {
+    color: var(--accent-text);
+  }
+  .release__meta {
+    display: grid;
+    gap: 0.4rem;
+    align-content: start;
+    padding-block-start: 0.4rem;
+  }
+  .release__date {
+    color: var(--ink-strong);
+  }
+  .release__stream {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .release__body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 64ch;
+  }
+  .release__anchor {
+    display: grid;
+    gap: 0.35rem;
+    text-decoration: none;
+  }
+  .release__version {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .release__name {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.02;
+  }
+  .release__anchor:hover .release__name {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.15em;
+  }
+  .release__summary {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .changes {
+    display: grid;
+    border-top: 1px solid var(--line);
+  }
+  .change {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: var(--space-s);
+    padding-block: 0.65rem;
+    border-bottom: 1px solid var(--line);
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .change__kind {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .change__kind--new {
+    color: var(--accent-text);
+  }
+  .change__kind--known-issue {
+    color: var(--ink-muted);
+  }
+  /* Below tablet width the markers would crowd; the list is the navigation. */
+  @media (max-width: 56rem) {
+    .dscale {
+      display: none;
+    }
+  }
+  @media (max-width: 48rem) {
+    .release {
+      grid-template-columns: 1fr;
+      padding-block: var(--space-l);
+    }
+    .release__meta {
+      grid-auto-flow: column;
+      justify-content: start;
+      gap: var(--space-m);
+    }
+    .change {
+      grid-template-columns: 1fr;
+      gap: 0.1rem;
+    }
+    .dscale__month .readout {
+      font-size: 0.62rem;
+      inset-inline-start: 0.2rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dscale__marks a .dmark {
+      transition: none;
+    }
+  }
+</style>

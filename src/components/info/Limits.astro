@@ -1,0 +1,68 @@
+---
+/** "What it can't do (yet)": honest limits with a plain status for each. */
+import { LIMITS } from '@/data/engineering';
+---
+
+<ul class="limits" role="list">
+  {
+    LIMITS.map((l) => (
+      <li class="limit">
+        <p class="limit__title">
+          <span class="limit__cant">It can’t</span> {l.title.charAt(0).toLowerCase() + l.title.slice(1)}
+        </p>
+        <p class="limit__body">{l.body}</p>
+        <p class:list={['limit__status', { 'limit__status--planned': l.planned }]}>{l.status}</p>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .limits {
+    border-top: 1px solid var(--line-strong);
+  }
+  .limit {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) minmax(9rem, 2fr);
+    gap: var(--space-2xs) var(--space-xl);
+    padding-block: var(--space-m);
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .limit__title {
+    font-size: var(--step-2);
+    font-weight: 740;
+    font-stretch: 112%;
+    letter-spacing: -0.012em;
+    line-height: 1.12;
+    color: var(--ink-strong);
+    text-wrap: balance;
+  }
+  .limit__cant {
+    color: var(--ink-faint);
+  }
+  .limit__body {
+    color: var(--ink-muted);
+    max-inline-size: 46ch;
+  }
+  .limit__status {
+    justify-self: end;
+    text-align: end;
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+  }
+  .limit__status--planned {
+    color: var(--accent-text);
+  }
+  @media (max-width: 60rem) {
+    .limit {
+      grid-template-columns: 1fr;
+    }
+    .limit__status {
+      justify-self: start;
+      text-align: start;
+    }
+  }
+</style>

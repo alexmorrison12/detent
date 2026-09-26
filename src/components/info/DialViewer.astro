@@ -1,0 +1,267 @@
+---
+/**
+ * A DialStage with camera presets (desk, top, side, front, exploded) and
+ * finish swatches. The exploded stack is always listed in HTML so the parts
+ * exist without WebGL; choosing "Exploded" highlights the list.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import { FINISHES } from '@/data/product';
+import { EXPLODED_PARTS, VIEWS } from '@/data/engineering';
+
+interface Props {
+  id?: string;
+}
+const { id = 'viewer-dial' } = Astro.props;
+const first = VIEWS[0];
+---
+
+<div class="viewer" data-viewer data-dial={id}>
+  <div class="viewer__stage">
+    <DialStage id={id} finish="graphite" profile="ratchet" camera="hero" interactive label="Detent One. Turn to rotate the knob." />
+  </div>
+
+  <div class="viewer__panel">
+    <div class="viewer__controls" data-js-only>
+      <div class="seg" role="group" aria-label="Camera">
+        {
+          VIEWS.map((v) => (
+            <button type="button" class="seg__btn" data-view={v.id} data-caption={v.caption} aria-pressed={v.id === first.id ? 'true' : 'false'}>
+              {v.label}
+            </button>
+          ))
+        }
+      </div>
+      <div class="finishes" role="group" aria-label="Finish">
+        {
+          FINISHES.map((f) => (
+            <button
+              type="button"
+              class="finish"
+              data-finish={f.id}
+              aria-pressed={f.id === 'graphite' ? 'true' : 'false'}
+              style={`--swatch: ${f.body}`}
+              title={f.foundersOnly ? `${f.name}, Founders Edition only` : f.name}
+            >
+              <span class="finish__swatch" aria-hidden="true" />
+              <span class="finish__name">{f.name}</span>
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <p class="viewer__caption" aria-live="polite" data-caption-out>{first.caption}</p>
+
+    <div class="viewer__stack" data-stack>
+      <h3 class="viewer__stack-title">Top to bottom</h3>
+      <ol class="viewer__parts">
+        {
+          EXPLODED_PARTS.map((p) => (
+            <li>
+              <span class="viewer__part">{p.name}</span>
+              <span class="viewer__detail">{p.detail}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+  import type { CameraPreset } from '@/scripts/dial/types';
+  import type { FinishId } from '@/data/product';
+  import { track } from '@/lib/analytics';
+
+  document.querySelectorAll<HTMLElement>('[data-viewer]').forEach((root) => {
+    const dial = document.getElementById(root.dataset.dial ?? '') as HTMLElementTagNameMap['detent-dial'] | null;
+    const caption = root.querySelector<HTMLElement>('[data-caption-out]');
+    const stack = root.querySelector<HTMLElement>('[data-stack]');
+
+    root.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view as CameraPreset;
+        root.querySelectorAll('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+        if (caption) caption.textContent = btn.dataset.caption ?? '';
+        stack?.toggleAttribute('data-active', view === 'exploded');
+        if (dial) {
+          dial.setAttribute('camera', view);
+          if ('explode' in dial) dial.explode = view === 'exploded' ? 1 : 0;
+        }
+        track('viewer_camera', { view });
+      });
+    });
+
+    root.querySelectorAll<HTMLButtonElement>('[data-finish]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        root.querySelectorAll('[data-finish]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+        if (dial) dial.finish = btn.dataset.finish as FinishId;
+        track('viewer_finish', { finish: btn.dataset.finish });
+      });
+    });
+  });
+</script>
+
+<style>
+  .viewer {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: var(--space-2xl);
+    align-items: center;
+  }
+  :global(html:not([data-js])) [data-js-only] {
+    display: none;
+  }
+  .viewer__stage {
+    max-inline-size: 34rem;
+    inline-size: 100%;
+    justify-self: center;
+  }
+  .viewer__panel {
+    display: grid;
+    gap: var(--space-m);
+    align-content: start;
+  }
+  .viewer__controls {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    inline-size: fit-content;
+    max-inline-size: 100%;
+  }
+  .seg__btn {
+    min-block-size: 2.75rem;
+    padding: 0.4rem 1rem;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .seg__btn:hover {
+    color: var(--ink-strong);
+  }
+  .seg__btn[aria-pressed='true'] {
+    background: var(--ink-strong);
+    color: var(--bg);
+  }
+  .seg__btn:active {
+    transform: translateY(1px);
+  }
+  .finishes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-s);
+  }
+  .finish {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 2.75rem;
+    padding-inline: 0.25rem 0.6rem;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .finish__swatch {
+    inline-size: 1.5rem;
+    block-size: 1.5rem;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 1px oklch(1 0 0 / 0.22);
+  }
+  .finish[aria-pressed='true'] {
+    color: var(--ink-strong);
+  }
+  .finish[aria-pressed='true'] .finish__swatch {
+    outline: 2px solid var(--ink-strong);
+    outline-offset: 2px;
+  }
+  .viewer__caption {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink);
+    min-block-size: 2.8em;
+    max-inline-size: 40ch;
+  }
+  .viewer__stack-title {
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    margin-block-end: var(--space-2xs);
+  }
+  .viewer__parts {
+    list-style: none;
+    padding: 0;
+    counter-reset: part;
+    border-top: 1px solid var(--line);
+  }
+  .viewer__parts li {
+    counter-increment: part;
+    display: grid;
+    grid-template-columns: 2.2rem 9rem 1fr;
+    gap: var(--space-s);
+    padding-block: 0.55rem;
+    border-bottom: 1px solid var(--line);
+    font-size: var(--step--1);
+    transition: color var(--dur-3) var(--ease-out);
+  }
+  .viewer__parts li::before {
+    content: counter(part);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-faint);
+    padding-block-start: 0.15em;
+  }
+  .viewer__part {
+    font-weight: 620;
+    color: var(--ink-strong);
+  }
+  .viewer__detail {
+    color: var(--ink-muted);
+  }
+  .viewer__stack[data-active] li::before {
+    color: var(--accent-text);
+  }
+
+  @media (max-width: 60rem) {
+    .viewer {
+      grid-template-columns: 1fr;
+      gap: var(--space-l);
+    }
+    .viewer__stage {
+      max-inline-size: 22rem;
+    }
+  }
+  @media (max-width: 36rem) {
+    .seg {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .seg__btn {
+      flex: none;
+      padding-inline: 0.7rem;
+    }
+    .finishes {
+      gap: 0.25rem;
+    }
+    .viewer__parts li {
+      grid-template-columns: 2rem 1fr;
+    }
+    .viewer__detail {
+      grid-column: 2;
+    }
+  }
+</style>

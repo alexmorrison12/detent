@@ -1,0 +1,517 @@
+---
+/**
+ * Searchable, filterable directory of INTEGRATIONS with a live "tester": a
+ * night panel with an interactive dial that takes on the chosen app's
+ * profile. Without JS the full list renders and the filters stay hidden.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import ProfileTag from './ProfileTag.astro';
+import { INTEGRATIONS, PROFILES, byProfile, type IntegrationCategory } from '@/data/product';
+import { STATUS, displayLabel } from '@/data/directory';
+
+const categories = [...new Set(INTEGRATIONS.map((i) => i.category))] as IntegrationCategory[];
+const count = (c: IntegrationCategory) => INTEGRATIONS.filter((i) => i.category === c).length;
+const first = INTEGRATIONS[0]!;
+const firstProfile = byProfile(first.profile);
+const apps = INTEGRATIONS.map((i) => ({ ...i, display: displayLabel(i.name) }));
+const profileInfo = Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name, feel: p.feel }]));
+---
+
+<div class="dir" data-dir data-total={INTEGRATIONS.length} data-profiles={JSON.stringify(profileInfo)}>
+  <div class="dir__main">
+    <form class="dir__filters" role="search" aria-label="Filter integrations" data-js-only data-filters>
+      <div class="dir__search">
+        <label for="dir-q" class="dir__label">Search</label>
+        <input id="dir-q" name="q" type="search" class="input" placeholder="Resolve, scrub, markers…" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <fieldset class="dir__group">
+        <legend class="dir__label">Category</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="cat" value="" checked /> All <span class="readout">{INTEGRATIONS.length}</span></label>
+          {
+            categories.map((c) => (
+              <label class="chip">
+                <input type="radio" name="cat" value={c} /> {c} <span class="readout">{count(c)}</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="dir__group">
+        <legend class="dir__label">Feel</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="feel" value="" checked /> Any</label>
+          {
+            PROFILES.map((p) => (
+              <label class="chip" style={`--feel: var(--feel-${p.id})`}>
+                <input type="radio" name="feel" value={p.id} />
+                <ProfileTag profile={p.id} />
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="dir__group">
+        <legend class="dir__label">Status</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="status" value="" checked /> Any</label>
+          {
+            (Object.keys(STATUS) as (keyof typeof STATUS)[]).map((s) => (
+              <label class="chip">
+                <input type="radio" name="status" value={s} />
+                <span class={`status status--${s}`}>{STATUS[s].label}</span>
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+    </form>
+
+    <dl class="dir__legend" aria-label="What the status labels mean">
+      {
+        (Object.keys(STATUS) as (keyof typeof STATUS)[]).map((s) => (
+          <div>
+            <dt>
+              <span class={`status status--${s}`}>{STATUS[s].label}</span>
+            </dt>
+            <dd>{STATUS[s].line}</dd>
+          </div>
+        ))
+      }
+    </dl>
+
+    <p class="dir__count" aria-live="polite" aria-atomic="true" data-count>
+      <span class="readout">{INTEGRATIONS.length}</span> apps
+    </p>
+
+    <ul class="dir__list" role="list" data-list>
+      {
+        apps.map((app) => (
+          <li
+            class="app"
+            data-name={app.name}
+            data-cat={app.category}
+            data-feel={app.profile}
+            data-status={app.status}
+            data-display={app.display}
+            data-does={app.does}
+            data-text={`${app.name} ${app.category} ${app.does} ${byProfile(app.profile).name} ${app.status}`.toLowerCase()}
+          >
+            <div class="app__id">
+              <h3 class="app__name">{app.name}</h3>
+              <span class="app__cat">{app.category}</span>
+            </div>
+            <p class="app__does">{app.does}</p>
+            <div class="app__meta">
+              <ProfileTag profile={app.profile} />
+              <span class={`status status--${app.status}`}>{STATUS[app.status].label}</span>
+            </div>
+            <button type="button" class="app__try" data-try aria-controls="dir-tester" data-js-only>
+              Feel it<span class="visually-hidden"> in {app.name}</span>
+            </button>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="dir__empty" data-empty hidden>
+      <p class="dir__empty-title">Nothing matches that.</p>
+      <p>
+        Every app still gets scroll, volume and undo out of the box. <a href="#request">Ask for the one you need</a>, or <a href="#sdk">write it yourself</a>.
+      </p>
+      <button type="button" class="btn btn--sm" data-reset>Clear filters</button>
+    </div>
+  </div>
+
+  <aside class="dir__tester" id="dir-tester" data-world="night" aria-labelledby="tester-app" data-tester>
+    <div class="tester__stage">
+      <DialStage id="dir-dial" interactive finish="graphite" profile={first.profile} display={displayLabel(first.name)} label="Try the feel. Turn to feel this app's profile." />
+    </div>
+    <div class="tester__copy">
+      <p class="tester__kicker" data-t-cat>{first.category}</p>
+      <h2 class="tester__app" id="tester-app" data-t-name>{first.name}</h2>
+      <p class="tester__profile" style={`--feel: var(--feel-${first.profile})`} data-t-profile>
+        <span class="tester__dot" aria-hidden="true"></span>
+        <span data-t-profile-name>{firstProfile.name}</span>
+      </p>
+      <p class="tester__does" data-t-does>{first.does}</p>
+      <p class="tester__feel" data-t-feel>{firstProfile.feel}</p>
+      <div class="tester__foot" data-js-only>
+        <span class="readout tester__angle" data-t-angle>0°</span>
+        <button type="button" class="btn btn--sm tester__cycle" data-cycle aria-pressed="false">Pause tour</button>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+  import { initDirectory } from '@/scripts/info/integrations';
+  document.querySelectorAll<HTMLElement>('[data-dir]').forEach(initDirectory);
+</script>
+
+<style>
+  .dir {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 25rem);
+    gap: var(--space-2xl);
+    align-items: start;
+  }
+  :global(html:not([data-js])) [data-js-only] {
+    display: none !important;
+  }
+  .dir__main {
+    min-inline-size: 0;
+  }
+  .dir__filters {
+    display: grid;
+    gap: var(--space-m);
+    padding-block-end: var(--space-l);
+  }
+  .dir__label {
+    display: block;
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    margin-block-end: var(--space-2xs);
+    padding: 0;
+  }
+  .dir__search .input {
+    inline-size: 100%;
+    font-size: var(--step-1);
+    min-block-size: 3.5rem;
+  }
+  .dir__group {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-block-size: 2.75rem;
+    padding: 0.35rem 0.95rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .chip:hover {
+    border-color: var(--ink-muted);
+  }
+  .chip input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .chip .readout {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .chip:has(input:checked) {
+    background: var(--ink-strong);
+    border-color: var(--ink-strong);
+    color: var(--bg);
+  }
+  .chip:has(input:checked) .readout,
+  .chip:has(input:checked) :global(.profile-tag) {
+    color: var(--bg);
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    white-space: nowrap;
+  }
+  .status::before {
+    content: '';
+    inline-size: 0.62em;
+    block-size: 0.62em;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+  }
+  .status--native::before {
+    background: currentColor;
+  }
+  .status--plugin::before {
+    background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+  }
+  .status--community::before {
+    border-style: dashed;
+  }
+
+  .dir__legend {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-m);
+    padding-block: var(--space-m);
+    border-block: 1px solid var(--line);
+    margin-block-end: var(--space-l);
+  }
+  .dir__legend dt {
+    margin-block-end: 0.2rem;
+    color: var(--ink-strong);
+  }
+  .dir__legend dd {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .dir__count {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-block-end: var(--space-xs);
+  }
+  .dir__count .readout {
+    color: var(--ink-strong);
+    font-size: var(--step-0);
+  }
+  .dir__list {
+    border-top: 1px solid var(--line-strong);
+  }
+  .app {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1.1fr) minmax(0, 2fr) minmax(8.5rem, auto) auto;
+    gap: var(--space-2xs) var(--space-l);
+    align-items: center;
+    padding: var(--space-s) var(--space-xs);
+    margin-inline: calc(-1 * var(--space-xs));
+    border-bottom: 1px solid var(--line);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .app[data-current] {
+    background: var(--bg-raised);
+  }
+  .app__id {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .app__name {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: 112%;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .app__cat {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .app__does {
+    color: var(--ink);
+    font-size: var(--step--1);
+    line-height: 1.5;
+    max-inline-size: 48ch;
+  }
+  .app__meta {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: start;
+  }
+  .app__meta .status {
+    color: var(--ink-muted);
+  }
+  .app__try {
+    min-block-size: 2.75rem;
+    padding-inline: 1rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out);
+  }
+  .app__try:hover {
+    border-color: var(--ink-strong);
+  }
+  .app__try:active {
+    transform: translateY(1px);
+  }
+  .app[data-current] .app__try {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .dir__empty {
+    display: grid;
+    gap: var(--space-xs);
+    justify-items: start;
+    padding-block: var(--space-xl);
+    color: var(--ink-muted);
+  }
+  .dir__empty-title {
+    font-size: var(--step-2);
+    font-weight: 740;
+    font-stretch: 112%;
+    color: var(--ink-strong);
+  }
+
+  .dir__tester {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-m));
+    display: grid;
+    gap: var(--space-m);
+    padding: var(--space-l);
+    border-radius: var(--r-l);
+  }
+  .tester__stage {
+    inline-size: min(100%, 17rem);
+    justify-self: center;
+  }
+  .tester__copy {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .tester__kicker {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .tester__app {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.02;
+  }
+  .tester__profile {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .tester__dot {
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    border-radius: 50%;
+    background: var(--feel);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--feel) 22%, transparent);
+    transition: background-color var(--dur-3) var(--ease-out);
+  }
+  .tester__does {
+    color: var(--ink);
+    margin-block-start: var(--space-2xs);
+  }
+  .tester__feel {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+  }
+  .tester__foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-s);
+    margin-block-start: var(--space-s);
+    padding-block-start: var(--space-s);
+    border-top: 1px solid var(--line);
+  }
+  .tester__angle {
+    color: var(--ink-muted);
+  }
+
+  @media (max-width: 64rem) {
+    .dir {
+      grid-template-columns: 1fr;
+      gap: var(--space-l);
+    }
+    .dir__tester {
+      position: relative;
+      top: auto;
+      order: -1;
+      grid-template-columns: minmax(8rem, 12rem) 1fr;
+      align-items: center;
+      padding: var(--space-m);
+    }
+    .tester__stage {
+      inline-size: 100%;
+    }
+    .dir__legend {
+      grid-template-columns: 1fr;
+      gap: var(--space-xs);
+    }
+    .app {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        'id try'
+        'does does'
+        'meta meta';
+      align-items: start;
+    }
+    .app__id {
+      grid-area: id;
+    }
+    .app__does {
+      grid-area: does;
+    }
+    .app__meta {
+      grid-area: meta;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-s);
+      align-items: center;
+    }
+    .app__try {
+      grid-area: try;
+    }
+  }
+  @media (max-width: 40rem) {
+    /* One swipeable row per filter instead of three wrapped rows. */
+    .chips {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      margin-inline: calc(-1 * var(--gutter));
+      padding: 0.2rem var(--gutter);
+    }
+    .chip {
+      flex: none;
+    }
+  }
+  @media (max-width: 30rem) {
+    .dir__tester {
+      grid-template-columns: 7.5rem 1fr;
+      gap: var(--space-s);
+    }
+    .tester__app {
+      font-size: var(--step-2);
+    }
+    .tester__feel {
+      display: none;
+    }
+  }
+</style>

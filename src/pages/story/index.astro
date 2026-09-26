@@ -1,0 +1,606 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import DialStill from '@/components/dial/DialStill.astro';
+import StretchHero from '@/components/info/StretchHero.astro';
+import { SITE } from '@/config/site';
+import { LAUNCH } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { FOUNDERS, MANIFESTO, MILESTONES, PRINCIPLES, ROADMAP, SMARTKNOB } from '@/data/story';
+import { absoluteUrl, url } from '@/lib/url';
+import { formatDate, numberWord } from '@/scripts/info/format';
+import { PAYMENT } from '@/data/product';
+
+const description = `Why a knob, and why haptics: how ${SITE.product} went from a weekend build of an open-source haptic knob to a machined, local-first instrument for software. Principles and roadmap included.`;
+const month = (iso: string) => formatDate(iso, { month: 'short', year: 'numeric' });
+const lastDone = MILESTONES.length - 1;
+const years = Number(MILESTONES[lastDone]!.date.slice(0, 4)) - Number(MILESTONES[0]!.date.slice(0, 4));
+
+const aboutLd = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: `The story of ${SITE.product}`,
+  url: absoluteUrl('/story/', Astro.site),
+  description,
+  about: { '@type': 'Organization', name: SITE.legalName },
+};
+---
+
+<BaseLayout title="Our story" description={description} world="night" ogImage={ogPath('story')} ogImageAlt="Why a knob? The Detent story" jsonLd={aboutLd}>
+  <StretchHero
+    title="Why a knob?"
+    lede="Because turning is the one thing a mouse does badly and a hand does perfectly. We just had to give the hand something worth turning."
+    hint="The headline is set in a typeface with a width axis. The dial is driving it."
+  />
+
+  <section class="manifesto container" aria-label="Manifesto">
+    <ol class="manifesto__lines" role="list">
+      {MANIFESTO.map((line) => <li class="manifesto__line">{line}</li>)}
+      <li class="manifesto__line manifesto__line--last">{SITE.tagline}</li>
+    </ol>
+  </section>
+
+  <div data-world="day">
+    <section class="section container why" aria-labelledby="why-h">
+      <h2 id="why-h" class="display display--l why__title">Why haptics?</h2>
+      <div class="why__body">
+        <p class="why__lead">A click is information.</p>
+        <p>
+          When a knob clicks, your hand knows it moved one step without your eyes checking. A wall tells you the range is over. A spring tells you how
+          far you are from center, and the pull gets stronger the further you go.
+        </p>
+        <p>
+          Screens can show all of that. Only a motor can make you feel it, and feeling is faster: your hand has corrected before you finish reading the
+          number. That is why editors still buy jog wheels and mix engineers still buy fader banks. We wanted one object that could be all of them, and
+          change its mind when you change apps.
+        </p>
+      </div>
+    </section>
+
+    <section class="section container origin" aria-labelledby="origin-h">
+      <div class="origin__copy">
+        <h2 id="origin-h" class="display display--m">It started with someone else’s knob.</h2>
+        <p>
+          In November 2023 Mira Castellanos built a <a href={SMARTKNOB.url} rel="noopener">{SMARTKNOB.name}</a>, {SMARTKNOB.author}’s open-source
+          haptic knob, from the published files. She wanted to know if a motor could fake a click convincingly. It could. It could also fake a spring,
+          a wall and a ratchet, and she spent a week turning it instead of finishing the record she was mixing.
+        </p>
+        <p>
+          The idea that stuck was not the knob. It was that the feel could follow the software. Every other knob she owned was born with its clicks.
+          This one could be told.
+        </p>
+        <p>
+          Oskar Nyberg had spent years designing lab instruments, objects that have to be exact before they are allowed to be beautiful. He turned the
+          prototype once, said it was too light, and milled a body for it that weekend. It was still too light. That part of the story is below.
+        </p>
+
+        <dl class="founders">
+          {
+            FOUNDERS.map((f) => (
+              <div class="founder">
+                <dt>
+                  <span class="founder__name">{f.name}</span>
+                  <span class="founder__role">{f.role}</span>
+                </dt>
+                <dd>{f.line}</dd>
+              </div>
+            ))
+          }
+        </dl>
+
+        <aside class="credit" aria-labelledby="credit-h">
+          <h3 id="credit-h" class="credit__title">Credit where it is due</h3>
+          <p>
+            Detent is inspired by <a href={SMARTKNOB.url} rel="noopener">{SMARTKNOB.name}</a> by {SMARTKNOB.author}, which showed that a brushless motor
+            and a magnetic encoder can make a knob feel like anything. Detent is not affiliated with the project or endorsed by it. We owe it the idea, and
+            repay it the way open source asks: our firmware is open too.
+          </p>
+        </aside>
+        <p class="concept-note">
+          {SITE.legalName}, Mira and Oskar are fictional. Detent is a concept product, and this site is a design and engineering demonstration.
+        </p>
+      </div>
+      <figure class="origin__still">
+        <DialStill finish="raw" view="hero" alt="Detent One in Raw aluminum, three-quarter view" />
+      </figure>
+    </section>
+
+    <section class="section container journey" aria-labelledby="journey-h">
+      <div class="journey__head">
+        <h2 id="journey-h" class="display display--m">From P0 to the production line.</h2>
+        <p class="lede">
+          {numberWord(MILESTONES.length, true)} builds in {numberWord(years)} years, each with the one number that decided what came next.
+        </p>
+      </div>
+      <ol class="scale" role="list">
+        {
+          MILESTONES.map((m, i) => (
+            <li class:list={['stage', { 'stage--now': i === lastDone }]}>
+              <div class="stage__mark" aria-hidden="true" />
+              <p class="stage__code">{m.code}</p>
+              <p class="stage__date readout">
+                <time datetime={m.date}>{month(m.date)}</time>
+              </p>
+              <div class="stage__text">
+                <h3 class="stage__title">{m.title}</h3>
+                <p>{m.body}</p>
+              </div>
+              <p class="stage__figure">
+                <span class="readout">{m.figure}</span>
+                <span class="stage__label">{m.figureLabel}</span>
+              </p>
+            </li>
+          ))
+        }
+        <li class="stage stage--next">
+          <div class="stage__mark" aria-hidden="true" />
+          <p class="stage__code">B1</p>
+          <p class="stage__date readout">{LAUNCH.firstShipBatch}</p>
+          <div class="stage__text">
+            <h3 class="stage__title">Batch 1 ships</h3>
+            <p>The first production run goes to the people who reserved one. We will post the date it leaves, not a quarter.</p>
+          </div>
+          <p class="stage__figure">
+            <span class="readout">{LAUNCH.foundersRun.toLocaleString('en-US')}</span>
+            <span class="stage__label">Founders serials, then no more</span>
+          </p>
+        </li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="section container principles" aria-labelledby="principles-h">
+    <h2 id="principles-h" class="display display--m principles__title">{numberWord(PRINCIPLES.length, true)} things we will not trade.</h2>
+    <ul class="principles__list" role="list">
+      {
+        PRINCIPLES.map((p) => (
+          <li class="principle">
+            <p class="principle__word">{p.word}</p>
+            <div class="principle__text">
+              <p class="principle__claim">{p.claim}</p>
+              <p class="principle__proof">{p.proof}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <div data-world="day">
+    <section class="section container roadmap" aria-labelledby="roadmap-h">
+      <div class="roadmap__head">
+        <h2 id="roadmap-h" class="display display--m">What’s next.</h2>
+        <p class="lede">Dates we are confident in are dates. The rest are seasons, and we will say so when they move. Every change lands in the <a href={url('/changelog/')}>changelog</a>.</p>
+      </div>
+      <ol class="road" role="list">
+        {
+          ROADMAP.map((r) => (
+            <li class:list={['road__item', `road__item--${r.state}`]}>
+              <p class="road__when readout">{r.when}</p>
+              <h3 class="road__title">{r.title}</h3>
+              <p class="road__body">{r.body}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section class="container letter" aria-labelledby="letter-h">
+      <h2 id="letter-h" class="visually-hidden">A note from the founders</h2>
+      <blockquote class="letter__body">
+        <p>
+          We built the thing we wanted on our own desks. If it has not earned a place on yours after {PAYMENT.trialDays} days, send it back. If it does, tell us what it
+          should feel like next.
+        </p>
+      </blockquote>
+      <p class="letter__sign">Mira and Oskar</p>
+      <PhaseCTA placement="story-letter" size="lg" showSecondary />
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  /* Manifesto: each line brightens as it reaches the middle of the screen. */
+  .manifesto {
+    padding-block: var(--space-2xl) var(--section-y);
+  }
+  .manifesto__lines {
+    display: grid;
+    gap: clamp(1.5rem, 1rem + 2.5vw, 3rem);
+    max-inline-size: 22ch;
+    font-size: var(--step-4);
+    font-weight: 760;
+    font-stretch: 118%;
+    letter-spacing: -0.018em;
+    line-height: 1.08;
+    color: var(--ink-strong);
+    text-wrap: balance;
+  }
+  .manifesto__line--last {
+    font-size: var(--step-5);
+    font-stretch: 125%;
+    color: var(--accent-text);
+    padding-block-start: var(--space-l);
+  }
+  /* Lines brighten from muted (already AA) to full white as they reach the
+     reading position; the static default is full brightness. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .manifesto__line {
+        animation: line-lit linear both;
+        animation-timeline: view();
+        animation-range: entry 10% cover 45%;
+      }
+      .manifesto__line--last {
+        animation-name: line-lit-accent;
+      }
+      @keyframes line-lit {
+        from {
+          color: var(--ink-muted);
+        }
+        to {
+          color: var(--ink-strong);
+        }
+      }
+      @keyframes line-lit-accent {
+        from {
+          color: var(--ink-muted);
+        }
+        to {
+          color: var(--accent-text);
+        }
+      }
+    }
+  }
+
+  .why {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: start;
+  }
+  .why__body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 60ch;
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .why__lead {
+    font-size: var(--step-3);
+    font-weight: 760;
+    font-stretch: 112%;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    color: var(--ink-strong);
+  }
+
+  .origin {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-2xl);
+    align-items: start;
+    padding-block-start: 0;
+  }
+  .origin__copy {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 64ch;
+  }
+  .origin__copy > h2 {
+    margin-block-end: var(--space-s);
+  }
+  .origin__still {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-l));
+    aspect-ratio: 1;
+    inline-size: 100%;
+    margin-inline-end: calc(-1 * var(--gutter) - 6vw);
+  }
+  .founders {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-l);
+    margin-block: var(--space-l) var(--space-s);
+    padding-block-start: var(--space-m);
+    border-top: 1px solid var(--line-strong);
+  }
+  .founder dt {
+    display: grid;
+    margin-block-end: var(--space-2xs);
+  }
+  .founder__name {
+    font-size: var(--step-1);
+    font-weight: 740;
+    font-stretch: 112%;
+    color: var(--ink-strong);
+  }
+  .founder__role {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .founder dd {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .credit {
+    display: grid;
+    gap: var(--space-2xs);
+    padding: var(--space-m);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-m);
+    margin-block-start: var(--space-s);
+  }
+  .credit__title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .credit p {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+
+  .journey__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 44rem;
+    margin-block-end: var(--space-2xl);
+  }
+  /* The timeline is a measured scale: one rail, one tick per build. */
+  .scale {
+    position: relative;
+    display: grid;
+  }
+  .scale::before {
+    content: '';
+    position: absolute;
+    inset-block: 0.9rem 0;
+    inset-inline-start: 0.45rem;
+    border-inline-start: 1px solid var(--line-strong);
+  }
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.8rem minmax(5rem, 1.1fr) minmax(7rem, 1fr) minmax(0, 4fr) minmax(9rem, 1.6fr);
+    gap: var(--space-2xs) var(--space-l);
+    align-items: baseline;
+    padding-block: var(--space-m);
+    border-bottom: 1px solid var(--line);
+  }
+  .stage__mark {
+    align-self: start;
+    margin-block-start: 0.7rem;
+    inline-size: 0.95rem;
+    block-size: 1px;
+    background: var(--ink-strong);
+    position: relative;
+  }
+  .stage__code {
+    font-size: var(--step-3);
+    font-weight: 800;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    color: var(--ink-strong);
+  }
+  .stage__date {
+    color: var(--ink-muted);
+  }
+  .stage__text {
+    display: grid;
+    gap: 0.3rem;
+    max-inline-size: 58ch;
+  }
+  .stage__title {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: 108%;
+  }
+  .stage__text p {
+    color: var(--ink-muted);
+  }
+  .stage__figure {
+    display: grid;
+    justify-items: end;
+    text-align: end;
+  }
+  .stage__figure .readout {
+    font-size: var(--step-2);
+    color: var(--ink-strong);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .stage__label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .stage--now .stage__mark::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: -0.12rem;
+    top: -0.3rem;
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  .stage--next {
+    border-bottom: 0;
+  }
+  .stage--next .stage__code,
+  .stage--next .stage__title,
+  .stage--next .stage__figure .readout {
+    color: var(--ink-muted);
+  }
+  .stage--next .stage__mark {
+    background: none;
+    border-top: 1px dashed var(--ink-muted);
+  }
+
+  .principles__title {
+    max-inline-size: 16ch;
+    margin-block-end: var(--space-2xl);
+  }
+  .principles__list {
+    border-top: 1px solid var(--line-strong);
+  }
+  .principle {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: var(--space-s) var(--space-2xl);
+    align-items: baseline;
+    padding-block: var(--space-l);
+    border-bottom: 1px solid var(--line);
+  }
+  .principle__word {
+    font-size: var(--step-5);
+    font-weight: 800;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 0.98;
+    color: var(--ink-strong);
+    overflow-wrap: anywhere;
+  }
+  .principle__text {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .principle__claim {
+    font-size: var(--step-1);
+    line-height: 1.35;
+    font-weight: 600;
+    color: var(--ink-strong);
+  }
+  .principle__proof {
+    color: var(--ink-muted);
+  }
+  .principle:hover .principle__word {
+    color: var(--accent-text);
+  }
+  .principle__word {
+    transition: color var(--dur-2) var(--ease-out);
+  }
+
+  .roadmap__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 44rem;
+    margin-block-end: var(--space-xl);
+  }
+  .road {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-xl) var(--space-l);
+  }
+  .road__item {
+    display: grid;
+    gap: var(--space-2xs);
+    align-content: start;
+    padding-block-start: var(--space-s);
+    border-top: 2px solid var(--line);
+  }
+  .road__item--now {
+    border-top-color: var(--tally);
+  }
+  .road__item--next {
+    border-top-color: var(--ink-strong);
+  }
+  .road__when {
+    color: var(--ink-muted);
+  }
+  .road__item--now .road__when {
+    color: var(--accent-text);
+  }
+  .road__title {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: 108%;
+  }
+  .road__body {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    max-inline-size: 42ch;
+  }
+
+  .letter {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+    padding-block: var(--space-2xl) var(--section-y);
+    border-top: 1px solid var(--line-strong);
+  }
+  .letter__body p {
+    font-size: var(--step-3);
+    font-weight: 620;
+    font-stretch: 108%;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: var(--ink-strong);
+    max-inline-size: 30ch;
+  }
+  .letter__sign {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    margin-block-end: var(--space-m);
+  }
+
+  @media (max-width: 64rem) {
+    .why,
+    .origin,
+    .principle {
+      grid-template-columns: 1fr;
+    }
+    .origin__still {
+      position: relative;
+      top: auto;
+      order: -1;
+      inline-size: min(80%, 22rem);
+      justify-self: end;
+      margin-inline-end: 0;
+    }
+    .stage {
+      grid-template-columns: 1.8rem 1fr auto;
+      grid-template-areas:
+        'mark code figure'
+        'mark date date'
+        'mark text text';
+    }
+    .stage__mark {
+      grid-area: mark;
+    }
+    .stage__code {
+      grid-area: code;
+    }
+    .stage__date {
+      grid-area: date;
+    }
+    .stage__text {
+      grid-area: text;
+    }
+    .stage__figure {
+      grid-area: figure;
+    }
+    .road {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 40rem) {
+    .founders {
+      grid-template-columns: 1fr;
+    }
+    .manifesto__lines {
+      font-size: var(--step-3);
+    }
+    .manifesto__line--last {
+      font-size: var(--step-4);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .principle__word {
+      transition: none;
+    }
+  }
+</style>

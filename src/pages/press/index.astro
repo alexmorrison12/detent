@@ -1,0 +1,522 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SheetHead from '@/components/info/SheetHead.astro';
+import RenderTile from '@/components/info/RenderTile.astro';
+import { SITE } from '@/config/site';
+import { LAUNCH } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { EDITIONS, INTEGRATIONS, PAYMENT, PROFILES, formatUsd } from '@/data/product';
+import { DIMENSIONS, specNumber, specValue } from '@/data/engineering';
+import { BOILERPLATE, BRAND_COLORS, COVERAGE_NOTES, LOGOS, RENDERS } from '@/data/press';
+import { CONTACT } from '@/data/support';
+import { absoluteUrl, url } from '@/lib/url';
+import { formatDate, oklchToHex } from '@/scripts/info/format';
+
+const one = EDITIONS.find((e) => e.id === 'one')!;
+const founders = EDITIONS.find((e) => e.id === 'founders')!;
+const words = (s: string) => s.trim().split(/\s+/).length;
+const resolution = specValue('Haptics', 'Position sensing').match(/([\d.]+)°/)?.[1];
+const monoSample = `${resolution}° · ${DIMENSIONS.weightG} g · ${specNumber('Haptics', 'Peak torque')} mN·m`;
+
+const facts: [string, string][] = [
+  ['Product', `${SITE.product}, a desktop dial with software-defined haptics`],
+  ['Maker', SITE.legalName],
+  ['Status', 'Concept product. Not for sale.'],
+  ['Price', `${formatUsd(one.priceUsd)} in Raw, Graphite or Glacier`],
+  ['Founders Edition', `${formatUsd(founders.priceUsd)}. ${founders.summary}`],
+  ['Launch price', `${formatUsd(one.launchPriceUsd)} for reservations and launch week`],
+  ['Reservations', `${formatUsd(LAUNCH.depositUsd)} deposit, fully refundable (Founders ${formatUsd(LAUNCH.foundersDepositUsd)})`],
+  ['Launch day', formatDate(LAUNCH.launchDate.slice(0, 10), { month: 'long', day: 'numeric', year: 'numeric' })],
+  ['Shipping', `Batch 1 in ${LAUNCH.firstShipBatch}, Batch 2 in ${LAUNCH.secondShipBatch}`],
+  ['Body', specValue('Body', 'Material')],
+  ['Size and weight', `${specValue('Body', 'Dimensions')}. ${specValue('Body', 'Weight').split('.')[0]}`],
+  ['Haptics', `${specValue('Haptics', 'Motor')}; ${specValue('Haptics', 'Position sensing')}`],
+  ['Feel profiles', PROFILES.map((p) => p.name).join(', ')],
+  ['Display', specValue('Display & light', 'Display')],
+  ['Connectivity', `${specValue('Connectivity & power', 'Wired')}; ${specValue('Connectivity & power', 'Wireless')}`],
+  ['Software', `${specValue('Software', 'SDK')}. Firmware: ${specValue('Software', 'Firmware').split(',')[0]}`],
+  ['Integrations', `${INTEGRATIONS.length} apps listed, from video and audio to code`],
+  ['Risk reversal', `${PAYMENT.trialDays}-day studio trial, ${PAYMENT.warrantyYears}-year warranty, free shipping`],
+];
+
+const description = `${SITE.product} press kit: boilerplate, fact sheet, logos, product renders, brand colors and typography, and the press contact.`;
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  name: `${SITE.legalName} press kit`,
+  url: absoluteUrl('/press/', Astro.site),
+  description,
+  publisher: { '@type': 'Organization', name: SITE.legalName, email: SITE.pressEmail },
+};
+---
+
+<BaseLayout title="Press kit" description={description} world="day" ogImage={ogPath('press')} ogImageAlt="Detent Labs press kit" jsonLd={ld}>
+  <SheetHead
+    title="Press kit."
+    sheet={`${SITE.legalName}, press`}
+    fact={`First reply within ${CONTACT.firstReply}`}
+    lede="Words, facts, logos and renders for writing about Detent One. Read the coverage notes first: Detent is a concept, and we would rather you say so."
+  >
+    <a class="btn btn--solid press-mail" href={`mailto:${SITE.pressEmail}`} data-track="press_email">{SITE.pressEmail}</a>
+  </SheetHead>
+
+  <section class="container notes" aria-labelledby="notes-h">
+    <h2 id="notes-h" class="notes__title">Before you write</h2>
+    <ol class="notes__list">
+      {COVERAGE_NOTES.map((n) => <li>{n}</li>)}
+    </ol>
+  </section>
+
+  <section class="section container boiler" aria-labelledby="boiler-h">
+    <h2 id="boiler-h" class="display display--m">Boilerplate.</h2>
+    <div class="boiler__grid">
+      {
+        (
+          [
+            ['short', 'Short', BOILERPLATE.short],
+            ['long', 'Long', BOILERPLATE.long],
+          ] as const
+        ).map(([id, label, text]) => (
+          <article class="boiler__item">
+            <div class="boiler__bar">
+              <h3 class="boiler__label">
+                {label} <span class="readout">{words(text)} words</span>
+              </h3>
+              <button type="button" class="btn btn--sm" data-copy={`boiler-${id}`} data-js-only>
+                Copy
+              </button>
+            </div>
+            <p class="boiler__text" id={`boiler-${id}`}>
+              {text}
+            </p>
+          </article>
+        ))
+      }
+    </div>
+    <p class="visually-hidden" aria-live="polite" data-copy-status></p>
+  </section>
+
+  <section class="section container facts" aria-labelledby="facts-h">
+    <div class="facts__head">
+      <h2 id="facts-h" class="display display--m">Fact sheet.</h2>
+      <p class="lede">Every line is generated from the same data as the rest of the site, so it cannot disagree with the specs page.</p>
+    </div>
+    <dl class="facts__list">
+      {
+        facts.map(([k, v]) => (
+          <div class="fact">
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+
+  <section class="assets" data-world="night" aria-labelledby="assets-h">
+    <div class="container section">
+      <div class="assets__head">
+        <h2 id="assets-h" class="display display--m">Renders and logos.</h2>
+        <p class="lede">Product renders are real-time captures of the same model the site uses. Logos are outlined SVG, no fonts required.</p>
+      </div>
+
+      <h3 class="assets__sub">Renders</h3>
+      <div class="renders">
+        {RENDERS.map((r) => <RenderTile finish={r.finish} name={r.name} file={r.file} note={r.foundersOnly ? 'Founders Edition' : undefined} />)}
+      </div>
+
+      <h3 class="assets__sub">Logos</h3>
+      <ul class="logos" role="list">
+        {
+          LOGOS.map((l) => (
+            <li class:list={['logo-tile', { 'logo-tile--light': !l.dark }]}>
+              <div class="logo-tile__art">
+                <img src={url(l.file)} alt={l.label} width="240" height="64" loading="lazy" />
+              </div>
+              <div class="logo-tile__cap">
+                <span>
+                  <span class="logo-tile__name">{l.label}</span>
+                  <span class="logo-tile__use">{l.use}</span>
+                </span>
+                <a href={url(l.file)} download data-track="press_download" data-track-asset={l.file}>
+                  SVG<span class="visually-hidden">, {l.label}</span>
+                </a>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="section container brand" aria-labelledby="brand-h">
+    <h2 id="brand-h" class="display display--m">Color and type.</h2>
+    <div class="brand__grid">
+      <ul class="swatches" role="list">
+        {
+          BRAND_COLORS.map((c) => {
+            const [L, C, H] = c.oklch;
+            return (
+              <li class="swatch">
+                <span class="swatch__chip" style={`background: var(${c.token})`} aria-hidden="true" />
+                <span class="swatch__text">
+                  <span class="swatch__name">{c.name}</span>
+                  <span class="swatch__role">{c.role}</span>
+                  <span class="readout swatch__val">
+                    oklch({L} {C} {H}) · {oklchToHex(c.oklch).toUpperCase()}
+                  </span>
+                </span>
+              </li>
+            );
+          })
+        }
+      </ul>
+      <div class="type">
+        <div class="type__row">
+          <p class="type__sample type__sample--125">detent</p>
+          <p class="type__meta"><span>Archivo Variable, width 125%, weight 800</span><span>Display and the wordmark</span></p>
+        </div>
+        <div class="type__row">
+          <p class="type__sample type__sample--100">Software you can feel.</p>
+          <p class="type__meta"><span>Archivo Variable, width 100%</span><span>Body and interface</span></p>
+        </div>
+        <div class="type__row">
+          <p class="type__sample type__sample--mono readout">{monoSample}</p>
+          <p class="type__meta"><span>Martian Mono</span><span>Readouts only: numbers, units, serials</span></p>
+        </div>
+        <p class="type__rule">One red thing per view: the tally line, the on-air light. Everything else is graphite, aluminum and white.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container press-contact" aria-labelledby="pc-h">
+    <h2 id="pc-h" class="display display--s">Press contact</h2>
+    <div class="press-contact__body">
+      <a class="press-contact__email" href={`mailto:${SITE.pressEmail}`}>{SITE.pressEmail}</a>
+      <p>
+        First reply within {CONTACT.firstReply}. Interviews with the founders, the SDK team or the machine shop on request. Production review units go to
+        independent reviewers before any Batch 1 balance is charged, so buyers can still cancel after reviews are published.
+      </p>
+      <p class="concept-note">Concept product: this address is a placeholder on a reserved domain and does not receive mail.</p>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  const status = document.querySelector<HTMLElement>('[data-copy-status]');
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = document.getElementById(btn.dataset.copy ?? '');
+      if (!el) return;
+      const text = el.textContent?.trim() ?? '';
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied';
+        if (status) status.textContent = 'Boilerplate copied to the clipboard.';
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        btn.textContent = 'Selected';
+        if (status) status.textContent = 'Text selected. Press Command or Control and C to copy.';
+      }
+      window.setTimeout(() => (btn.textContent = 'Copy'), 2000);
+    });
+  });
+</script>
+
+<style>
+  :global(html:not([data-js])) [data-js-only] {
+    display: none !important;
+  }
+  .press-mail {
+    justify-self: start;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .notes {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-s) var(--space-2xl);
+    padding: var(--space-l) 0;
+    border-block: 1px solid var(--line-strong);
+  }
+  .notes__title {
+    font-size: var(--step-1);
+    font-weight: 740;
+    font-stretch: 112%;
+  }
+  .notes__list {
+    display: grid;
+    gap: var(--space-xs);
+    padding-inline-start: 1.25rem;
+    color: var(--ink);
+  }
+  .notes__list li::marker {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .boiler__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--space-l);
+    margin-block-start: var(--space-xl);
+    align-items: start;
+  }
+  .boiler__item {
+    display: grid;
+    gap: var(--space-s);
+    padding-block-start: var(--space-s);
+    border-top: 1px solid var(--line-strong);
+  }
+  .boiler__bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-s);
+  }
+  .boiler__label {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .boiler__label .readout {
+    font-weight: 400;
+    color: var(--ink-muted);
+    margin-inline-start: 0.4rem;
+  }
+  .boiler__text {
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink-strong);
+    max-inline-size: 60ch;
+  }
+
+  .facts {
+    padding-block-start: 0;
+  }
+  .facts__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 44rem;
+    margin-block-end: var(--space-xl);
+  }
+  .facts__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-2xl);
+    border-top: 1px solid var(--line-strong);
+  }
+  .fact {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 2.2fr;
+    gap: var(--space-s);
+    padding-block: 0.8rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .fact dt {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    font-weight: 560;
+    padding-block-start: 0.1em;
+  }
+  .fact dd {
+    color: var(--ink-strong);
+  }
+
+  .assets__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 44rem;
+    margin-block-end: var(--space-xl);
+  }
+  .assets__sub {
+    font-size: var(--step--1);
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    margin-block: var(--space-xl) var(--space-s);
+  }
+  .renders {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-m);
+  }
+  .logos {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-m);
+  }
+  .logo-tile {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .logo-tile__art {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 16 / 9;
+    padding: var(--space-l);
+    border-radius: var(--r-m);
+    border: 1px solid var(--line);
+    background: var(--graphite-900);
+  }
+  .logo-tile--light .logo-tile__art {
+    background: var(--white);
+  }
+  .logo-tile__art img {
+    max-block-size: 3rem;
+    inline-size: auto;
+  }
+  .logo-tile__cap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-s);
+    font-size: var(--step--1);
+  }
+  .logo-tile__name {
+    display: block;
+    font-weight: 640;
+    color: var(--ink-strong);
+  }
+  .logo-tile__use {
+    color: var(--ink-muted);
+  }
+  .logo-tile__cap a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2.75rem;
+    font-weight: 620;
+    color: var(--accent-text);
+  }
+
+  .brand__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: var(--space-2xl);
+    margin-block-start: var(--space-xl);
+    align-items: start;
+  }
+  .swatches {
+    display: grid;
+    border-top: 1px solid var(--line-strong);
+  }
+  .swatch {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    gap: var(--space-s);
+    align-items: center;
+    padding-block: var(--space-s);
+    border-bottom: 1px solid var(--line);
+  }
+  .swatch__chip {
+    inline-size: 3.5rem;
+    block-size: 3.5rem;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+  }
+  .swatch__text {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .swatch__name {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .swatch__role {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .swatch__val {
+    font-size: var(--step--2);
+    color: var(--ink);
+  }
+  .type {
+    display: grid;
+    border-top: 1px solid var(--line-strong);
+  }
+  .type__row {
+    display: grid;
+    gap: 0.3rem;
+    padding-block: var(--space-m);
+    border-bottom: 1px solid var(--line);
+  }
+  .type__sample {
+    color: var(--ink-strong);
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+  .type__sample--125 {
+    font-size: var(--step-6);
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+  }
+  .type__sample--100 {
+    font-size: var(--step-3);
+    font-weight: 450;
+  }
+  .type__sample--mono {
+    font-size: var(--step-2);
+  }
+  .type__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.2rem var(--space-m);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .type__rule {
+    padding-block-start: var(--space-m);
+    color: var(--ink);
+    max-inline-size: 52ch;
+  }
+
+  .press-contact {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-m) var(--space-2xl);
+    padding-block: var(--space-2xl) var(--section-y);
+    border-top: 1px solid var(--line-strong);
+  }
+  .press-contact__body {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 60ch;
+  }
+  .press-contact__email {
+    font-size: var(--step-3);
+    font-weight: 700;
+    font-stretch: 112%;
+    letter-spacing: -0.01em;
+    color: var(--accent-text);
+    text-decoration-thickness: 2px;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 64rem) {
+    .renders,
+    .logos {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .notes,
+    .boiler__grid,
+    .facts__list,
+    .brand__grid,
+    .press-contact {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 30rem) {
+    .fact {
+      grid-template-columns: 1fr;
+      gap: 0.1rem;
+    }
+  }
+</style>

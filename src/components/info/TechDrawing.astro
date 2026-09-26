@@ -1,0 +1,358 @@
+---
+/**
+ * Engineering drawing of Detent One: front elevation and plan view with
+ * dimension lines, center lines and a title block. 1 SVG unit = 1 mm.
+ * Numbers come from src/data/engineering.ts (which reads SPECS).
+ */
+import { DIMENSIONS as D } from '@/data/engineering';
+import { SITE } from '@/config/site';
+import { EDITIONS } from '@/data/product';
+import { specValue } from '@/data/engineering';
+
+interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+
+const R = D.baseDia / 2;
+const r = D.knobDia / 2;
+const rd = D.displayDia / 2;
+const H = D.height;
+const B = D.baseHeight;
+const gapTop = B + D.haloGap;
+const c = D.topChamfer;
+const f = (n: number) => Number(n.toFixed(2));
+const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+/** Arrowhead at (x,y) pointing in direction (dx,dy). */
+function arrow(x: number, y: number, dx: number, dy: number, len = 2.2, half = 0.7): string {
+  const m = Math.hypot(dx, dy) || 1;
+  const ux = dx / m;
+  const uy = dy / m;
+  const bx = x - ux * len;
+  const by = y - uy * len;
+  return `M${f(x)} ${f(y)}L${f(bx - uy * half)} ${f(by + ux * half)}L${f(bx + uy * half)} ${f(by - ux * half)}Z`;
+}
+
+// Front view: knurl lines are a cylinder's rulings projected onto the plane,
+// so they bunch up toward the silhouette. Only the front half is visible.
+const knurlX = Array.from({ length: D.knurlLines / 2 }, (_, i) => f(r * Math.sin(((-90 + (i + 0.5) * (360 / D.knurlLines)) * Math.PI) / 180)));
+
+// Plan view: knurl as radial ticks at the knob's edge.
+const knurlTicks = Array.from({ length: D.knurlLines }, (_, i) => {
+  const a = (i * 2 * Math.PI) / D.knurlLines;
+  return `M${f((r - 1.3) * Math.cos(a))} ${f((r - 1.3) * Math.sin(a))}L${f(r * Math.cos(a))} ${f(r * Math.sin(a))}`;
+}).join('');
+
+// Plan-view diameter leaders: [radius, angle deg (SVG, y down), side]
+const leader = (rad: number, deg: number, reach: number, shoulderTo: number) => {
+  const a = (deg * Math.PI) / 180;
+  const px = rad * Math.cos(a);
+  const py = rad * Math.sin(a);
+  const ex = reach * Math.cos(a);
+  const ey = reach * Math.sin(a);
+  return {
+    line: `M${f(px)} ${f(py)}L${f(ex)} ${f(ey)}L${f(shoulderTo)} ${f(ey)}`,
+    head: arrow(px, py, px - ex, py - ey),
+    tx: shoulderTo,
+    ty: ey,
+  };
+};
+const l72 = leader(R, 225, 47, -46);
+const l58 = leader(r, 315, 47, 46);
+const lDisp = leader(rd, 135, 47, -46);
+
+const one = EDITIONS.find((e) => e.id === 'one')!;
+const material = specValue('Body', 'Material').split(',')[0];
+---
+
+<figure class:list={['drawing', className]} aria-labelledby="drawing-caption">
+  <div class="drawing__views">
+    <div class="drawing__view">
+      <svg viewBox="-52 -62 114 80" role="img" aria-labelledby="dwg-front-t dwg-front-d" class="dwg">
+        <title id="dwg-front-t">Front view of Detent One</title>
+        <desc id="dwg-front-d">
+          Base {D.baseDia} millimeters across and {B} tall, knob {D.knobDia} millimeters across, {H} millimeters tall overall.
+        </desc>
+        <!-- center line -->
+        <line class="dwg-center" x1="0" y1="-58" x2="0" y2="4"></line>
+        <!-- foot, base, knob -->
+        <rect class="dwg-thin" x={-R + 4} y="-0.8" width={D.baseDia - 8} height="0.8"></rect>
+        <path class="dwg-solid" pathLength="1" d={`M${-R + 0.6} -0.8L${-R} -1.4L${-R} ${-B + 0.6}L${-R + 0.6} ${-B}L${R - 0.6} ${-B}L${R} ${-B + 0.6}L${R} -1.4L${R - 0.6} -0.8Z`}></path>
+        <line class="dwg-halo" x1={-r + 1} y1={-(B + D.haloGap / 2)} x2={r - 1} y2={-(B + D.haloGap / 2)}></line>
+        <path class="dwg-solid" pathLength="1" d={`M${-r} ${-gapTop}L${-r} ${-H + c}L${-r + c} ${-H}L${r - c} ${-H}L${r} ${-H + c}L${r} ${-gapTop}Z`}></path>
+        <line class="dwg-thin" x1={-r} y1={-D.knurlFrom} x2={r} y2={-D.knurlFrom}></line>
+        <line class="dwg-thin" x1={-r} y1={-D.knurlTo} x2={r} y2={-D.knurlTo}></line>
+        <g class="dwg-hair">{knurlX.map((x) => <line x1={x} y1={-D.knurlTo} x2={x} y2={-D.knurlFrom} />)}</g>
+
+        <!-- Ø72, below -->
+        <g class="dwg-dim">
+          <path d={`M${-R} 1.6V11.5M${R} 1.6V11.5M${-R} 10H${R}`}></path>
+          <path class="dwg-head" d={arrow(-R, 10, -1, 0) + arrow(R, 10, 1, 0)}></path>
+          <text x="0" y="8.4" text-anchor="middle">Ø{D.baseDia}</text>
+        </g>
+        <!-- Ø58, above -->
+        <g class="dwg-dim">
+          <path d={`M${-r} ${-H - 1.6}V-55.5M${r} ${-H - 1.6}V-55.5M${-r} -54H${r}`}></path>
+          <path class="dwg-head" d={arrow(-r, -54, -1, 0) + arrow(r, -54, 1, 0)}></path>
+          <text x="0" y="-55.6" text-anchor="middle">Ø{D.knobDia}</text>
+        </g>
+        <!-- 44, right -->
+        <g class="dwg-dim">
+          <path d={`M${R + 1.6} 0H${R + 14}M${r + 1.6} ${-H}H${R + 14}M${R + 12.5} 0V${-H}`}></path>
+          <path class="dwg-head" d={arrow(R + 12.5, 0, 0, 1) + arrow(R + 12.5, -H, 0, -1)}></path>
+          <text x={R + 11} y={-H / 2} text-anchor="middle" transform={`rotate(-90 ${R + 11} ${-H / 2})`}>{H}</text>
+        </g>
+        <!-- 14, left -->
+        <g class="dwg-dim">
+          <path d={`M${-R - 1.6} 0H${-R - 11}M${-R - 1.6} ${-B}H${-R - 11}M${-R - 9.5} 0V${-B}`}></path>
+          <path class="dwg-head" d={arrow(-R - 9.5, 0, 0, 1) + arrow(-R - 9.5, -B, 0, -1)}></path>
+          <text x={-R - 11} y={-B / 2} text-anchor="middle" transform={`rotate(-90 ${-R - 11} ${-B / 2})`}>{B}</text>
+        </g>
+      </svg>
+      <p class="drawing__label"><span>Front</span> <span class="readout">halo gap {D.haloGap} mm</span></p>
+    </div>
+
+    <div class="drawing__view">
+      <svg viewBox="-54 -46 108 92" role="img" aria-labelledby="dwg-top-t dwg-top-d" class="dwg">
+        <title id="dwg-top-t">Top view of Detent One</title>
+        <desc id="dwg-top-d">
+          Concentric circles: base {D.baseDia} millimeters, knob {D.knobDia} millimeters, round display {fmt(D.displayDia)}
+          millimeters, with the indicator line at twelve o'clock.
+        </desc>
+        <line class="dwg-center" x1="-44" y1="0" x2="44" y2="0"></line>
+        <line class="dwg-center" x1="0" y1="-44" x2="0" y2="44"></line>
+        <circle class="dwg-solid" pathLength="1" r={R}></circle>
+        <circle class="dwg-solid" pathLength="1" r={r}></circle>
+        <circle class="dwg-thin" r={r - c}></circle>
+        <path class="dwg-hair" d={knurlTicks}></path>
+        <circle class="dwg-face" r={rd}></circle>
+        <line class="dwg-indicator" x1="0" y1={-(rd + 3.4)} x2="0" y2={-(r - c - 2.4)}></line>
+
+        <g class="dwg-dim">
+          <path d={l72.line}></path><path class="dwg-head" d={l72.head}></path>
+          <text x={l72.tx} y={l72.ty - 1.4}>Ø{D.baseDia}</text>
+        </g>
+        <g class="dwg-dim">
+          <path d={l58.line}></path><path class="dwg-head" d={l58.head}></path>
+          <text x={l58.tx} y={l58.ty - 1.4} text-anchor="end">Ø{D.knobDia}</text>
+        </g>
+        <g class="dwg-dim">
+          <path d={lDisp.line}></path><path class="dwg-head" d={lDisp.head}></path>
+          <text x={lDisp.tx} y={lDisp.ty + 4.6}>Ø{fmt(D.displayDia)}</text>
+        </g>
+      </svg>
+      <p class="drawing__label"><span>Top</span> <span class="readout">{D.knurlLines}-line knurl</span></p>
+    </div>
+  </div>
+
+  <dl class="drawing__block" id="drawing-caption">
+    <div class="drawing__cell drawing__cell--part">
+      <dt>Part</dt>
+      <dd>{SITE.product}</dd>
+    </div>
+    <div class="drawing__cell"><dt>No.</dt><dd class="readout">{one.sku}</dd></div>
+    <div class="drawing__cell"><dt>Material</dt><dd class="readout">{material}</dd></div>
+    <div class="drawing__cell"><dt>Mass</dt><dd class="readout">{D.weightG} g</dd></div>
+    <div class="drawing__cell"><dt>Units</dt><dd class="readout">mm</dd></div>
+    <div class="drawing__cell drawing__cell--scale">
+      <dt>Scale</dt>
+      <dd><slot name="scale"><span class="readout">fit to screen</span></slot></dd>
+    </div>
+  </dl>
+</figure>
+
+<style>
+  .drawing {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-s);
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .drawing__views {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 0;
+  }
+  .drawing__view {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: clamp(0.5rem, 0.2rem + 1.5vw, 1.75rem);
+    min-inline-size: 0;
+  }
+  .drawing__view + .drawing__view {
+    border-inline-start: 1px solid var(--line);
+  }
+  .drawing__label {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+    font-size: var(--step--1);
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    padding-block-start: var(--space-xs);
+  }
+  .drawing__label .readout {
+    color: var(--ink-muted);
+    font-weight: 400;
+    font-size: var(--step--2);
+  }
+
+  .dwg {
+    inline-size: 100%;
+    block-size: auto;
+    color: var(--ink-strong);
+    overflow: visible;
+  }
+  .dwg * {
+    vector-effect: non-scaling-stroke;
+  }
+  /* Outlines scale with the drawing (not non-scaling) so pathLength-based
+     dashes can plot them in, like a pen plotter, on first paint. */
+  .dwg .dwg-solid {
+    vector-effect: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 0.36;
+    stroke-linejoin: round;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .dwg .dwg-solid {
+      stroke-dasharray: 1;
+      animation: dwg-plot 1.6s var(--ease-in-out) both;
+    }
+    .dwg-dim,
+    .dwg-hair,
+    .dwg-thin,
+    .dwg-face,
+    .dwg-indicator,
+    .dwg-halo {
+      animation: dwg-fade var(--dur-4) var(--ease-out) 1.1s both;
+    }
+    @keyframes dwg-plot {
+      from {
+        stroke-dashoffset: 1;
+      }
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes dwg-fade {
+      from {
+        opacity: 0;
+      }
+    }
+  }
+  .dwg-thin {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 0.8;
+  }
+  .dwg-hair {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 0.6;
+  }
+  .dwg-center {
+    stroke: var(--ink-faint);
+    stroke-width: 0.7;
+    stroke-dasharray: 14 3 2 3;
+  }
+  .dwg-face {
+    fill: var(--surface);
+    stroke: currentColor;
+    stroke-width: 0.8;
+  }
+  .dwg-halo {
+    stroke: var(--ink-muted);
+    stroke-width: 1;
+  }
+  .dwg-indicator {
+    stroke: var(--tally);
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+  .dwg-dim path {
+    fill: none;
+    stroke: var(--ink-muted);
+    stroke-width: 0.75;
+  }
+  .dwg-dim .dwg-head {
+    fill: var(--ink-muted);
+    stroke: none;
+  }
+  .dwg-dim text {
+    fill: var(--ink-strong);
+    font-family: var(--font-mono);
+    font-size: 3.4px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .drawing__block {
+    display: grid;
+    grid-template-columns: 2fr repeat(4, minmax(0, 1fr)) minmax(0, 1.5fr);
+    border-top: 1px solid var(--line-strong);
+  }
+  .drawing__cell {
+    display: grid;
+    gap: 0.15rem;
+    align-content: start;
+    padding: var(--space-xs) var(--space-s);
+    min-inline-size: 0;
+  }
+  .drawing__cell + .drawing__cell {
+    border-inline-start: 1px solid var(--line);
+  }
+  .drawing__cell dt {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .drawing__cell dd {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    overflow-wrap: anywhere;
+  }
+  .drawing__cell dd.readout {
+    font-weight: 450;
+  }
+  .drawing__cell--part dd {
+    font-size: var(--step-1);
+    font-weight: 760;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+  }
+
+  @media (max-width: 56rem) {
+    .drawing__views {
+      grid-template-columns: 1fr;
+    }
+    .drawing__view + .drawing__view {
+      border-inline-start: 0;
+      border-top: 1px solid var(--line);
+    }
+    .drawing__block {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .drawing__cell--part {
+      grid-column: 1 / -1;
+    }
+    .drawing__cell--scale {
+      grid-column: span 2;
+    }
+    .drawing__cell + .drawing__cell {
+      border-inline-start: 0;
+    }
+    .drawing__cell {
+      border-top: 1px solid var(--line);
+    }
+    .drawing__cell--part {
+      border-top: 0;
+    }
+    .dwg-dim text {
+      font-size: 4.4px;
+    }
+  }
+</style>

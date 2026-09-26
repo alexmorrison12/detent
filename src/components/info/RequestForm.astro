@@ -1,0 +1,188 @@
+---
+/**
+ * "Request an integration". Demo: nothing is sent; requests are stored in
+ * this browser (localStorage, detent:integration-requests) and the page says
+ * so in a .concept-note.
+ */
+import ProfileTag from './ProfileTag.astro';
+import { PROFILES } from '@/data/product';
+import { url } from '@/lib/url';
+---
+
+<form class="req" data-request novalidate>
+  <div class="req__fields">
+    <div class="field">
+      <label for="req-app">Which app?</label>
+      <input id="req-app" name="app" class="input" type="text" required maxlength="60" autocomplete="off" placeholder="Reaper, Houdini, Obsidian…" aria-describedby="req-app-err" />
+      <p class="req__err" id="req-app-err" data-err="app" hidden>Name the app you want the dial in.</p>
+    </div>
+    <div class="field">
+      <label for="req-does">What should the dial do there?</label>
+      <textarea id="req-does" name="does" class="input req__area" required maxlength="280" rows="3" placeholder="Scrub the timeline, stop dead at 0 dB, snap to every marker…" aria-describedby="req-does-help req-does-err"></textarea>
+      <p class="req__help" id="req-does-help"><span data-left>280</span> characters left. Concrete beats clever: say what you turn and where it should stop.</p>
+      <p class="req__err" id="req-does-err" data-err="does" hidden>Tell us what turning it should change.</p>
+    </div>
+    <fieldset class="req__feel">
+      <legend>Which feel fits? <span class="req__opt">Optional</span></legend>
+      <div class="req__chips">
+        <label class="chip"><input type="radio" name="feel" value="" checked /> Not sure</label>
+        {
+          PROFILES.map((p) => (
+            <label class="chip">
+              <input type="radio" name="feel" value={p.id} />
+              <ProfileTag profile={p.id} />
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+  </div>
+  <div class="req__submit">
+    <button type="submit" class="btn btn--solid">File the request</button>
+    <p class="concept-note">
+      Concept demo: nothing is sent anywhere. Your request is saved in this browser only, and you can see or clear it on the <a href={url('/legal/privacy/')}>privacy page</a>.
+    </p>
+  </div>
+  <div class="req__done" role="status" aria-live="polite" data-done></div>
+</form>
+
+<script>
+  import { read, write } from '@/lib/storage';
+  import { track } from '@/lib/analytics';
+
+  interface Req {
+    app: string;
+    does: string;
+    feel: string;
+    at: number;
+  }
+
+  document.querySelectorAll<HTMLFormElement>('[data-request]').forEach((form) => {
+    const does = form.elements.namedItem('does') as HTMLTextAreaElement;
+    const left = form.querySelector<HTMLElement>('[data-left]');
+    const done = form.querySelector<HTMLElement>('[data-done]')!;
+    does.addEventListener('input', () => {
+      if (left) left.textContent = String(280 - does.value.length);
+    });
+
+    const setErr = (name: string, on: boolean) => {
+      const input = form.elements.namedItem(name) as HTMLInputElement;
+      input.setAttribute('aria-invalid', String(on));
+      const err = form.querySelector<HTMLElement>(`[data-err="${name}"]`);
+      if (err) err.hidden = !on;
+    };
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const app = String(fd.get('app') ?? '').trim();
+      const text = String(fd.get('does') ?? '').trim();
+      const feel = String(fd.get('feel') ?? '');
+      setErr('app', !app);
+      setErr('does', !text);
+      if (!app || !text) {
+        (form.elements.namedItem(!app ? 'app' : 'does') as HTMLElement).focus();
+        return;
+      }
+      const list = read<Req[]>('integration-requests', []);
+      list.push({ app: app.slice(0, 60), does: text.slice(0, 280), feel, at: Date.now() });
+      write('integration-requests', list.slice(-20));
+      track('integration_request', { app: app.slice(0, 60), feel });
+      done.textContent = `Filed: ${app}. It is saved in this browser (${list.length} request${list.length === 1 ? '' : 's'} so far). In a live launch it would go to the public integrations board, where the most-asked-for apps get built first.`;
+      form.reset();
+      if (left) left.textContent = '280';
+    });
+  });
+</script>
+
+<style>
+  .req {
+    display: grid;
+    gap: var(--space-l);
+  }
+  .req__fields {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .req__area {
+    resize: vertical;
+    min-block-size: 6.5rem;
+    line-height: 1.5;
+  }
+  .req__help {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .req__err {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--accent-text);
+  }
+  .req__feel {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  .req__feel legend {
+    font-size: var(--step--1);
+    font-weight: 600;
+    margin-block-end: var(--space-2xs);
+    padding: 0;
+  }
+  .req__opt {
+    font-weight: 400;
+    color: var(--ink-muted);
+    margin-inline-start: 0.35em;
+  }
+  .req__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-block-size: 2.75rem;
+    padding: 0.35rem 0.95rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    cursor: pointer;
+  }
+  .chip input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .chip:has(input:checked) {
+    background: var(--ink-strong);
+    border-color: var(--ink-strong);
+    color: var(--bg);
+  }
+  .chip:has(input:checked) :global(.profile-tag) {
+    color: var(--bg);
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .req__submit {
+    display: grid;
+    gap: var(--space-xs);
+    justify-items: start;
+  }
+  .req__done:not(:empty) {
+    padding: var(--space-s) var(--space-m);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+    color: var(--ink-strong);
+    max-inline-size: 60ch;
+  }
+</style>

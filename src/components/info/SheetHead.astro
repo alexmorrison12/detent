@@ -1,0 +1,87 @@
+---
+/**
+ * Top of every info page: the page title (h1) set large on the left, the lede
+ * opposite it, and a single datasheet rule above them with one live fact from
+ * the data (a count, a date). Pages add their own art under it.
+ */
+interface Props {
+  title: string;
+  /** What the page is, in plain words, for the rule line. */
+  sheet: string;
+  /** One data-derived fact for the right side of the rule. */
+  fact?: string;
+  lede?: string;
+  size?: 'l' | 'xl';
+  class?: string;
+}
+const { title, sheet, fact, lede, size = 'l', class: className } = Astro.props;
+---
+
+<header class:list={['sheet-head container', className]}>
+  <div class="sheet-head__rule">
+    <span class="sheet-head__sheet">{sheet}</span>
+    {fact && <span class="sheet-head__fact readout">{fact}</span>}
+  </div>
+  <div class="sheet-head__body">
+    <h1 class:list={['display', `display--${size}`, 'sheet-head__title']} set:html={title} />
+    {
+      (lede || Astro.slots.has('default')) && (
+        <div class="sheet-head__side">
+          {lede && <p class="lede">{lede}</p>}
+          <slot />
+        </div>
+      )
+    }
+  </div>
+</header>
+
+<style>
+  .sheet-head {
+    padding-block: clamp(2rem, 1rem + 4vw, 4.5rem) clamp(2rem, 1rem + 3vw, 3.5rem);
+  }
+  .sheet-head__rule {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.2rem var(--space-s);
+    padding-block-end: var(--space-xs);
+    margin-block-end: clamp(1.5rem, 1rem + 2.5vw, 3rem);
+    border-bottom: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+  }
+  .sheet-head__sheet {
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .sheet-head__fact {
+    color: var(--ink-muted);
+    text-align: end;
+  }
+  .sheet-head__body {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: end;
+  }
+  .sheet-head__title {
+    max-inline-size: 14ch;
+  }
+  .sheet-head__side {
+    display: grid;
+    gap: var(--space-m);
+    padding-block-end: 0.35em;
+  }
+  @media (max-width: 56rem) {
+    .sheet-head__body {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 30rem) {
+    .sheet-head__fact {
+      text-align: start;
+      font-size: var(--step--2);
+    }
+  }
+</style>

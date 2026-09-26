@@ -1,0 +1,165 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import SheetHead from '@/components/info/SheetHead.astro';
+import IntegrationDirectory from '@/components/info/IntegrationDirectory.astro';
+import CodePane from '@/components/info/CodePane.astro';
+import RequestForm from '@/components/info/RequestForm.astro';
+import { SITE } from '@/config/site';
+import { ogPath } from '@/config/og';
+import { INTEGRATIONS, byProfile } from '@/data/product';
+import { SDK_SAMPLE } from '@/data/directory';
+import { specValue } from '@/data/engineering';
+import { absoluteUrl } from '@/lib/url';
+
+const by = (s: string) => INTEGRATIONS.filter((i) => i.status === s).length;
+const jsonBytes = new TextEncoder().encode(SDK_SAMPLE.json.replace(/\s+/g, '')).length;
+const sdk = specValue('Software', 'SDK');
+const firmware = specValue('Software', 'Firmware');
+const license = firmware.match(/\(([^)]+)\)/)?.[1] ?? 'Apache-2.0';
+
+const examples = [...new Set(INTEGRATIONS.map((i) => i.category))]
+  .filter((c) => c !== 'System')
+  .map((c) => INTEGRATIONS.find((i) => i.category === c)!.name)
+  .slice(0, 5);
+const description = `${SITE.product} works with ${INTEGRATIONS.length} apps out of the box, including ${examples.slice(0, -1).join(', ')} and ${examples.at(-1)}. See exactly what the dial does in each, and which feel it uses.`;
+
+const listLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: `${SITE.product} integrations`,
+  url: absoluteUrl('/integrations/', Astro.site),
+  numberOfItems: INTEGRATIONS.length,
+  itemListElement: INTEGRATIONS.map((i, n) => ({
+    '@type': 'ListItem',
+    position: n + 1,
+    name: `${SITE.product} in ${i.name}`,
+    description: `${i.does} Default feel: ${byProfile(i.profile).name}. Status: ${i.status}.`,
+  })),
+};
+---
+
+<BaseLayout
+  title="Integrations"
+  description={description}
+  world="day"
+  ogImage={ogPath('integrations')}
+  ogImageAlt="Detent integrations: it knows which app you are in"
+  jsonLd={listLd}
+>
+  <SheetHead
+    title="It knows which app you’re in."
+    sheet="Integrations"
+    fact={`${by('native')} native · ${by('plugin')} plugin · ${by('community')} community`}
+    lede="Detent Studio watches which window is in front and swaps the feel in about a millisecond. Pick an app and feel its profile on the dial. Anything not listed still gets scroll, volume and undo."
+  />
+
+  <section class="container dir-section" aria-label="Integration directory">
+    <IntegrationDirectory />
+  </section>
+
+  <section class="sdk" data-world="night" id="sdk" aria-labelledby="sdk-h">
+    <div class="container section">
+      <div class="sdk__head">
+        <h2 id="sdk-h" class="display display--m">Not on the list? That’s an evening.</h2>
+        <div class="sdk__side">
+          <p class="lede">
+            Profiles are written with the open SDK. The feel runs on the dial; your code runs in Detent Studio and only sends it positions. This one
+            snaps through a code review in VS Code.
+          </p>
+          <dl class="sdk__facts">
+            <div><dt>License</dt><dd class="readout">{license}</dd></div>
+            <div><dt>Languages</dt><dd>{sdk.match(/\(([^)]+)\)/)?.[1] ?? 'TypeScript and Rust'}</dd></div>
+            <div><dt>On the dial</dt><dd><span class="readout">{jsonBytes}</span> bytes of JSON</dd></div>
+          </dl>
+          <a class="link-arrow" href={SITE.social.github} rel="noopener" data-track="sdk_github">Read the SDK on GitHub</a>
+        </div>
+      </div>
+      <div class="sdk__code">
+        <CodePane code={SDK_SAMPLE.code} lang="ts" file={SDK_SAMPLE.file} note="Runs in Detent Studio" />
+        <CodePane code={SDK_SAMPLE.json} lang="json" file={SDK_SAMPLE.jsonFile} note="Stored on the dial" />
+      </div>
+    </div>
+  </section>
+
+  <section class="container section request" id="request" aria-labelledby="request-h">
+    <div class="request__head">
+      <h2 id="request-h" class="display display--m">Request an integration.</h2>
+      <p class="lede">Name the app and say what turning should do there. The most-asked-for apps get built first, by us or by someone with the SDK and a free evening.</p>
+    </div>
+    <RequestForm />
+  </section>
+
+  <section class="container closing" aria-labelledby="int-closing-h">
+    <h2 id="int-closing-h" class="display display--s">Your apps, your hands, one knob.</h2>
+    <PhaseCTA placement="integrations-closing" size="lg" />
+  </section>
+</BaseLayout>
+
+<style>
+  .dir-section {
+    padding-block-end: var(--section-y);
+  }
+  .sdk__head {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: end;
+    margin-block-end: var(--space-2xl);
+  }
+  .sdk__side {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+  }
+  .sdk__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s) var(--space-xl);
+  }
+  .sdk__facts dt {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .sdk__facts dd {
+    font-weight: 600;
+    color: var(--ink-strong);
+  }
+  .sdk__code {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: var(--space-m);
+    align-items: start;
+  }
+  .request {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: start;
+  }
+  .request__head {
+    display: grid;
+    gap: var(--space-s);
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-l));
+  }
+  .closing {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-l);
+    padding-block: var(--space-2xl) var(--section-y);
+    border-top: 1px solid var(--line-strong);
+  }
+  @media (max-width: 60rem) {
+    .sdk__head,
+    .sdk__code,
+    .request {
+      grid-template-columns: 1fr;
+    }
+    .request__head {
+      position: static;
+    }
+  }
+</style>

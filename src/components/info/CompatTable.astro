@@ -1,0 +1,141 @@
+---
+/** Compatibility matrix: features down, platforms across. Text, never icons alone. */
+import { COMPATIBILITY, PLATFORMS, type Support } from '@/data/engineering';
+
+const word: Record<Support, string> = { yes: 'Yes', partial: 'Partly', no: 'No' };
+---
+
+<div class="compat" tabindex="0" role="region" aria-labelledby="compat-cap">
+  <table>
+    <caption id="compat-cap" class="visually-hidden">What works on each platform</caption>
+    <thead>
+      <tr>
+        <th scope="col"><span class="visually-hidden">Feature</span></th>
+        {PLATFORMS.map((p) => <th scope="col">{p}</th>)}
+      </tr>
+    </thead>
+    <tbody>
+      {
+        COMPATIBILITY.map((row) => (
+          <tr>
+            <th scope="row">{row.feature}</th>
+            {row.cells.map((cell, i) => (
+              <td data-s={cell.s} data-label={PLATFORMS[i]}>
+                <span class="compat__mark" aria-hidden="true" />
+                <span class="compat__word">{word[cell.s]}</span>
+                {cell.note && <span class="compat__note">{cell.note}</span>}
+              </td>
+            ))}
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .compat {
+    overflow-x: auto;
+  }
+  table {
+    inline-size: 100%;
+    min-inline-size: 44rem;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  th,
+  td {
+    text-align: start;
+    vertical-align: top;
+    padding: 0.9rem var(--space-s) 0.9rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  thead th {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  thead th:first-child {
+    inline-size: 28%;
+  }
+  tbody th {
+    font-weight: 560;
+    color: var(--ink);
+    padding-inline-end: var(--space-l);
+  }
+  td {
+    display: table-cell;
+    font-size: var(--step--1);
+  }
+  .compat__mark {
+    display: inline-block;
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    margin-inline-end: 0.45rem;
+    border: 1.5px solid var(--ink-strong);
+    vertical-align: 0.05em;
+  }
+  td[data-s='yes'] .compat__mark {
+    background: var(--ink-strong);
+  }
+  td[data-s='partial'] .compat__mark {
+    background: linear-gradient(90deg, var(--ink-strong) 50%, transparent 50%);
+  }
+  td[data-s='no'] .compat__mark {
+    border-color: var(--ink-faint);
+  }
+  .compat__word {
+    font-weight: 620;
+    color: var(--ink-strong);
+  }
+  td[data-s='no'] .compat__word {
+    color: var(--ink-muted);
+  }
+  .compat__note {
+    display: block;
+    color: var(--ink-muted);
+    margin-block-start: 0.15rem;
+    padding-inline-start: 1.05rem;
+  }
+  @media (max-width: 40rem) {
+    table {
+      min-inline-size: 0;
+      table-layout: auto;
+    }
+    thead {
+      position: absolute;
+      clip-path: inset(50%);
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+    }
+    tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-xs) var(--space-s);
+      padding-block: var(--space-s);
+      border-bottom: 1px solid var(--line);
+    }
+    tbody th {
+      grid-column: 1 / -1;
+      padding: 0;
+      border: 0;
+      color: var(--ink-strong);
+      font-weight: 650;
+    }
+    td {
+      display: block;
+      padding: 0;
+      border: 0;
+    }
+    td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: var(--step--2);
+      color: var(--ink-muted);
+      margin-block-end: 0.1rem;
+    }
+  }
+</style>
