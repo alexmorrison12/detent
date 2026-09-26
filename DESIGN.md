@@ -60,7 +60,7 @@ Strategy: **Committed accent on neutral worlds**, plus a **Full palette of feel 
 ## Components (shared, in `src/components/`)
 
 - `BaseLayout` (world, chrome, SEO, JSON-LD, phase script, speculation rules)
-- `SiteHeader` (announcement with a phone-length status, nav, sound toggle, cart, phase CTA, mobile menu), `SiteFooter`. The mobile menu is a `<dialog>`: a popover without JS, a modal with it (page inert, focus on Close, back to Menu). At ≤ 30rem the sound toggle moves into the menu so wordmark, cart, CTA and Menu fit at 320px; below 23rem the mark alone is the home link.
+- `SiteHeader` (announcement bar, an `<aside aria-label="Announcement">` with a phone-length status, nav, sound toggle, cart, phase CTA, mobile menu), `SiteFooter`. The mobile menu is a `<dialog>`: a popover without JS, a modal with it (page inert, focus on Close, back to Menu). At ≤ 30rem the sound toggle moves into the menu so wordmark, cart, CTA and Menu fit at 320px; below 23rem the mark alone is the home link.
 - `PhaseCTA`: the only way to render the main buy/reserve/join action. `query` carries context to the landing page (e.g. `segment=music&feel=wall` from an audience page); `returning` lets the chrome point visitors who already joined or reserved at their pass or reservation.
 - `dial/DialStage` (interactive or display dial), `dial/DialStill` (static image)
 - `.btn` `.btn--primary|solid|quiet` `.btn--sm|lg`, `.link-arrow`, `.field` + `.input`, `.readout`, `.lede`, `.concept-note`

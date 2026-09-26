@@ -165,7 +165,11 @@ const speculationRules = {
     <slot name="end" />
     <script>
       import { initAutoTrack } from '@/lib/analytics';
+      import { captureRef } from '@/lib/waitlist';
       initAutoTrack();
+      // A friend's ?ref= can land on any page (home, /for/*, a profile link), not
+      // only a lander: keep it so the join or reservation that follows credits them.
+      captureRef();
     </script>
   </body>
 </html>
