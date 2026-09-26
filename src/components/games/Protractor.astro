@@ -1,0 +1,132 @@
+---
+/**
+ * A Detent One sitting on a degree scale, for reading where a feel does
+ * things: stops, snaps, the deep click at noon. The pointer follows the knob
+ * (driven by <daily-detent>). Labels stay upright; 0° is noon.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+
+interface Props {
+  id?: string;
+}
+const { id = 'daily-dial' } = Astro.props;
+
+const ticks = Array.from({ length: 72 }, (_, i) => {
+  const deg = i * 5;
+  const major = deg % 30 === 0;
+  return {
+    deg,
+    len: major ? 18 : deg % 15 === 0 ? 11 : 6,
+    cls: major ? 'pt__tick pt__tick--major' : 'pt__tick',
+  };
+});
+const labels = Array.from({ length: 12 }, (_, i) => {
+  const deg = i * 30;
+  const signed = deg > 180 ? deg - 360 : deg;
+  const a = (deg * Math.PI) / 180;
+  const r = 280;
+  return {
+    x: +(r * Math.sin(a)).toFixed(1),
+    y: +(-r * Math.cos(a)).toFixed(1),
+    text:
+      signed === 0
+        ? '0°'
+        : signed === 180
+          ? '180°'
+          : `${signed > 0 ? '+' : '−'}${Math.abs(signed)}`,
+  };
+});
+---
+
+<div class="pt">
+  <svg class="pt__face" viewBox="-300 -300 600 600" aria-hidden="true">
+    <circle r="252" class="pt__rim"></circle>
+    {ticks.map((t) => (
+      <line
+        class={t.cls}
+        x1="0"
+        y1="-252"
+        x2="0"
+        y2={-252 - t.len}
+        transform={`rotate(${t.deg})`}
+      />
+    ))}
+    {labels.map((l) => (
+      <text class="pt__label" x={l.x} y={l.y} text-anchor="middle" dominant-baseline="central">
+        {l.text}
+      </text>
+    ))}
+    <g class="pt__pointer" data-pointer>
+      <line x1="0" y1="-236" x2="0" y2="-212"></line>
+      <circle cx="0" cy="-244" r="5"></circle>
+    </g>
+  </svg>
+  <div class="pt__knob" data-feel-custom>
+    <DialStage
+      id={id}
+      interactive
+      camera="top"
+      finish="graphite"
+      profile="ratchet"
+      label="Today’s hidden feel"
+      display="?"
+    />
+  </div>
+</div>
+
+<style>
+  .pt {
+    position: relative;
+    inline-size: 100%;
+    aspect-ratio: 1;
+  }
+  .pt__face {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .pt__rim {
+    fill: var(--bg-raised);
+    stroke: var(--line-strong);
+    stroke-width: 1.2;
+  }
+  .pt__tick {
+    stroke: var(--ink-faint);
+    stroke-width: 1.4;
+  }
+  .pt__tick--major {
+    stroke: var(--ink-strong);
+    stroke-width: 2.4;
+  }
+  .pt__label {
+    fill: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: 15px;
+    letter-spacing: 0.02em;
+  }
+  .pt__pointer line {
+    stroke: var(--accent);
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+  .pt__pointer circle {
+    fill: var(--accent);
+  }
+  .pt__knob {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    inline-size: 70%;
+    block-size: 70%;
+  }
+  .pt__knob :global(detent-dial) {
+    border-radius: 50%;
+  }
+  .pt__knob :global(detent-dial:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 6px;
+  }
+</style>

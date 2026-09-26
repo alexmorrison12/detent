@@ -1,0 +1,65 @@
+---
+/**
+ * The trace strip: a canvas the game scripts draw bars into (see
+ * src/scripts/games/trace.ts), plus a label and a live reading word.
+ * The reading word is the text equivalent of the bars.
+ */
+interface Props {
+  label: string;
+  /** Initial reading shown before the first turn. */
+  reading?: string;
+  /** Visible description under the strip. */
+  caption?: string;
+  class?: string;
+}
+const { label, reading = 'Quiet', caption, class: className } = Astro.props;
+---
+
+<figure class:list={['trace', className]}>
+  <div class="trace__head">
+    <figcaption class="trace__label">{label}</figcaption>
+    <p class="trace__reading readout" data-trace-word>
+      {reading}
+    </p>
+  </div>
+  <canvas class="trace__canvas" data-trace width="560" height="96" aria-hidden="true"></canvas>
+  {caption && <p class="trace__caption">{caption}</p>}
+</figure>
+
+<style>
+  .trace {
+    --trace-ink: var(--ink-faint);
+    --trace-strong: var(--ink-strong);
+    --trace-signal: var(--accent);
+    --trace-rule: var(--line);
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .trace__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+  }
+  .trace__label {
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink);
+  }
+  .trace__reading {
+    color: var(--ink-strong);
+    min-inline-size: 5ch;
+    text-align: end;
+  }
+  .trace__canvas {
+    inline-size: 100%;
+    block-size: 5.5rem;
+    border-radius: var(--r-s);
+    background: var(--bg-raised);
+  }
+  .trace__caption {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+</style>

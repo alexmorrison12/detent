@@ -21,6 +21,7 @@ import { url, absoluteUrl } from '@/lib/url';
 import SiteHeader from '@/components/SiteHeader.astro';
 import SiteFooter from '@/components/SiteFooter.astro';
 import CartDrawer from '@/components/CartDrawer.astro';
+import Achievements from '@/components/Achievements.astro';
 
 type JsonLd = Record<string, unknown>;
 
@@ -159,6 +160,7 @@ const speculationRules = {
     </main>
     {chrome !== 'none' && <SiteFooter chrome={chrome === 'minimal' ? 'minimal' : 'full'} />}
     {chrome === 'full' && <CartDrawer />}
+    {chrome !== 'none' && <Achievements />}
     <slot name="end" />
     <script>
       import { initAutoTrack } from '@/lib/analytics';

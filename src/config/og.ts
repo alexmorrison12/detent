@@ -14,6 +14,7 @@ export const OG_PAGES = {
   press: { title: 'Press kit.', kicker: 'Detent Labs' },
   changelog: { title: 'What changed.', kicker: 'Changelog' },
   crack: { title: 'Crack the safe.', kicker: 'A daily challenge by feel' },
+  daily: { title: 'Name that feel.', kicker: 'Daily Detent' },
   'launch-plan': { title: 'The launch plan.', kicker: 'Detent One' },
   tease: { title: 'Something you can feel.', kicker: '10.20' },
   waitlist: { title: 'Get in line. Move up.', kicker: 'Detent One waitlist' },
