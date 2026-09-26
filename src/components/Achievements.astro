@@ -5,11 +5,12 @@
  * found and hints for what isn't. Logic lives in @/lib/achievements.
  *
  * Nothing renders until something is found, and nothing covers a call to
- * action: the toast drops in under the sticky header (or moves to the bottom
- * edge when a button sits there), and the dock steps aside while a button
- * scrolls under it. All of it lives in one labelled landmark, which stays
- * hidden until there is something in it; the live region sits outside it so
- * the very first find is still announced.
+ * action or the knob someone is turning: the toast drops in under the sticky
+ * header (or moves to the bottom edge when a button or a knob sits there),
+ * and the dock steps aside while a button scrolls under it. All of it lives
+ * in one labelled landmark, which stays hidden until there is something in
+ * it; the live region sits outside it so the very first find is still
+ * announced.
  */
 import { ACHIEVEMENTS } from '@/lib/achievements';
 
@@ -254,31 +255,63 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     clearDock();
   }
 
-  /* ---- Keep clear of calls to action ------------------------------------- */
+  /* ---- Keep clear of calls to action and knobs --------------------------- */
   // Buttons, and the bars docked to the bottom edge while they show.
   const CTA = '.btn, [data-sticky-cta][data-visible], [data-summary-bar][data-visible]';
+  // Dials people turn. Most finds arrive mid-turn, so the knob is under their hand.
+  const DIAL = 'detent-dial[interactive]';
+  // The knob, give or take its halo, is a circle about 80% as wide as the dial's box
+  // (the rest is stage). The box's corners are empty, so only the circle counts.
+  const KNOB = 0.4;
   const onScreen = (el: Element) =>
     typeof el.checkVisibility === 'function'
       ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true })
       : true;
 
-  /** Area (px²) of calls to action under a rect, counting a little breathing room. */
+  /** Area (px²) of a rect inside a circle, summed in thin vertical slices. */
+  function inCircle(r: DOMRect, cx: number, cy: number, k: number): number {
+    const x0 = Math.max(r.left, cx - k);
+    const x1 = Math.min(r.right, cx + k);
+    if (x1 <= x0 || r.top >= cy + k || r.bottom <= cy - k) return 0;
+    const n = 12;
+    const dx = (x1 - x0) / n;
+    let area = 0;
+    for (let i = 0; i < n; i++) {
+      const x = x0 + (i + 0.5) * dx - cx;
+      const h = Math.sqrt(Math.max(0, k * k - x * x));
+      area += Math.max(0, Math.min(r.bottom, cy + h) - Math.max(r.top, cy - h)) * dx;
+    }
+    return area;
+  }
+
+  /**
+   * Area (px²) the rect covers of calls to action (counting a little
+   * breathing room) and of knobs (their face only). The header's own CTA
+   * doesn't count: the toast always sits below the header, and the compact
+   * banner's gap is tighter than the breathing room.
+   */
   function covered(r: DOMRect, pad: number): number {
     let area = 0;
     document.querySelectorAll(CTA).forEach((el) => {
-      if (root?.contains(el)) return;
+      if (root?.contains(el) || header?.contains(el)) return;
       const c = el.getBoundingClientRect();
       const w = Math.min(r.right + pad, c.right) - Math.max(r.left - pad, c.left);
       const h = Math.min(r.bottom + pad, c.bottom) - Math.max(r.top - pad, c.top);
       if (w > 0 && h > 0 && onScreen(el)) area += w * h;
+    });
+    document.querySelectorAll(DIAL).forEach((el) => {
+      const c = el.getBoundingClientRect();
+      const k = KNOB * Math.min(c.width, c.height);
+      const a = k > 0 ? inCircle(r, c.left + c.width / 2, c.top + c.height / 2, k) : 0;
+      if (a > 0 && onScreen(el)) area += a;
     });
     return area;
   }
 
   /**
    * The toast drops in just under the sticky header (its height changes as
-   * the announcement bar scrolls away). If a button is there, it takes the
-   * bottom edge instead, whichever of the two covers less.
+   * the announcement bar scrolls away). If a button or a knob is there, it
+   * takes the bottom edge instead, whichever of the two covers less.
    */
   function placeToast() {
     if (!toast || toast.hidden) return;
@@ -339,6 +372,9 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   });
 
   /* ---- Toasts: one at a time, ~6 s each, paused while hovered/focused ---- */
+  // Small or short screens get the compact banner (see the CSS) and a shorter stay.
+  const compact = matchMedia('(max-width: 40rem), (max-height: 30rem)');
+
   function next() {
     if (!toast || showing) return;
     const item = queue.shift();
@@ -363,7 +399,7 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     toast.hidden = false;
     toast.dataset.state = 'in';
     placeToast();
-    arm(matchMedia('(max-width: 40rem)').matches ? 4500 : 6500);
+    arm(compact.matches ? 4500 : 6500);
   }
 
   function arm(ms = 6500) {
@@ -838,18 +874,11 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     }
   }
 
-  /* Small screens: no resting dock (it would sit on content); toasts become a
-     compact full-width banner under the header (never over its CTA or Menu),
-     clear of game controls and thumb reach. */
-  @media (max-width: 40rem) {
-    .ach-dock {
-      display: none;
-    }
+  /* Small or short screens: the toast becomes a compact banner (name and the
+     log link, no line) tight under the header, never over its CTA or Menu. */
+  @media (max-width: 40rem), (max-height: 30rem) {
     .ach-toast {
       inset-block-start: calc(var(--ach-header, var(--header-h)) + var(--space-2xs));
-      inset-inline: max(var(--space-2xs), env(safe-area-inset-left))
-        max(var(--space-2xs), env(safe-area-inset-right));
-      inline-size: auto;
       align-items: center;
     }
     .ach-toast[data-slot='bottom'] {
@@ -861,7 +890,27 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     }
     .ach-toast__log {
       margin-block-start: 0;
-      min-block-size: 2.75rem;
+    }
+  }
+  /* Short and wide (a phone on its side): the dial fills the height, so the
+     banner stays in its corner, only as wide as its words. */
+  @media (max-height: 30rem) {
+    .ach-toast {
+      inline-size: auto;
+      max-inline-size: min(23rem, 100vw - 2 * var(--space-s));
+    }
+  }
+  /* Narrow: no resting dock (it would sit on content), and the banner runs
+     edge to edge, clear of game controls and thumb reach. */
+  @media (max-width: 40rem) {
+    .ach-dock {
+      display: none;
+    }
+    .ach-toast {
+      inset-inline: max(var(--space-2xs), env(safe-area-inset-left))
+        max(var(--space-2xs), env(safe-area-inset-right));
+      inline-size: auto;
+      max-inline-size: none;
     }
   }
 
