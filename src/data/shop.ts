@@ -148,4 +148,14 @@ export const shipRegion = (code: string) => SHIP_REGIONS.find((r) => r.code === 
 /* Referral (concept)                                                          */
 /* -------------------------------------------------------------------------- */
 
-export const REFERRAL = { giveUsd: 30, getUsd: 30 } as const;
+/**
+ * Buyers share their build link; it carries ?ref=CODE. Rewards are a feel,
+ * never a discount (docs/LAUNCH_PLAN.md: "Rewards are craft and identity,
+ * never discounts"; the launch price is the only price cut). The same
+ * profile the waitlist's first referral earns (RewardLadder).
+ */
+export const REFERRAL = {
+  profile: 'Referral Ratchet',
+  /** Reads after "the Referral Ratchet, with …". */
+  detail: 'a heavier click every fifth detent',
+} as const;

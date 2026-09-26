@@ -1,31 +1,39 @@
 ---
 /**
  * /shop/thanks/: demo order confirmation. What happens next (a real,
- * ordered timeline), the order recap, a concept referral ("Give $30, get
- * $30") and a share action. Personalized from the order checkout left in
- * sessionStorage; no personal details were stored.
+ * ordered timeline), the order recap and a concept referral (share your
+ * build; the reward is a feel, never a discount). Personalized from the
+ * order checkout left in sessionStorage; no personal details were stored.
+ *
+ * The hero never changes after first paint: an inline head script reads
+ * which kind of order is stored and sets <html data-ty>, and CSS shows the
+ * matching server-rendered copy. The module script only fills in details.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import DialStage from '@/components/dial/DialStage.astro';
 import { ogPath } from '@/config/og';
-import { LAUNCH, PHASES } from '@/config/launch';
-import { PAYMENT, formatUsd } from '@/data/product';
+import { LAUNCH } from '@/config/launch';
+import { PAYMENT, byEdition, formatUsd } from '@/data/product';
 import { REFERRAL } from '@/data/shop';
 import { url } from '@/lib/url';
 
-const launchDay = new Date(LAUNCH.launchDate).toLocaleDateString('en-US', {
-  month: 'long',
-  day: 'numeric',
-  timeZone: 'UTC',
-});
-const give = formatUsd(REFERRAL.giveUsd);
-const get = formatUsd(REFERRAL.getUsd);
+const one = byEdition('one');
+const deposit = formatUsd(LAUNCH.depositUsd);
+const balance = formatUsd(one.launchPriceUsd - LAUNCH.depositUsd);
 
 interface Step {
   when: string;
   title: string;
+  /** {deposit} and {balance} become spans the script fills from the order. */
   text: string;
+  /** Append the delivery window / the first feel (filled by the script). */
+  transit?: boolean;
+  feel?: boolean;
 }
+const fill: Record<string, { attr: string; value: string }> = {
+  '{deposit}': { attr: 'data-ty-deposit', value: deposit },
+  '{balance}': { attr: 'data-ty-balance', value: balance },
+};
 const orderSteps: Step[] = [
   {
     when: 'Today',
@@ -37,11 +45,17 @@ const orderSteps: Step[] = [
     title: 'Machined, then tested',
     text: 'One email when your body comes off the mill, one when it passes its haptics test. That’s all the email you get.',
   },
-  { when: LAUNCH.firstShipBatch, title: 'Batch 1 ships', text: 'Tracked, insured and free.' },
+  {
+    when: LAUNCH.firstShipBatch,
+    title: 'Batch 1 ships',
+    text: 'Tracked, insured and free.',
+    transit: true,
+  },
   {
     when: 'Day one',
     title: 'It wakes up in your first feel',
     text: 'Plug it in and turn it. The other five feels are one press away.',
+    feel: true,
   },
   {
     when: `Day ${PAYMENT.trialDays}`,
@@ -61,15 +75,22 @@ const reservationSteps: Step[] = [
     text: 'Your deposit holds a place in line and locks the launch price. It is fully refundable until your batch ships. Nothing was charged in this demo.',
   },
   {
-    when: launchDay,
-    title: 'Orders open',
-    text: `${PHASES.launch.name}: we email you to complete the order, and the deposit comes off the price.`,
+    // Same promise as /l/reserve/, the FAQ and the launch plan: the balance
+    // is asked for when the batch is ready, never on launch day.
+    when: 'Before it ships',
+    title: 'We ask for the rest',
+    text: 'When your batch is ready we email a ship date and a link to pay the balance: {balance}, with your {deposit} already taken off. Or cancel, and the {deposit} comes back in full.',
   },
-  { when: LAUNCH.firstShipBatch, title: 'Batch 1 ships', text: 'Tracked, insured and free.' },
+  {
+    when: LAUNCH.firstShipBatch,
+    title: 'Batch 1 ships',
+    text: 'Tracked, insured and free, to the address you give us with the balance.',
+  },
   {
     when: 'Day one',
     title: 'It wakes up in your first feel',
     text: 'Plug it in and turn it. The other five feels are one press away.',
+    feel: true,
   },
   {
     when: `Day ${PAYMENT.trialDays}`,
@@ -88,19 +109,46 @@ const reservationSteps: Step[] = [
   hideHeaderCta
   noindex
 >
+  <!-- Before first paint: which confirmation is this? (order | reservation | empty) -->
+  <script is:inline slot="head">
+    (function () {
+      var state = 'empty';
+      try {
+        var o = JSON.parse(sessionStorage.getItem('detent:shop:last-order') || 'null');
+        if (o && o.id) state = o.kind === 'reservation' ? 'reservation' : 'order';
+      } catch (e) {}
+      document.documentElement.dataset.ty = state;
+    })();
+  </script>
   <div class="ty container">
     <section class="ty__hero" aria-labelledby="ty-title">
       <div class="ty__intro">
-        <p class="ty__id readout" data-ty-id hidden></p>
-        <h1 id="ty-title" class="display ty__title" data-ty-title>
-          Thanks. Here’s what happens next.
+        <p class="ty__id readout" data-ty-id data-ty-show="order reservation"></p>
+        <h1 id="ty-title" class="display ty__title">
+          <span data-ty-show="none">Thanks. Here’s what happens next.</span>
+          <span data-ty-show="order">Done. Now we machine it.</span>
+          <span data-ty-show="reservation">Reserved. You’re in line.</span>
+          <span data-ty-show="empty">Nothing to confirm yet.</span>
         </h1>
-        <p class="lede" data-ty-lede>
-          Your Detent ships with Batch 1 in {LAUNCH.firstShipBatch}.
+        <p class="lede">
+          <span data-ty-show="none">
+            Your Detent ships with Batch 1 in {LAUNCH.firstShipBatch}.
+          </span>
+          <span data-ty-show="order">
+            Your Detent ships with Batch 1 in {LAUNCH.firstShipBatch}. Here’s everything between now
+            and your desk.
+          </span>
+          <span data-ty-show="reservation">
+            Your place in Batch 1 is held, and the launch price with it. The deposit comes off the
+            price when your batch is ready.
+          </span>
+          <span data-ty-show="empty">
+            Orders you place in the demo checkout show up here, in this browser. Build one first.
+          </span>
         </p>
-        <p class="ty__concept" data-ty-concept>
-          <span class="ty__dot" aria-hidden="true"></span>Detent is a concept: this was a demo
-          order, and nothing was charged.
+        <p class="ty__concept" data-ty-show="none order reservation">
+          <span class="ty__dot" aria-hidden="true"></span>Detent is a concept: this was a demo, and
+          nothing was charged.
         </p>
       </div>
       <div class="ty__dial">
@@ -116,31 +164,39 @@ const reservationSteps: Step[] = [
       </div>
     </section>
 
-    <div class="ty__empty" data-ty-empty hidden>
+    <div class="ty__empty" data-ty-show="empty">
       <a class="btn btn--primary btn--lg" href={url('/shop/#configure')}>
         Build yours
       </a>
     </div>
 
-    <div class="ty__body" data-ty-body>
+    <div class="ty__body" data-ty-show="none order reservation">
       <section class="ty__next" aria-labelledby="ty-next-title">
         <h2 id="ty-next-title" class="ty__h2">
           What happens next
         </h2>
         {[
-          { kind: 'order', steps: orderSteps },
-          { kind: 'reservation', steps: reservationSteps },
-        ].map(({ kind, steps }) => (
-          <ol class="timeline" data-ty-timeline={kind} hidden={kind !== 'order'}>
+          { show: 'none order', steps: orderSteps },
+          { show: 'reservation', steps: reservationSteps },
+        ].map(({ show, steps }) => (
+          <ol class="timeline" data-ty-show={show}>
             {steps.map((s, i) => (
               <li class:list={['timeline__step', { 'timeline__step--now': i === 0 }]}>
                 <p class="timeline__when readout">{s.when}</p>
                 <div class="timeline__what">
                   <p class="timeline__title">{s.title}</p>
                   <p class="timeline__text">
-                    {s.text}
-                    {s.title === 'Batch 1 ships' && <span data-ty-transit />}
-                    {s.title.startsWith('It wakes up') && <span data-ty-feel />}
+                    {s.text
+                      .split(/(\{deposit\}|\{balance\})/)
+                      .map((part) =>
+                        fill[part] ? (
+                          <span {...{ [fill[part]!.attr]: '' }}>{fill[part]!.value}</span>
+                        ) : (
+                          part
+                        ),
+                      )}
+                    {s.transit && <span data-ty-transit />}
+                    {s.feel && <span data-ty-feel />}
                   </p>
                 </div>
               </li>
@@ -156,7 +212,7 @@ const reservationSteps: Step[] = [
           </h2>
           <ul role="list" class="ty__lines" data-ty-lines></ul>
           <dl class="ty__totals">
-            <div>
+            <div data-ty-show="none order">
               <dt>Shipping</dt>
               <dd>Free</dd>
             </div>
@@ -165,20 +221,6 @@ const reservationSteps: Step[] = [
               <dd class="readout" data-ty-total></dd>
             </div>
           </dl>
-          <button type="button" class="ty__share" data-ty-share-build hidden>
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path
-                d="M12 15V4m0 0L8 8m4-4 4 4M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              ></path>
-            </svg>
-            Share your build
-          </button>
-          <p class="ty__status" role="status" data-ty-build-status></p>
         </section>
 
         <section
@@ -189,15 +231,18 @@ const reservationSteps: Step[] = [
           hidden
         >
           <h2 id="ty-refer-title" class="ty__refer-title">
-            Give {give}, get {get}.
+            Share the feel.
           </h2>
           <p>
-            Send a friend your link. They get {give} off their Detent, and you get {get} back when
-            theirs ships.
+            Send a friend your build link. When theirs ships, you both get a feel you can’t buy: the{' '}
+            {REFERRAL.profile}, with {REFERRAL.detail}.
+          </p>
+          <p class="ty__referred" data-ty-referred hidden>
+            You came in on a friend’s link, so the {REFERRAL.profile} ships with this one.
           </p>
           <div class="ty__code">
             <label for="ty-link" class="visually-hidden">
-              Your referral link
+              Your build link
             </label>
             <input id="ty-link" class="input readout ty__link" type="text" readonly data-ty-link />
             <button type="button" class="btn btn--solid" data-ty-copy>
@@ -219,8 +264,8 @@ const reservationSteps: Step[] = [
           </button>
           <p class="ty__status" role="status" data-ty-ref-status></p>
           <p class="concept-note">
-            Concept: the referral program is part of the demo. No credit is issued and no money
-            moves.
+            Concept: the referral program is part of the demo. No profile is issued and nothing is
+            sent.
           </p>
         </section>
       </aside>
@@ -264,12 +309,28 @@ const reservationSteps: Step[] = [
     gap: var(--space-m);
     justify-items: start;
   }
+  /* Pre-paint state (see the head script): show only the copy for this
+     confirmation. Without JS, the neutral "none" copy shows. */
+  :global(html:not([data-ty])) [data-ty-show]:not([data-ty-show~='none']),
+  :global(html[data-ty='order']) [data-ty-show]:not([data-ty-show~='order']),
+  :global(html[data-ty='reservation']) [data-ty-show]:not([data-ty-show~='reservation']),
+  :global(html[data-ty='empty']) [data-ty-show]:not([data-ty-show~='empty']) {
+    display: none;
+  }
   .ty__id {
     color: var(--ink-muted);
+    white-space: nowrap;
+    /* The id arrives after paint; its line is held open so nothing moves. */
+    min-block-size: 1.5em;
+    min-block-size: 1lh;
   }
+  /* Same size as the checkout title it follows. The measure is in em, not
+     ch: ch changes with the font, so a late web font would re-wrap the title
+     and push the page down. At this size every title takes the same two
+     lines in either font. */
   .ty__title {
-    font-size: var(--step-5);
-    max-inline-size: 14ch;
+    font-size: var(--step-4);
+    max-inline-size: 9.5em;
   }
   .ty__concept {
     display: flex;
@@ -458,6 +519,10 @@ const reservationSteps: Step[] = [
   }
   .ty__refer p {
     color: var(--ink);
+  }
+  .ty__refer .ty__referred {
+    font-size: var(--step--1);
+    color: var(--ink-strong);
   }
   .ty__code {
     display: flex;

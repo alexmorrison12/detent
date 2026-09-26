@@ -17,7 +17,7 @@ export interface DemoOrder {
   subtotal: number;
   /** Sum of reservation lines (refundable deposits). */
   deposit: number;
-  /** ISO code, or '' for express orders (the wallet would supply it). */
+  /** ISO code, or '' for express orders (the wallet would supply it) and reservations. */
   country: string;
   countryName: string;
   transit: [number, number];
@@ -26,8 +26,10 @@ export interface DemoOrder {
   firstFeel?: ProfileId;
   /** Query string of the first build in the order, for "share your build". */
   build?: string;
-  /** Concept referral code ("Give $30, get $30"). */
+  /** This buyer's concept referral code (see REFERRAL in @/data/shop). */
   referral: string;
+  /** The friend's code this buyer arrived with, if any. */
+  referredBy?: string;
   createdAt: number;
 }
 
@@ -35,7 +37,14 @@ const KEY = 'shop:last-order';
 
 export function createOrder(
   cart: CartState,
-  opts: { country: string; gift: boolean; method: DemoOrder['method'] },
+  opts: {
+    country: string;
+    gift: boolean;
+    method: DemoOrder['method'];
+    /** Reuse an id issued elsewhere (the reservation adapter), so both pages show one. */
+    id?: string;
+    referredBy?: string;
+  },
 ): DemoOrder {
   const reservations = cart.lines.filter((l) => l.kind === 'reservation');
   const others = cart.lines.filter((l) => l.kind !== 'reservation');
@@ -52,7 +61,7 @@ export function createOrder(
   };
   const first = cart.lines.find((l) => l.kind !== 'accessory');
   return {
-    id: `DEMO-${randomCode(6)}`,
+    id: opts.id ?? `DEMO-${randomCode(6)}`,
     kind,
     lines: cart.lines.map((l) => ({ ...l })),
     subtotal: cartSubtotal(cart),
@@ -65,6 +74,7 @@ export function createOrder(
     firstFeel: first?.feel,
     build: first?.build,
     referral: randomCode(8),
+    referredBy: opts.referredBy,
     createdAt: Date.now(),
   };
 }

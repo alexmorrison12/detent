@@ -24,16 +24,18 @@ const textR = RING_R + 11;
 ---
 
 <div class="stage" data-stage data-feel={profile.id}>
+  <!-- Fixed two-line readout: name + angle, then the physics. Its height never
+       depends on text width, so a font swap or a feel change can't move the dial. -->
   <div class="stage__row stage__row--top">
     <p class="stage__feel">
       <span class="stage__dot" aria-hidden="true"></span>
       <span data-feel-name>{profile.name}</span>
-      <span class="readout stage__summary" data-feel-summary>
-        {feelSummary(profile)}
-      </span>
     </p>
     <p class="readout stage__angle" aria-hidden="true">
       <span data-angle>+000.0</span>°
+    </p>
+    <p class="readout stage__summary" data-feel-summary>
+      {feelSummary(profile)}
     </p>
   </div>
 
@@ -54,7 +56,6 @@ const textR = RING_R + 11;
           d={`M ${-(textR - 4)} 0 A ${textR - 4} ${textR - 4} 0 0 1 ${textR - 4} 0`}
         ></path>
       </defs>
-      <circle class="stage__halo" r="64"></circle>
       <g class="stage__marker" data-marker>
         <circle cx="0" cy={-RING_R} r="3.4"></circle>
       </g>
@@ -126,15 +127,38 @@ const textR = RING_R + 11;
     gap: var(--space-s);
     min-block-size: 1.6em;
   }
+  .stage__row--top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-s);
+    row-gap: 0.1em;
+    align-items: baseline;
+  }
   .stage__feel {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
-    column-gap: 0.6em;
-    row-gap: 0.1em;
+    gap: 0.6em;
+    min-inline-size: 0;
+    white-space: nowrap;
     font-weight: 650;
     font-stretch: var(--stretch-ui);
     color: var(--ink-strong);
+  }
+  /* One line wherever the longest summary fits; ellipsis is only a safety net. */
+  .stage__summary {
+    grid-column: 1 / -1;
+    min-inline-size: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Narrow stages: the longest summaries need two lines, so every feel gets two. */
+  @container (max-width: 26rem) {
+    .stage__summary {
+      white-space: normal;
+      min-block-size: 3em;
+      min-block-size: calc(2 * 1lh);
+    }
   }
   .stage__dot {
     inline-size: 0.7em;
@@ -167,7 +191,9 @@ const textR = RING_R + 11;
   .stage__square {
     position: relative;
     aspect-ratio: 1;
-    inline-size: 100%;
+    /* --stage-fit: the host's cap so the whole dial fits the viewport. */
+    inline-size: min(100%, var(--stage-fit, 100%));
+    justify-self: center;
     border-radius: 50%;
     background: radial-gradient(closest-side, var(--bg-raised) 62%, var(--bg) 100%);
   }
@@ -188,22 +214,15 @@ const textR = RING_R + 11;
     block-size: 100%;
   }
 
-  .stage__halo {
-    fill: none;
-    stroke: var(--feel);
-    stroke-width: 10;
-    opacity: 0.4;
-    filter: blur(5px);
-    transition: stroke var(--dur-3) var(--ease-out);
-  }
   .stage__ring :global(.fr-grad) {
     stroke: var(--line-strong);
     stroke-width: 0.5;
   }
+  /* The feel's color lives on one crisp line: the travel it actually has. */
   .stage__ring :global(.fr-track) {
     fill: none;
-    stroke: var(--ink-faint);
-    stroke-width: 0.8;
+    stroke: var(--feel);
+    stroke-width: 0.9;
   }
   .stage__ring :global(.fr-dead) {
     fill: none;
@@ -296,7 +315,6 @@ const textR = RING_R + 11;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .stage__halo,
     .stage__dot {
       transition: none;
     }

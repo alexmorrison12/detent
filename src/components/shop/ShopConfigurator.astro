@@ -100,11 +100,14 @@ import SummaryBar from './SummaryBar.astro';
     .configure__panel {
       grid-area: panel;
     }
+    /* Sticky beside the options, sized so the whole dial (readouts included)
+       fits between the header and the docked summary bar. */
     .configure__stage {
       grid-area: stage;
       position: sticky;
       inset-block-start: calc(var(--header-h) + var(--space-m));
       align-self: start;
+      --stage-fit: calc(100svh - var(--header-h) - var(--space-m) - 15rem);
     }
   }
 
@@ -117,10 +120,64 @@ import SummaryBar from './SummaryBar.astro';
         'stage options panel';
       column-gap: clamp(var(--space-l), 3vw, var(--space-xl));
     }
+    /* No docked bar at this width: less to leave room for. */
+    .configure__stage {
+      --stage-fit: calc(100svh - var(--header-h) - var(--space-m) - 9rem);
+    }
     .configure__panel {
       position: sticky;
       inset-block-start: calc(var(--header-h) + var(--space-m));
       align-self: start;
+    }
+    /* Taller than the viewport (short screens, long builds): the panel
+       scrolls inside itself so its last line is always reachable, and its
+       lower edge fades while there is more below. */
+    .configure__panel > :global(.panel) {
+      gap: var(--space-s);
+      max-block-size: calc(100svh - var(--header-h) - 2 * var(--space-m));
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+    @supports (animation-timeline: scroll()) {
+      .configure__panel > :global(.panel) {
+        -webkit-mask-image: linear-gradient(#000 calc(100% - var(--panel-fade)), transparent);
+        mask-image: linear-gradient(#000 calc(100% - var(--panel-fade)), transparent);
+        animation: panel-more linear both;
+        animation-timeline: scroll(self);
+      }
+    }
+  }
+  @property --panel-fade {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+  }
+  /* Fade only while scrolled short of the end; nothing to scroll, no fade. */
+  @keyframes panel-more {
+    0%,
+    95% {
+      --panel-fade: 2.5rem;
+    }
+    100% {
+      --panel-fade: 0px;
+    }
+  }
+
+  /* Landscape phones and other short screens: nothing fits while stuck, so
+     the dial scrolls with the page, sized to fit between the header and the
+     docked summary bar once scrolled to. */
+  @media (min-width: 48rem) and (max-height: 34rem) {
+    .configure__stage,
+    .configure__panel {
+      position: relative;
+      inset-block-start: auto;
+    }
+    .configure__stage {
+      --stage-fit: calc(100svh - var(--header-h) - 5.5rem);
+    }
+    .configure__panel > :global(.panel) {
+      max-block-size: none;
+      overflow: visible;
     }
   }
 

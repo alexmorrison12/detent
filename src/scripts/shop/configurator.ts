@@ -10,6 +10,7 @@ import { addLine } from '@/lib/cart';
 import { track } from '@/lib/analytics';
 import { read, write } from '@/lib/storage';
 import { url } from '@/lib/url';
+import { captureRef, getReservation } from '@/lib/waitlist';
 import type { DetentDialElement } from '@/scripts/dial/types';
 import {
   DEFAULT_BUILD,
@@ -451,6 +452,20 @@ function init(form: HTMLFormElement) {
   toggle?.addEventListener('click', () =>
     setSheet(toggle.getAttribute('aria-expanded') !== 'true'),
   );
+
+  /* ------------------------------------------ referral + held reservation */
+  // A friend's build link carries ?ref=CODE: keep it (checkout credits it on
+  // the order) and say what it means. The reward is a feel, never money.
+  const ref = $<HTMLElement>('[data-ref-note]');
+  if (ref) ref.hidden = !captureRef();
+  // One reservation system: a deposit made on /l/reserve/ shows up here too.
+  const held = getReservation();
+  const heldNote = $<HTMLElement>('[data-held]');
+  if (held && heldNote) {
+    $('[data-held-id]', heldNote)!.textContent = held.id;
+    $('[data-held-build]', heldNote)!.textContent = buildTitle(held);
+    heldNote.hidden = false;
+  }
 
   /* ----------------------------------------------------------------- go */
   apply(state, { persist: hasBuildParams(params), immediate: true });
