@@ -1,0 +1,44 @@
+---
+/**
+ * A small, interactive mock of a real app (timeline, mixer, canvas, diff)
+ * driven by a Detent dial: the "aha" demo. SCAFFOLD STUB: the audience
+ * feature owns src/components/demos/* and replaces this with real demos,
+ * keeping these props.
+ *
+ * <AppDemo app="edit" /> renders its own DialStage unless dialId is given,
+ * in which case it listens to that existing <detent-dial id=…>.
+ */
+import type { ProfileId } from '@/data/product';
+
+export type DemoApp = 'edit' | 'mix' | 'design' | 'code';
+interface Props {
+  app: DemoApp;
+  /** Listen to an existing dial on the page instead of rendering one. */
+  dialId?: string;
+  /** Override the profile the demo uses. */
+  profile?: ProfileId;
+  compact?: boolean;
+  class?: string;
+}
+const { app, class: className } = Astro.props;
+const labels: Record<DemoApp, string> = {
+  edit: 'Timeline',
+  mix: 'Mixer',
+  design: 'Canvas',
+  code: 'Diff',
+};
+---
+
+<figure class:list={['app-demo', className]} data-app={app}>
+  <div class="app-demo__screen" role="img" aria-label={`${labels[app]} demo`}></div>
+  <figcaption class="muted">{labels[app]} demo</figcaption>
+</figure>
+
+<style>
+  .app-demo__screen {
+    aspect-ratio: 16 / 10;
+    border-radius: var(--r-m);
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+</style>
