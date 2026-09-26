@@ -19,6 +19,7 @@ import {
   type FeelPhysics,
   type FeelSpec,
 } from '@/lib/feel-link';
+import { PROFILE_AUTHORED_EVENT } from '@/lib/achievements';
 import { track } from '@/lib/analytics';
 import { isSoundOn, onSoundChange, setSound } from '@/lib/sound';
 import { url } from '@/lib/url';
@@ -293,7 +294,8 @@ async function boot(root: HTMLElement) {
     if (dial.profile !== spec.base) dial.profile = spec.base;
     dial.physics = { ...spec.physics, accents: [...(spec.physics.accents ?? [])], snaps: [...(spec.physics.snaps ?? [])] };
     dial.feelColor = colorOf(spec.base);
-    dial.setAttribute('display', shortLabel(spec.name));
+    // No `display` override: the knob face keeps its live readout (detent, marker,
+    // degrees) so turning it reads back what it's doing. The name is on the sheet.
     dial.setAttribute('label', `Feel station dial, playing ${spec.name}`);
     const stops = spec.physics.stops;
     if (stops && (dial.angle < stops[0] || dial.angle > stops[1])) {
@@ -442,11 +444,13 @@ async function boot(root: HTMLElement) {
   function paintOutputs() {
     if (!form) return;
     const p = state.spec.physics;
+    // Only touch what changed. The outputs are aria-live="off" (the slider's own
+    // aria-valuetext speaks the value), and rewriting all six every keypress is churn.
     const set = (key: string, input: HTMLInputElement | null, text: string) => {
       const o = outs(key);
-      if (o) o.textContent = text;
+      if (o && o.textContent !== text) o.textContent = text;
       if (input) {
-        input.setAttribute('aria-valuetext', text);
+        if (input.getAttribute('aria-valuetext') !== text) input.setAttribute('aria-valuetext', text);
         const min = Number(input.min || 0);
         const max = Number(input.max || 100);
         input.style.setProperty('--fill', `${((Number(input.value) - min) / (max - min || 1)) * 100}%`);
@@ -571,6 +575,12 @@ async function boot(root: HTMLElement) {
     setTimeout(() => URL.revokeObjectURL(href), 1000);
   }
 
+  /** Saving a feel you made in the builder (link, share or file) is authoring one. */
+  function authored() {
+    if (state.source.kind !== 'custom') return;
+    window.dispatchEvent(new CustomEvent(PROFILE_AUTHORED_EVENT, { detail: { name: state.spec.name } }));
+  }
+
   const canShare = typeof navigator.share === 'function';
   $$<HTMLButtonElement>('[data-action="share"]').forEach((btn) => (btn.hidden = !canShare));
 
@@ -591,6 +601,7 @@ async function boot(root: HTMLElement) {
             : `Couldn’t reach the clipboard. The address bar has the same link.`,
           el,
         );
+        if (ok) authored();
         track('feel_link_copy', { kind: state.source.kind });
         break;
       }
@@ -602,6 +613,7 @@ async function boot(root: HTMLElement) {
             text: `Turn this: ${state.spec.name}, a Detent feel.`,
             url: currentLink,
           });
+          authored();
           track('feel_share', { kind: state.source.kind });
         } catch {
           /* dismissed */
@@ -611,12 +623,14 @@ async function boot(root: HTMLElement) {
       case 'copy-json': {
         const ok = await copyText(profileJson(docFor(state)));
         status(ok ? `${fileName} copied.` : `Couldn’t reach the clipboard. Try Download instead.`, el);
+        if (ok) authored();
         track('feel_export', { how: 'copy' });
         break;
       }
       case 'download-json': {
         download(profileJson(docFor(state)) + '\n', fileName);
         status(`Saved ${fileName}.`, el);
+        authored();
         track('feel_export', { how: 'download' });
         break;
       }
@@ -887,14 +901,6 @@ function restingOn(p: FeelPhysics, deg: number): number | null {
 
 function wrap(deg: number): number {
   return ((((deg + 180) % 360) + 360) % 360) - 180;
-}
-
-/** A short label for the knob's round display (the contract allows 10; 8 reads better). */
-function shortLabel(name: string): string {
-  const up = name.toUpperCase();
-  if (up.length <= 8) return up;
-  const first = up.split(' ')[0] ?? up;
-  return first.length <= 10 ? first : up.slice(0, 8);
 }
 
 /** One sentence in the house voice for feels that don't come with one. */
