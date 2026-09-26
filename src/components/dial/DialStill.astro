@@ -13,14 +13,19 @@
  * never pulls a hero-sized file; an eager (priority) still can't be measured
  * before it loads, so its `sizes` should always be given.
  */
-import { byFinish, type FinishId } from '@/data/product';
+import { byFinish, byProfile, type FinishId, type ProfileId } from '@/data/product';
 import { url } from '@/lib/url';
+import { stillFor, type StillView } from './stills';
 
-export type StillView = 'hero' | 'top' | 'side' | 'front' | 'exploded' | 'config';
+export type { StillView };
 
 interface Props {
   finish?: FinishId;
   view?: StillView;
+  /** The feel the dial starts on: picks a still with that feel on its display, where one is rendered. */
+  profile?: ProfileId;
+  /** The display is shown powered off (DialStage covers it on top-view stills). */
+  displayOff?: boolean;
   alt?: string;
   priority?: boolean;
   /** Rendered width hint for the browser's srcset choice. */
@@ -30,16 +35,21 @@ interface Props {
 const {
   finish = 'graphite',
   view = 'hero',
+  profile,
+  displayOff = false,
   alt,
   priority = false,
   sizes: sizesProp,
   class: className,
 } = Astro.props;
 const f = byFinish(finish);
+const still = stillFor(finish, view, profile);
 const phrase: Record<StillView, string> = {
   hero: 'three-quarter view from above, display lit',
   config: 'three-quarter view from above and to the right, display lit',
-  top: 'seen from directly above, the round display showing the Ratchet feel',
+  top: displayOff
+    ? 'seen from directly above, the round display dark'
+    : `seen from directly above, the round display showing the ${byProfile(still.profile).name} feel`,
   side: 'in profile: the knurled knob ring on its heavy base',
   front: 'from the front, at desk height',
   exploded:
@@ -48,7 +58,7 @@ const phrase: Record<StillView, string> = {
 const label = alt ?? `Detent One in ${f.name}, ${phrase[view]}`;
 const WIDTHS = [240, 480, 800, 1600] as const;
 const src = (ext: 'avif' | 'webp', w: (typeof WIDTHS)[number]) =>
-  url(`/renders/${finish}-${view}${w === 1600 ? '' : `-${w}`}.${ext}`);
+  url(`/renders/${still.stem}${w === 1600 ? '' : `-${w}`}.${ext}`);
 const set = (ext: 'avif' | 'webp') => WIDTHS.map((w) => `${src(ext, w)} ${w}w`).join(', ');
 const fallbackSizes = sizesProp ?? '(min-width: 64rem) 44vw, 92vw';
 // "auto" (lazy images only) = the laid-out width; the list after it is for browsers without it.

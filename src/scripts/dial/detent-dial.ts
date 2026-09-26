@@ -50,6 +50,8 @@ const DEG = Math.PI / 180;
 const CAMERA_PRESETS = Object.keys(PRESETS) as CameraPreset[];
 const AUTO_SECONDS = 5; // WCAG 2.2.2: autonomous motion stops within 5 s
 const AUTO_DEGREES = 16;
+/** Longest a page-driven change waits on the still for 3D before the SVG shows it. */
+const STILL_HOLD_MS = 600;
 /** Within this many knob radii of the axis a face drag has no usable angle. */
 const DEAD_ZONE = 0.22;
 
@@ -142,12 +144,25 @@ function hardwareGL(): boolean {
   return gpu;
 }
 
+/**
+ * WebKit on iPhone and iPad reports a fixed core count (2 or 4, whatever the chip) and
+ * no deviceMemory, so neither says anything about the device there. iPadOS asks for
+ * desktop pages as a Mac: the touch points give it away.
+ */
+const appleTouch = () =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
+/**
+ * Low-end hardware: 1.5× resolution without MSAA, and 3D boots only on intent or with
+ * the dial half in view. Where the signals are fake (iOS) the GPU check and the frame
+ * governor (#govern) decide instead.
+ */
 function lowTier(): boolean {
   const nav = navigator as Navigator & { deviceMemory?: number };
-  return (
-    (!!nav.deviceMemory && nav.deviceMemory <= 4) ||
-    (!!nav.hardwareConcurrency && nav.hardwareConcurrency <= 4)
-  );
+  if (!!nav.deviceMemory && nav.deviceMemory <= 4) return true;
+  if (appleTouch()) return false;
+  return !!nav.hardwareConcurrency && nav.hardwareConcurrency <= 4;
 }
 
 interface PointerState {
@@ -242,6 +257,8 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #hover = false;
   #wheelAcc = 0;
   #keyDownAt = 0;
+  /** A key press (level) waiting for a key-driven move to land. */
+  #pendingPress: 0 | 1 | 2 | 3 = 0;
   #userDriven = false;
 
   // output
@@ -260,6 +277,9 @@ class DetentDial extends HTMLElement implements DetentDialElement {
   #lastHit = '';
   /** In a day world (light color-scheme): see ViewState.day. Read on connect. */
   #day = false;
+  /** The still no longer shows the dial's pose, and since when (ms) it has been kept up anyway. */
+  #stillStale = false;
+  #stillHeldAt = 0;
 
   /* ------------------------------- properties ------------------------------- */
 
@@ -952,7 +972,11 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     if (!this.#keyDownAt || (e.key !== 'Enter' && e.key !== ' ')) return;
     const held = performance.now() - this.#keyDownAt;
     this.#keyDownAt = 0;
-    this.#pressFeedback(held < 350 ? 1 : held < 900 ? 2 : 3);
+    const level = held < 350 ? 1 : held < 900 ? 2 : 3;
+    // Enter straight after the arrows: the knob may still be on its way to the step the
+    // keys announced. Press it there, where a screen reader was told it is, not on the way.
+    if (this.#phys.goal !== null && this.#inView) this.#pendingPress = level;
+    else this.#pressFeedback(level);
   };
 
   #onWheel = (e: WheelEvent) => {
@@ -1136,10 +1160,18 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       this.#updateAria();
       this.#updateMotionVoice();
     }
+    if (this.#pendingPress && this.#phys.goal === null) {
+      const level = this.#pendingPress;
+      this.#pendingPress = 0;
+      this.#pressFeedback(level);
+    }
 
     const animating = this.#isAnimating();
-    if (this.#mode === 'still' && (moved || this.#rigT < 1 || this.#explodeT < 1))
-      this.#setMode('svg');
+    if (this.#mode === 'still') {
+      // The page moved the dial off the still's pose (people go live through #ensureLive).
+      if (moved || this.#rigT < 1 || this.#explodeT < 1) this.#stillStale = true;
+      if (this.#stillStale && !this.#holdStill(now)) this.#setMode('svg');
+    }
     if (this.#dirty || moved || animating) {
       if (this.#inView || this.#phys.grabbed) {
         this.#draw();
@@ -1273,6 +1305,22 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       this.#kind = kind;
       if (kind !== 'none') this.#emit('detent:ready', { renderer: kind });
     }
+  }
+
+  /**
+   * The page set the dial going (a demo's first value, a camera) while 3D boots: keep
+   * the still up for STILL_HOLD_MS so the swap is one crossfade, still → 3D, instead of
+   * still → SVG → 3D a hundred milliseconds apart. Past that, or with no 3D coming, the
+   * SVG shows the dial as it now is.
+   */
+  #holdStill(now: number): boolean {
+    if (this.#bootState !== 'waiting' && this.#bootState !== 'loading') return false;
+    if (!this.#stillHeldAt) {
+      this.#stillHeldAt = now;
+      // The page's move may be over long before the hold: look again when it ends.
+      setTimeout(() => this.#invalidate(), STILL_HOLD_MS + 20);
+    }
+    return now - this.#stillHeldAt < STILL_HOLD_MS;
   }
 
   /** The user (or page) is moving the dial while the still shows: go live in SVG now. */

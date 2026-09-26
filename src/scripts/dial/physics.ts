@@ -124,6 +124,12 @@ interface Tween {
   to: number;
   t: number;
   dur: number;
+  /**
+   * null: the finger starts from rest (cubic ease in and out). A number: the move
+   * took over from one still under way, and the finger leaves at the speed it had
+   * (a Hermite tangent, rad per segment) and eases out onto `to`.
+   */
+  m: number | null;
 }
 
 export class DialPhysics {
@@ -234,10 +240,27 @@ export class DialPhysics {
   moveTo(theta: number, durationMs?: number): void {
     if (this.grabbed) return;
     const to = this.clampToStops(theta);
-    const dist = Math.abs(to - this.theta);
-    const dur = durationMs ?? clamp(70 + (dist / DEG) * 3.2, 90, 720);
-    // Chained key presses continue from the moving target instead of restarting from θ.
-    this.tween = { from: this.tween ? this.targetNow() : this.theta, to, t: 0, dur: dur / 1000 };
+    const time = (dist: number) => (durationMs ?? clamp(70 + (dist / DEG) * 3.2, 90, 720)) / 1000;
+    const prev = this.tween;
+    if (prev && prev.t < prev.dur) {
+      // The finger is still moving (a held or repeated key, wheel steps): carry on from
+      // where it is, at the speed it has. Restarting from rest each press would stall a
+      // held key and whip the knob round after release. Timed by this move's own
+      // distance, not the backlog, and never shorter than what is left of the move under
+      // way: held keys run the knob at the repeat rate a step or two behind, and a long
+      // move stays long.
+      const [from, speed] = this.finger();
+      const dur = Math.max(time(Math.abs(to - prev.to)), prev.dur - prev.t);
+      const d = to - from;
+      // Keep the speed only toward the goal, and at most 3·d (an ease-out): more would
+      // carry the finger past the goal and back, over detents the keys never asked for.
+      const m = Math.sign(d) * clamp(speed * dur * Math.sign(d), 0, 3 * Math.abs(d));
+      this.tween = { from, to, t: 0, dur, m };
+      return;
+    }
+    // From rest, or from where a finished finger waits for the knob to catch up.
+    const from = prev ? prev.to : this.theta;
+    this.tween = { from, to, t: 0, dur: time(Math.abs(to - this.theta)), m: null };
   }
 
   moveBy(delta: number, durationMs?: number): void {
@@ -327,11 +350,23 @@ export class DialPhysics {
     return this.events;
   }
 
-  private targetNow(): number {
+  /** The invisible finger of a move under way: where it is (rad) and how fast it goes (rad/s). */
+  private finger(): [number, number] {
     const tw = this.tween!;
     const k = clamp01(tw.t / tw.dur);
-    const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-    return tw.from + (tw.to - tw.from) * e;
+    const d = tw.to - tw.from;
+    if (k >= 1) return [tw.to, 0];
+    if (tw.m === null) {
+      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      const de = k < 0.5 ? 12 * k * k : 3 * Math.pow(-2 * k + 2, 2);
+      return [tw.from + d * e, (d * de) / tw.dur];
+    }
+    const k2 = k * k;
+    const k3 = k2 * k;
+    return [
+      tw.from + tw.m * (k3 - 2 * k2 + k) + d * (3 * k2 - 2 * k3),
+      (tw.m * (3 * k2 - 4 * k + 1) + d * (6 * k - 6 * k2)) / tw.dur,
+    ];
   }
 
   private clampToStops(theta: number): number {
@@ -360,7 +395,7 @@ export class DialPhysics {
     } else if (this.tween) {
       const tw = this.tween;
       tw.t += dt;
-      const tgt = this.targetNow();
+      const tgt = this.finger()[0];
       a += K_COUPLE * (tgt - this.theta) - C_COUPLE * this.omega;
       // Let go once the finger has arrived and the knob has caught up and stopped, or
       // shortly after (a spring or magnet may hold the knob a few degrees off forever).

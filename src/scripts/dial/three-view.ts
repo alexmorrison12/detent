@@ -382,7 +382,7 @@ class Engine {
       }),
     };
     const maxAniso = r.capabilities.getMaxAnisotropy();
-    this.tex.knurl.anisotropy = Math.min(8, maxAniso);
+    this.tex.knurl.anisotropy = maxAniso;
     this.tex.rings.anisotropy = Math.min(4, maxAniso);
     await yieldToMain();
 
@@ -1067,10 +1067,12 @@ export class ThreeView implements DialView {
     this.camera.updateMatrixWorld();
 
     // Knurl frequency clamp: when a tooth is only a few pixels wide the normal map
-    // aliases into moiré, so fade it out (materials are shared; set per render).
+    // aliases into moiré, so fade it out (materials are shared; set per render). Full
+    // relief from 10 px a tooth; a 1x desktop's ~5 px keeps a trace of it, enough to
+    // read as knurl without stair-stepped cells crawling as the knob turns.
     const pxPerMM = this.ph / (2 * Math.tan((FOV / 2) * DEG) * dist);
     const pxPerTooth = ((2 * Math.PI * MM.knobR) / KNURL_TEETH) * pxPerMM;
-    const k = Math.max(0.12, Math.min(1, (pxPerTooth - 2.5) / 4.5));
+    const k = Math.max(0.08, Math.min(1, (pxPerTooth - 4) / 6));
     this.engine.finishMats(s.finish).knurl.normalScale.set(k, k);
 
     this.engine.render(this);

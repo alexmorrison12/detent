@@ -176,7 +176,7 @@ export function drawDisplay(ctx: CanvasRenderingContext2D, size: number, m: Disp
   c.fontStretch = 'expanded';
   ctx.font = `640 ${readoutSize(m.text) * u}px ${SANS}`;
   ctx.fillStyle = INK;
-  ctx.fillText(m.text, 0, TYPE.textY * u, 29 * u);
+  ctx.fillText(m.text, 0, TYPE.textY * u, TYPE.textW * u);
   c.fontStretch = 'normal';
   c.letterSpacing = `${0.18 * u}px`;
   ctx.font = `450 ${TYPE.sub * u}px ${MONO}`;
