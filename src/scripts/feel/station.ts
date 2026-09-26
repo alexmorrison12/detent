@@ -64,6 +64,7 @@ async function boot(root: HTMLElement) {
   const ring = $<SVGSVGElement>('[data-ring]');
   const ringFeel = $<SVGGElement>('[data-ring-feel]');
   const needle = $<SVGSVGElement>('[data-ring-needle]');
+  const activeTick = $<SVGSVGElement>('[data-ring-active]');
   const liveAngle = $('[data-live-angle]');
   const liveTorque = $('[data-live-torque]');
   const announcer = $('[data-announce]');
@@ -148,7 +149,7 @@ async function boot(root: HTMLElement) {
     h: 0,
   }));
 
-  function drawCurve(c: Curve) {
+  function drawCurve(c: Curve, animate = false) {
     const r = c.svg.getBoundingClientRect();
     if (r.width < 10 || r.height < 10) return;
     c.w = Math.round(r.width);
@@ -164,6 +165,19 @@ async function boot(root: HTMLElement) {
     }
     if (c.desc) c.desc.textContent = describeCurve(state.spec.physics, state.spec.name);
     moveCursor(c);
+    // A new profile traces in from -180° to +180°, so you read it left to right.
+    if (animate && !reduced.matches) {
+      const line = c.svg.querySelector<SVGPathElement>('.tc-line');
+      const area = c.svg.querySelector<SVGPathElement>('.tc-area');
+      const len = line?.getTotalLength() ?? 0;
+      if (line && len) {
+        line.animate([{ strokeDasharray: `${len}`, strokeDashoffset: `${len}` }, { strokeDasharray: `${len}`, strokeDashoffset: '0' }], {
+          duration: 720,
+          easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+        });
+      }
+      area?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 720, delay: 180, easing: 'ease-out', fill: 'backwards' });
+    }
   }
   function moveCursor(c: Curve) {
     if (!c.layout || !c.cursor) return;
@@ -182,13 +196,20 @@ async function boot(root: HTMLElement) {
 
   /* ---- Painting (batched per frame) ------------------------------------- */
   let paintQueued = false;
-  function schedulePaint() {
+  let animateNext = false;
+  function schedulePaint(animate = false) {
+    animateNext ||= animate;
     if (paintQueued) return;
     paintQueued = true;
     requestAnimationFrame(() => {
       paintQueued = false;
-      curves.forEach(drawCurve);
-      if (ringFeel) ringFeel.innerHTML = ringFeelMarkup(state.spec.physics);
+      const anim = animateNext;
+      animateNext = false;
+      curves.forEach((c) => drawCurve(c, anim));
+      if (ringFeel) {
+        ringFeel.innerHTML = ringFeelMarkup(state.spec.physics);
+        if (anim && !reduced.matches) ringFeel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease-out' });
+      }
       paintLive();
     });
   }
@@ -286,6 +307,11 @@ async function boot(root: HTMLElement) {
     if (liveAngle) liveAngle.textContent = `${signed(angle, 1)}°`;
     if (liveTorque) liveTorque.textContent = `${signed(t, 1)} mN·m`;
     if (needle) needle.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+    if (activeTick) {
+      const at = restingOn(state.spec.physics, angle);
+      activeTick.style.opacity = at === null ? '0' : '1';
+      if (at !== null) activeTick.style.transform = `rotate(${at}deg)`;
+    }
     curves.forEach(moveCursor);
     // The name condenses as you turn away from noon (in 2% steps: it re-lays out the heading).
     const turn = Math.round(Math.min(1, Math.abs(a) / 180) * 50) / 50;
@@ -306,7 +332,7 @@ async function boot(root: HTMLElement) {
     paintDial();
     if (origin !== 'builder') syncBuilder();
     paintOutputs();
-    schedulePaint();
+    schedulePaint(origin === 'library' || origin === 'link');
     scheduleLink(origin === 'builder' ? 220 : 0);
     if (next.source.kind !== 'link' && sheet.error && origin !== 'init') sheet.error.hidden = true;
   }
@@ -839,6 +865,25 @@ async function boot(root: HTMLElement) {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** The detent or snap point the knob is sitting in, or null between them / on fluid. */
+function restingOn(p: FeelPhysics, deg: number): number | null {
+  if (p.detents) {
+    const step = 360 / p.detents;
+    const at = Math.round(deg / step) * step;
+    if (p.stops && (wrap(at) < p.stops[0] - 0.01 || wrap(at) > p.stops[1] + 0.01)) return null;
+    return at;
+  }
+  let best: number | null = null;
+  for (const s of p.snaps ?? []) {
+    const d = Math.abs(wrap(deg - s));
+    if (d < 12 && (best === null || d < Math.abs(wrap(deg - best)))) best = s;
+  }
+  if (best === null && (p.accents ?? []).some((a) => Math.abs(wrap(deg - a)) < 6)) {
+    best = (p.accents ?? []).find((a) => Math.abs(wrap(deg - a)) < 6) ?? null;
+  }
+  return best;
+}
 
 function wrap(deg: number): number {
   return ((((deg + 180) % 360) + 360) % 360) - 180;

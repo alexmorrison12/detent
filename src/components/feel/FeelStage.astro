@@ -9,7 +9,7 @@ import DialStage from '@/components/dial/DialStage.astro';
 import TorqueCurve from './TorqueCurve.astro';
 import { PROFILES } from '@/data/product';
 import type { LibraryEntry } from '@/data/community-profiles';
-import { needleMarkup, ringFeelMarkup, ringScaleMarkup } from '@/scripts/feel/model';
+import { needleMarkup, ringFeelMarkup, ringScaleMarkup, RING } from '@/scripts/feel/model';
 
 interface Props {
   initial: LibraryEntry;
@@ -18,39 +18,44 @@ const { initial } = Astro.props;
 ---
 
 <div class="stage" data-stage>
+  <dl class="stage__live" aria-hidden="true">
+    <div class="stage__live-item">
+      <dt>Angle</dt>
+      <dd class="readout" data-live-angle>0.0°</dd>
+    </div>
+    <div class="stage__live-item stage__live-item--end">
+      <dt>Torque</dt>
+      <dd class="readout" data-live-torque>0.0 mN·m</dd>
+    </div>
+  </dl>
+
   <div class="stage__frame" data-stage-frame>
     <div class="stage__halo" aria-hidden="true"></div>
     <svg class="stage__ring" viewBox="-200 -200 400 400" aria-hidden="true" data-ring>
       <g set:html={ringScaleMarkup()} />
       <g data-ring-feel set:html={ringFeelMarkup(initial.physics)} />
     </svg>
+    <svg class="stage__active" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-active>
+      <path d={`M0 ${-RING.accentOuter - 2}V${-RING.detentInner + 3}`}></path>
+    </svg>
     <svg class="stage__needle" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-needle set:html={needleMarkup()} />
-    <DialStage
-      id="feel-dial"
-      class="stage__dial"
-      interactive
-      camera="top"
-      finish="graphite"
-      profile={initial.base}
-      label="Feel station dial"
-      priority
-    />
-
-    <dl class="stage__live" aria-hidden="true">
-      <div class="stage__live-item">
-        <dt>Angle</dt>
-        <dd class="readout" data-live-angle>0.0°</dd>
-      </div>
-      <div class="stage__live-item stage__live-item--end">
-        <dt>Torque</dt>
-        <dd class="readout" data-live-torque>0.0 mN·m</dd>
-      </div>
-    </dl>
+    <div class="stage__dialbox">
+      <DialStage
+        id="feel-dial"
+        class="stage__dial"
+        interactive
+        camera="top"
+        finish="graphite"
+        profile={initial.base}
+        label="Feel station dial"
+        priority
+      />
+    </div>
 
     <p class="stage__onair" aria-hidden="true">Rec</p>
   </div>
 
-  <div class="stage__keys" role="group" aria-label="Core profiles">
+  <div class="stage__keys" role="group" aria-label="Core profiles" data-needs-js>
     {
       PROFILES.map((p) => (
         <button
@@ -129,12 +134,13 @@ const { initial } = Astro.props;
     overflow: visible;
     pointer-events: none;
   }
-  .stage__dial {
+  /* The dial sits in its own box (the engine may set inline styles on its
+     element); 81.4% of the frame leaves the ring's bands clear. */
+  .stage__dialbox {
     position: absolute;
     inset: 9.3%;
-    inline-size: auto;
   }
-  .stage__dial:focus-visible {
+  .stage__dialbox :global(.stage__dial:focus-visible) {
     outline-offset: 6px;
     border-radius: 50%;
   }
@@ -184,19 +190,34 @@ const { initial } = Astro.props;
     pointer-events: none;
     will-change: transform;
   }
-  :root:not([data-js]) .stage__needle {
+  /* The detent the knob is sitting in, lit. Its own layer; jumps detent to detent. */
+  .stage__active {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    stroke: var(--ink-strong);
+    stroke-width: 5;
+    stroke-linecap: round;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform;
+    filter: drop-shadow(0 0 4px var(--feel));
+  }
+  :root:not([data-js]) .stage__needle,
+  :root:not([data-js]) .stage__active {
     display: none;
   }
   .stage__ring[data-tick] :global(.fm-detent) {
     opacity: 0.55;
   }
 
-  /* ---- Live readouts in the frame's corners, like a scope. */
+  /* ---- Live readouts: a row above the dial on phones, the frame's top
+     corners (like a scope) on desktop. */
   .stage__live {
-    position: absolute;
-    inset: 0 0 auto;
     display: flex;
     justify-content: space-between;
+    margin-block-end: calc(-1 * var(--space-s));
     pointer-events: none;
   }
   .stage__live-item {
@@ -357,10 +378,17 @@ const { initial } = Astro.props;
   }
 
   @media (min-width: 64rem) {
+    /* The page makes the stage sticky, which also anchors these. */
+    .stage__live {
+      position: absolute;
+      inset: var(--space-xs) 0 auto;
+      margin: 0;
+      z-index: var(--z-raised);
+    }
     /* Content-sized (never a vh height, which would feed back into the page
        height); the frame shrinks so the whole instrument fits one screen. */
     .stage {
-      --frame-max: min(100%, calc(100svh - var(--header-h) - 22rem));
+      --frame-max: min(100%, calc(100svh - var(--header-h) - 23.75rem));
       --curve-h: 8.5rem;
       padding-block: var(--space-xs);
       gap: var(--space-s);
