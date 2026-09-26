@@ -1,0 +1,283 @@
+---
+/**
+ * Every SPECS group as a datasheet: a sticky group index on the left, rows as
+ * a definition list on the right. Numbers inside values are set as mono
+ * readouts; the words around them stay in Archivo. The "In the box" group
+ * carries a plan drawing of the tray with balloon callouts.
+ */
+import { SPECS } from '@/data/product';
+import { DIMENSIONS as D } from '@/data/engineering';
+import { readoutSegments, slug } from '@/scripts/info/format';
+
+const groups = SPECS.map((g) => ({ ...g, id: `spec-${slug(g.title)}` }));
+const BOX = 'In the box';
+---
+
+<div class="sheet">
+  <nav class="sheet__index" aria-label="Spec groups">
+    <ol role="list">
+      {
+        groups.map((g) => (
+          <li>
+            <a href={`#${g.id}`}>
+              <span>{g.title}</span>
+              <span class="readout">{g.rows.length}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </nav>
+
+  <div class="sheet__groups">
+    {
+      groups.map((g) => (
+        <section class="spec-group" id={g.id} aria-labelledby={`${g.id}-h`}>
+          <h3 id={`${g.id}-h`} class="spec-group__title">
+            {g.title}
+          </h3>
+          <div class:list={['spec-group__body', { 'spec-group__body--figure': g.title === BOX }]}>
+            <dl class="spec-group__rows">
+              {g.rows.map((row, i) => (
+                <div class="spec-row">
+                  <dt>
+                    {g.title === BOX && (
+                      <span class="balloon readout" aria-hidden="true">
+                        {i + 1}
+                      </span>
+                    )}
+                    {row.label}
+                  </dt>
+                  <dd>
+                    {readoutSegments(row.value).map((s) =>
+                      s.readout ? <span class="readout">{s.text}</span> : s.text,
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {g.title === BOX && (
+              <svg class="box-dwg" viewBox="-70 -66 140 132" role="img" aria-labelledby="box-dwg-t">
+                <title id="box-dwg-t">Plan view of the box tray: the dial, the coiled cable and the quick-start card, numbered 1 to 3.</title>
+                <rect class="box-dwg__solid" x="-58" y="-58" width="116" height="116" rx="3" />
+                <circle class="box-dwg__solid" cx="-16" cy="-16" r={D.baseDia / 2 + 1.5} />
+                <circle class="box-dwg__thin" cx="-16" cy="-16" r={D.knobDia / 2} />
+                <line class="box-dwg__tally" x1="-16" y1={-16 - D.knobDia / 2 + 4} x2="-16" y2={-16 - D.knobDia / 2 + 9} transform="rotate(35 -16 -16)" />
+                {[13, 10.5, 8].map((rr) => (
+                  <circle class="box-dwg__thin" cx="28" cy="36" r={rr} />
+                ))}
+                <path class="box-dwg__thin" d="M28 23 C 34 16, 38 8, 38 -2" />
+                <rect class="box-dwg__card" x="46" y="-50" width="4" height="86" rx="1" />
+                <g class="box-dwg__balloons">
+                  <path d="M-42 -42 L-58 -58" />
+                  <circle cx="-61" cy="-61" r="4.6" />
+                  <text x="-61" y="-59.4">1</text>
+                  <path d="M37 45 L58 58" />
+                  <circle cx="61" cy="61" r="4.6" />
+                  <text x="61" y="62.6">2</text>
+                  <path d="M48 -46 L58 -58" />
+                  <circle cx="61" cy="-61" r="4.6" />
+                  <text x="61" y="-59.4">3</text>
+                </g>
+              </svg>
+            )}
+          </div>
+        </section>
+      ))
+    }
+  </div>
+</div>
+
+<style>
+  .sheet {
+    display: grid;
+    gap: var(--space-l);
+  }
+  /* On wide screens the sticky group titles are the index. */
+  .sheet__index {
+    display: none;
+  }
+  .sheet__index ol {
+    display: grid;
+    border-top: 1px solid var(--line-strong);
+  }
+  .sheet__index a {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+    padding-block: 0.55rem;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    transition: color var(--dur-2) var(--ease-out);
+  }
+  .sheet__index a:hover {
+    color: var(--ink-strong);
+  }
+  .sheet__index .readout {
+    font-size: var(--step--2);
+  }
+
+  .sheet__groups {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  .spec-group {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-m) var(--space-2xl);
+    align-items: start;
+    scroll-margin-top: calc(var(--header-h) + var(--space-m));
+  }
+  .spec-group__title {
+    position: sticky;
+    top: calc(var(--header-h) + var(--space-m));
+    font-size: var(--step-3);
+    font-weight: 760;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1.05;
+    padding-block-start: 0.6rem;
+  }
+  .spec-group__body--figure {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(10rem, 1fr);
+    gap: var(--space-l);
+    align-items: start;
+  }
+  .spec-group__rows {
+    border-top: 1px solid var(--line-strong);
+  }
+  .spec-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 2fr;
+    gap: var(--space-2xs) var(--space-m);
+    padding-block: 0.8rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .spec-row dt {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    padding-block-start: 0.1em;
+  }
+  .spec-row dd {
+    color: var(--ink-strong);
+    line-height: 1.45;
+  }
+  .spec-row dd .readout {
+    font-size: 0.9em;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .balloon {
+    display: inline-grid;
+    place-items: center;
+    inline-size: 1.45rem;
+    block-size: 1.45rem;
+    border: 1px solid var(--ink-strong);
+    border-radius: 50%;
+    font-size: var(--step--2);
+    color: var(--ink-strong);
+    flex: none;
+    transform: translateY(0.3em);
+  }
+
+  .box-dwg {
+    inline-size: 100%;
+    color: var(--ink-strong);
+    overflow: visible;
+  }
+  .box-dwg * {
+    vector-effect: non-scaling-stroke;
+  }
+  .box-dwg__solid {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+  }
+  .box-dwg__thin {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 0.8;
+  }
+  .box-dwg__card {
+    fill: var(--surface-2);
+    stroke: currentColor;
+    stroke-width: 0.8;
+  }
+  .box-dwg__tally {
+    stroke: var(--tally);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+  }
+  .box-dwg__balloons path {
+    fill: none;
+    stroke: var(--ink-muted);
+    stroke-width: 0.75;
+  }
+  .box-dwg__balloons circle {
+    fill: var(--bg);
+    stroke: currentColor;
+    stroke-width: 0.9;
+  }
+  .box-dwg__balloons text {
+    fill: currentColor;
+    font-family: var(--font-mono);
+    font-size: 5px;
+    text-anchor: middle;
+  }
+
+  @media (max-width: 64rem) {
+    .sheet__index {
+      display: block;
+    }
+    .spec-group__title {
+      position: static;
+    }
+    .sheet__index ol {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2xs);
+      border: 0;
+    }
+    .sheet__index a {
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-pill);
+      padding: 0.45rem 0.9rem;
+      min-block-size: 2.75rem;
+      align-items: center;
+    }
+  }
+  @media (max-width: 44rem) {
+    .spec-group {
+      grid-template-columns: 1fr;
+      gap: var(--space-xs);
+    }
+    .spec-group__title {
+      padding: 0;
+    }
+    .spec-group__body--figure {
+      grid-template-columns: 1fr;
+    }
+    .box-dwg {
+      max-inline-size: 16rem;
+      justify-self: center;
+    }
+    .spec-row {
+      grid-template-columns: 1fr;
+      gap: 0.2rem;
+    }
+    .spec-row dd .readout {
+      white-space: normal;
+    }
+  }
+</style>

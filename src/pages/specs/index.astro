@@ -1,0 +1,182 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import SheetHead from '@/components/info/SheetHead.astro';
+import TechDrawing from '@/components/info/TechDrawing.astro';
+import ActualSize from '@/components/info/ActualSize.astro';
+import SpecSheet from '@/components/info/SpecSheet.astro';
+import DialViewer from '@/components/info/DialViewer.astro';
+import TorqueCompare from '@/components/info/TorqueCompare.astro';
+import CompatTable from '@/components/info/CompatTable.astro';
+import Limits from '@/components/info/Limits.astro';
+import { SITE } from '@/config/site';
+import { BUILD_PHASE, MODE } from '@/config/launch';
+import { ogPath } from '@/config/og';
+import { EDITIONS, PROFILES, SPECS } from '@/data/product';
+import { DIMENSIONS as D, EXPLODED_PARTS, specNumber, specValue } from '@/data/engineering';
+import { absoluteUrl, url } from '@/lib/url';
+import { numberWord } from '@/scripts/info/format';
+
+const resolution = specValue('Haptics', 'Position sensing').match(/([\d.]+)°/)?.[1] ?? '';
+const torque = specNumber('Haptics', 'Peak torque');
+const rowCount = SPECS.reduce((n, g) => n + g.rows.length, 0);
+const one = EDITIONS.find((e) => e.id === 'one')!;
+
+const description = `Detent One tech specs: Ø${D.baseDia} mm machined 6061 body, ${D.weightG} g, a 14-bit encoder at ${resolution}°, ${torque} mN·m of haptic torque, a ${specValue('Display & light', 'Display').split(' ')[0]} round display, USB-C and Bluetooth, open firmware.`;
+
+const productLd: Record<string, unknown> = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: SITE.product,
+  sku: one.sku,
+  brand: { '@type': 'Brand', name: SITE.name },
+  manufacturer: { '@type': 'Organization', name: SITE.legalName },
+  description: SITE.description,
+  url: absoluteUrl('/specs/', Astro.site),
+  image: absoluteUrl('/renders/graphite-hero.webp', Astro.site),
+  material: specValue('Body', 'Material').split(',')[0],
+  weight: { '@type': 'QuantitativeValue', value: D.weightG, unitCode: 'GRM' },
+  width: { '@type': 'QuantitativeValue', value: D.baseDia, unitCode: 'MMT' },
+  depth: { '@type': 'QuantitativeValue', value: D.baseDia, unitCode: 'MMT' },
+  height: { '@type': 'QuantitativeValue', value: D.height, unitCode: 'MMT' },
+  additionalProperty: SPECS.flatMap((g) =>
+    g.rows.map((r) => ({ '@type': 'PropertyValue', propertyID: g.title, name: r.label, value: r.value })),
+  ),
+};
+if (MODE === 'live') {
+  productLd.offers = EDITIONS.map((e) => ({
+    '@type': 'Offer',
+    name: e.name,
+    sku: e.sku,
+    price: e.priceUsd.toFixed(2),
+    priceCurrency: 'USD',
+    availability: BUILD_PHASE === 'live' ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder',
+    url: absoluteUrl('/shop/', Astro.site),
+  }));
+}
+---
+
+<BaseLayout title="Tech specs" description={description} world="day" ogImage={ogPath('specs')} ogImageAlt="Detent One tech specs" jsonLd={productLd}>
+  <SheetHead
+    title={`${resolution}° of resolution.`}
+    sheet={`${SITE.product}, tech specs`}
+    fact={`${SPECS.length} groups · ${rowCount} values`}
+    lede="Every number on this page is a design target for production units. Nothing rounded up, nothing left out, including what it can’t do."
+  />
+
+  <section class="container drawing-wrap" aria-label="Technical drawing">
+    <TechDrawing>
+      <ActualSize slot="scale" />
+    </TechDrawing>
+  </section>
+
+  <section class="section container" aria-labelledby="numbers-h">
+    <div class="intro">
+      <h2 id="numbers-h" class="display display--m">The whole datasheet.</h2>
+      <p class="lede">What it is made of, how it feels, what it talks to, and what happens when something breaks.</p>
+    </div>
+    <SpecSheet />
+  </section>
+
+  <div class="night-band" data-world="night">
+    <section class="section container" aria-labelledby="inside-h">
+      <div class="intro">
+        <h2 id="inside-h" class="display display--m">Take it apart.</h2>
+        <p class="lede">
+          {numberWord(EXPLODED_PARTS.length, true)} layers under one knob. Pick a view, change the finish, and turn it. Drag, scroll or use the arrow keys.
+        </p>
+      </div>
+      <DialViewer />
+    </section>
+
+    <section class="section container torque-section" aria-labelledby="torque-h">
+      <div class="intro intro--wide">
+        <h2 id="torque-h" class="display display--m">Most knobs are born with their clicks.</h2>
+        <p class="lede">
+          A mechanical encoder gets its feel from a notched wheel and a spring, and feels the same in every app for its whole life. Detent’s feel is
+          a torque curve the firmware draws, and redraws when you switch apps. Here are both on the same axes. Pick a profile and turn.
+        </p>
+      </div>
+      <TorqueCompare />
+    </section>
+  </div>
+
+  <section class="section container" aria-labelledby="compat-h">
+    <div class="intro">
+      <h2 id="compat-h" class="display display--m">Works with what you already have.</h2>
+      <p class="lede">
+        Plug it in and it is a scroll wheel, a volume knob and a MIDI controller, no driver needed. Detent Studio adds the per-app feel.
+      </p>
+    </div>
+    <CompatTable />
+  </section>
+
+  <section class="section container limits-section" aria-labelledby="limits-h">
+    <div class="intro">
+      <h2 id="limits-h" class="display display--m">What it can’t do (yet).</h2>
+      <p class="lede">Better you read it here than find out on day three.</p>
+    </div>
+    <Limits />
+  </section>
+
+  <section class="container closing" aria-labelledby="closing-h">
+    <h2 id="closing-h" class="display display--l">Numbers only go so far.</h2>
+    <div class="closing__actions">
+      <p class="lede">{numberWord(PROFILES.length, true)} feels, one knob. Turn each of them before you decide.</p>
+      <div class="closing__row">
+        <PhaseCTA placement="specs-closing" size="lg" />
+        <a class="link-arrow" href={url('/profiles/')} data-track="specs_to_profiles">Try every feel</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .drawing-wrap + .section {
+    padding-block-start: calc(var(--section-y) * 0.75);
+  }
+  .intro {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 46rem;
+    margin-block-end: var(--space-2xl);
+  }
+  .intro--wide {
+    max-inline-size: 58rem;
+  }
+  .night-band {
+    border-block: 1px solid var(--line);
+  }
+  .torque-section {
+    padding-block-start: 0;
+  }
+  .limits-section {
+    padding-block-start: 0;
+  }
+  .closing {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: end;
+    padding-block: var(--space-2xl) var(--section-y);
+    border-top: 1px solid var(--line-strong);
+  }
+  .closing__actions {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .closing__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-m) var(--space-l);
+    align-items: flex-start;
+  }
+  .closing__row .link-arrow {
+    min-block-size: 3.5rem;
+  }
+  @media (max-width: 56rem) {
+    .closing {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

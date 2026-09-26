@@ -1,0 +1,104 @@
+---
+/**
+ * A highlighted code file with a filename bar. Highlighting happens at build
+ * time (Astro's <Code>, Shiki) with a theme built from our tokens: one red
+ * for keywords, everything else quiet.
+ */
+import { Code } from 'astro:components';
+import type { ComponentProps } from 'astro/types';
+
+type ThemeRegistration = Exclude<ComponentProps<typeof Code>['theme'], string | undefined>;
+
+interface Props {
+  code: string;
+  lang: 'ts' | 'json' | 'rust';
+  file: string;
+  note?: string;
+  class?: string;
+}
+const { code, lang, file, note, class: className } = Astro.props;
+
+const v = (name: string) => `var(--code-${name})`;
+const theme: ThemeRegistration = {
+  name: 'detent-night',
+  type: 'dark',
+  colors: { 'editor.background': v('bg'), 'editor.foreground': v('ink') },
+  settings: [
+    { settings: { foreground: v('ink'), background: v('bg') } },
+    { scope: ['comment', 'punctuation.definition.comment'], settings: { foreground: v('comment') } },
+    { scope: ['keyword', 'storage', 'storage.type', 'keyword.control', 'keyword.operator.new'], settings: { foreground: v('kw') } },
+    { scope: ['string', 'string.quoted', 'punctuation.definition.string'], settings: { foreground: v('str') } },
+    { scope: ['constant.numeric', 'constant.language'], settings: { foreground: v('kw') } },
+    { scope: ['entity.name.function', 'support.function', 'meta.function-call'], settings: { foreground: v('fn') } },
+    { scope: ['support.type.property-name', 'meta.object-literal.key', 'variable.other.property'], settings: { foreground: v('key') } },
+    { scope: ['punctuation', 'meta.brace', 'keyword.operator'], settings: { foreground: v('punct') } },
+  ],
+};
+---
+
+<figure class:list={['code', className]}>
+  <figcaption class="code__bar">
+    <span class="readout code__file">{file}</span>
+    {note && <span class="code__note">{note}</span>}
+  </figcaption>
+  <div class="code__body" tabindex="0" role="region" aria-label={`${file}, source code`}>
+    <Code code={code.trimEnd()} lang={lang} theme={theme} />
+  </div>
+</figure>
+
+<style>
+  .code {
+    --code-bg: var(--graphite-900);
+    --code-ink: var(--alu-200);
+    --code-comment: oklch(0.68 0.006 355);
+    --code-kw: var(--tally-hot);
+    --code-str: var(--white);
+    --code-fn: var(--white);
+    --code-key: var(--alu-300);
+    --code-punct: oklch(0.7 0.006 355);
+    display: grid;
+    grid-template-rows: auto 1fr;
+    border: 1px solid var(--line);
+    border-radius: var(--r-m);
+    background: var(--code-bg);
+    overflow: hidden;
+    min-inline-size: 0;
+  }
+  .code__bar {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+    align-items: baseline;
+    padding: 0.7rem var(--space-s);
+    border-bottom: 1px solid var(--line);
+    font-size: var(--step--1);
+  }
+  .code__file {
+    color: var(--ink-strong);
+    font-size: var(--step--2);
+  }
+  .code__note {
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+    text-align: end;
+  }
+  .code__body {
+    overflow-x: auto;
+  }
+  .code__body :global(pre) {
+    margin: 0;
+    padding: var(--space-s) var(--space-s) var(--space-m);
+    font-size: 0.78rem;
+    line-height: 1.7;
+    background: transparent !important;
+    tab-size: 2;
+  }
+  .code__body :global(code) {
+    font-size: inherit;
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+  }
+  .code__body:focus-visible {
+    outline-offset: -2px;
+  }
+</style>

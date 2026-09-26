@@ -1,0 +1,431 @@
+---
+/**
+ * "Fixed detents vs software-defined": an oscilloscope-style torque plot.
+ * The mechanical encoder's curve is fixed; Detent's curve is redrawn per
+ * profile. A range input scrubs the knob angle and reads torque at that angle.
+ * Server-renders Ratchet vs mechanical so the comparison exists without JS.
+ */
+import { PROFILES, byProfile } from '@/data/product';
+import { COMPARISON, MECHANICAL, specNumber } from '@/data/engineering';
+import { torqueAt, mechanicalTorqueAt, torquePath } from '@/scripts/info/torque';
+import ProfileTag from './ProfileTag.astro';
+
+const PEAK = specNumber('Haptics', 'Peak torque');
+const W = 1000;
+const H = 400;
+const initial = byProfile('ratchet');
+const mechPath = torquePath((t) => mechanicalTorqueAt(t, MECHANICAL.detents, MECHANICAL.torque), W, H, PEAK);
+const detentPath = torquePath((t) => torqueAt(t, initial.physics, { peak: PEAK }), W, H, PEAK);
+const xTicks = [-180, -90, 0, 90, 180];
+const physicsJson = JSON.stringify(
+  Object.fromEntries(PROFILES.map((p) => [p.id, { name: p.name, feel: p.feel, physics: p.physics }])),
+);
+---
+
+<div class="torque" data-torque data-peak={PEAK} data-mech={JSON.stringify(MECHANICAL)} data-profiles={physicsJson}>
+  <fieldset class="torque__chips" data-js-only>
+    <legend class="visually-hidden">Detent profile to plot</legend>
+    {
+      PROFILES.map((p) => (
+        <label class="chip" style={`--feel: var(--feel-${p.id})`}>
+          <input type="radio" name="torque-profile" value={p.id} checked={p.id === initial.id} />
+          <ProfileTag profile={p.id} />
+        </label>
+      ))
+    }
+  </fieldset>
+
+  <figure class="torque__figure">
+    <div class="torque__plot" style={`--feel: var(--feel-${initial.id})`} data-plot>
+      <div class="torque__y" aria-hidden="true">
+        <span class="readout">+{PEAK}</span>
+        <span class="readout">0</span>
+        <span class="readout">−{PEAK}</span>
+      </div>
+      <div class="torque__canvas">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+          <line class="torque__grid" x1="0" y1="0" x2={W} y2="0"></line>
+          <line class="torque__grid" x1="0" y1={H / 4} x2={W} y2={H / 4}></line>
+          <line class="torque__zero" x1="0" y1={H / 2} x2={W} y2={H / 2}></line>
+          <line class="torque__grid" x1="0" y1={(3 * H) / 4} x2={W} y2={(3 * H) / 4}></line>
+          <line class="torque__grid" x1="0" y1={H} x2={W} y2={H}></line>
+          {xTicks.map((t) => <line class="torque__grid" x1={((t + 180) / 360) * W} y1="0" x2={((t + 180) / 360) * W} y2={H} />)}
+          <path class="torque__mech" d={mechPath}></path>
+          <path class="torque__detent" d={detentPath} data-detent-path></path>
+        </svg>
+        <div class="torque__head" data-head aria-hidden="true">
+          <span class="torque__dot torque__dot--mech" data-dot-mech></span>
+          <span class="torque__dot torque__dot--detent" data-dot-detent></span>
+        </div>
+      </div>
+      <div class="torque__x" aria-hidden="true">
+        {xTicks.map((t) => <span class="readout">{t > 0 ? `+${t}` : t < 0 ? `−${-t}` : t}°</span>)}
+      </div>
+    </div>
+    <figcaption class="torque__legend">
+      <span class="legend legend--mech"><span class="legend__swatch" aria-hidden="true"></span> Mechanical encoder, {MECHANICAL.detents} fixed detents</span>
+      <span class="legend legend--detent" style={`--feel: var(--feel-${initial.id})`} data-legend>
+        <span class="legend__swatch" aria-hidden="true"></span> Detent One, <span data-profile-name>{initial.name}</span>
+      </span>
+      <span class="legend legend--axis">Torque in mN·m against knob angle</span>
+    </figcaption>
+  </figure>
+
+  <div class="torque__scrub" data-js-only>
+    <label for="torque-angle">Turn the knob</label>
+    <input id="torque-angle" type="range" min="-180" max="180" step="0.5" value="0" data-angle />
+    <output class="torque__readouts" for="torque-angle" data-out>
+      <span><span class="torque__k">Angle</span> <span class="readout" data-out-angle>0.0°</span></span>
+      <span><span class="torque__k">Mechanical</span> <span class="readout" data-out-mech>0.0 mN·m</span></span>
+      <span><span class="torque__k">Detent</span> <span class="readout" data-out-detent>0.0 mN·m</span></span>
+    </output>
+  </div>
+
+  <p class="torque__feel" aria-live="polite" data-feel><strong data-feel-name>{initial.name}.</strong> <span data-feel-text>{initial.feel}</span></p>
+
+  <div class="torque__table-wrap" tabindex="0" role="region" aria-labelledby="torque-table-cap">
+    <table class="torque__table">
+      <caption id="torque-table-cap" class="visually-hidden">Mechanical encoder compared with Detent One</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span class="visually-hidden">Aspect</span></th>
+          <th scope="col">Mechanical encoder</th>
+          <th scope="col">Detent One</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          COMPARISON.map((row) => (
+            <tr>
+              <th scope="row">{row.aspect}</th>
+              <td data-label="Mechanical encoder">{row.mechanical}</td>
+              <td data-label="Detent One">{row.detent}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  import { initTorque } from '@/scripts/info/torque-plot';
+  document.querySelectorAll<HTMLElement>('[data-torque]').forEach(initTorque);
+</script>
+
+<style>
+  .torque {
+    display: grid;
+    gap: var(--space-l);
+  }
+  :global(html:not([data-js])) [data-js-only] {
+    display: none;
+  }
+  .torque__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+    border: 0;
+    padding: 0;
+    min-inline-size: 0;
+  }
+  .chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2.75rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .chip:hover {
+    border-color: var(--ink-muted);
+  }
+  .chip input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+  .chip:has(input:checked) {
+    border-color: var(--feel);
+    background: color-mix(in oklch, var(--feel) 14%, transparent);
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  .torque__figure {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .torque__plot {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: var(--space-xs);
+  }
+  .torque__y {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+    margin-block: -0.6em;
+  }
+  .torque__canvas {
+    position: relative;
+    block-size: clamp(13rem, 8rem + 18vw, 24rem);
+    border: 1px solid var(--line);
+    border-radius: var(--r-xs);
+    background: var(--bg-raised);
+  }
+  .torque__canvas svg {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+  }
+  .torque__canvas svg * {
+    vector-effect: non-scaling-stroke;
+  }
+  .torque__grid {
+    stroke: var(--line);
+    stroke-width: 1;
+  }
+  .torque__zero {
+    stroke: var(--line-strong);
+    stroke-width: 1;
+  }
+  .torque__mech {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 1.25;
+    stroke-dasharray: 3 3;
+  }
+  .torque__detent {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    transition: stroke var(--dur-3) var(--ease-out);
+  }
+  .torque__head {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 50%;
+    inline-size: 1px;
+    background: var(--ink-muted);
+    pointer-events: none;
+  }
+  .torque__dot {
+    position: absolute;
+    inset-inline-start: 50%;
+    inline-size: 0.75rem;
+    block-size: 0.75rem;
+    margin: -0.375rem 0 0 -0.375rem;
+    border-radius: 50%;
+    top: 50%;
+  }
+  .torque__dot--mech {
+    background: var(--bg-raised);
+    border: 1.5px solid var(--ink-muted);
+  }
+  .torque__dot--detent {
+    background: var(--feel);
+    transition: transform var(--dur-1) var(--ease-out);
+  }
+  .torque__dot--detent[data-hit] {
+    transform: scale(1.6);
+  }
+  .torque__x {
+    grid-column: 2;
+    display: flex;
+    justify-content: space-between;
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+    padding-block-start: 0.4rem;
+  }
+  .torque__x span {
+    inline-size: 0;
+    display: flex;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  .torque__x span:first-child {
+    justify-content: flex-start;
+  }
+  .torque__x span:last-child {
+    justify-content: flex-end;
+  }
+  .torque__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-l);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55em;
+  }
+  .legend--detent {
+    color: var(--ink-strong);
+    font-weight: 600;
+  }
+  .legend--axis {
+    margin-inline-start: auto;
+  }
+  .legend__swatch {
+    inline-size: 1.6rem;
+    block-size: 0;
+    border-top: 2px solid var(--feel);
+  }
+  .legend--mech .legend__swatch {
+    border-top: 1.5px dashed var(--ink-faint);
+  }
+
+  .torque__scrub {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-s) var(--space-m);
+    align-items: center;
+  }
+  .torque__scrub label {
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .torque__scrub input {
+    inline-size: 100%;
+    accent-color: var(--tally);
+    min-block-size: 2.75rem;
+  }
+  .torque__readouts {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-xl);
+  }
+  .torque__k {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    margin-inline-end: 0.4em;
+  }
+  .torque__readouts .readout {
+    color: var(--ink-strong);
+    font-size: var(--step-0);
+    display: inline-block;
+    min-inline-size: 9ch;
+  }
+  .torque__feel {
+    font-size: var(--step-1);
+    line-height: 1.4;
+    color: var(--ink);
+    max-inline-size: 48ch;
+    min-block-size: 2.8em;
+  }
+
+  .torque__table-wrap {
+    overflow-x: auto;
+    margin-block-start: var(--space-l);
+  }
+  .torque__table {
+    inline-size: 100%;
+    min-inline-size: 36rem;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+  }
+  .torque__table th,
+  .torque__table td {
+    text-align: start;
+    vertical-align: top;
+    padding: 0.85rem var(--space-s) 0.85rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .torque__table thead th {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    border-bottom-color: var(--line-strong);
+  }
+  .torque__table tbody th {
+    font-weight: 560;
+    color: var(--ink-muted);
+    inline-size: 26%;
+  }
+  .torque__table td {
+    color: var(--ink-muted);
+    inline-size: 37%;
+  }
+  .torque__table td:last-child {
+    color: var(--ink-strong);
+  }
+  .torque__table thead th:last-child {
+    color: var(--accent-text);
+  }
+
+  @media (max-width: 40rem) {
+    .torque__table {
+      min-inline-size: 0;
+    }
+    .torque__table thead {
+      position: absolute;
+      clip-path: inset(50%);
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+    }
+    .torque__table tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.35rem var(--space-s);
+      padding-block: var(--space-s);
+      border-bottom: 1px solid var(--line);
+    }
+    .torque__table tbody th {
+      grid-column: 1 / -1;
+      inline-size: auto;
+      color: var(--ink-strong);
+    }
+    .torque__table th,
+    .torque__table td {
+      display: block;
+      inline-size: auto;
+      padding: 0;
+      border: 0;
+    }
+    .torque__table td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: var(--step--2);
+      color: var(--ink-muted);
+      margin-block-end: 0.15rem;
+    }
+    .torque__table td:last-child::before {
+      color: var(--accent-text);
+    }
+    .legend--axis {
+      margin-inline-start: 0;
+    }
+    .torque__scrub {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .torque__detent,
+    .torque__dot--detent {
+      transition: none;
+    }
+  }
+</style>

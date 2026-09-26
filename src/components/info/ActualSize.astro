@@ -1,0 +1,259 @@
+---
+/**
+ * "Actual size": calibrate the screen against any bank or ID card (ISO/IEC
+ * 7810 ID-1, 85.60 × 53.98 mm), then see the dial's footprint at 1:1.
+ * Nothing about the card is read or stored, only the slider position.
+ */
+import { DIMENSIONS as D } from '@/data/engineering';
+
+const CARD = { w: 85.6, h: 53.98, r: 3.18 };
+---
+
+<button type="button" class="actual-btn" data-actual-open data-js-only>
+  <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+    <rect x="2" y="5" width="16" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"></rect>
+    <path d="M6 5v3M10 5v4M14 5v3" stroke="currentColor" stroke-width="1.4"></path>
+  </svg>
+  Actual size
+</button>
+
+<dialog class="actual" data-actual aria-labelledby="actual-title" data-world="day">
+  <form method="dialog" class="actual__inner">
+    <div class="actual__head">
+      <h2 id="actual-title" class="actual__title">Actual size</h2>
+      <button class="actual__close" value="close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+    <p class="actual__step">
+      Hold any bank or ID card flat against the screen, in the outline below. Drag the slider until the card's edges line up.
+    </p>
+
+    <div class="actual__stage" data-stage style={`--card-w: ${CARD.w}; --card-h: ${CARD.h}; --card-r: ${CARD.r}; --base: ${D.baseDia}; --knob: ${D.knobDia}; --disp: ${D.displayDia};`}>
+      <div class="actual__card" aria-hidden="true"><span class="readout">{CARD.w} × {CARD.h} mm</span></div>
+      <div class="actual__dial" role="img" aria-label={`Detent One from above at actual size: ${D.baseDia} millimeter base, ${D.knobDia} millimeter knob`}>
+        <span class="actual__base"></span>
+        <span class="actual__knob"></span>
+        <span class="actual__disp"></span>
+        <span class="actual__tick"></span>
+      </div>
+    </div>
+
+    <div class="actual__controls">
+      <label for="actual-scale">Match the card</label>
+      <input id="actual-scale" type="range" min="0.5" max="2" step="0.002" value="1" data-scale />
+      <output class="readout" for="actual-scale" data-scale-out>1.000×</output>
+    </div>
+    <p class="actual__note">
+      Once the card fits, the dial next to it is {D.baseDia} mm across, exactly. Your calibration stays in this browser for next time.
+    </p>
+  </form>
+</dialog>
+
+<script>
+  import { read, write } from '@/lib/storage';
+  import { track } from '@/lib/analytics';
+
+  const dialog = document.querySelector<HTMLDialogElement>('[data-actual]');
+  const open = document.querySelector<HTMLButtonElement>('[data-actual-open]');
+  const stage = dialog?.querySelector<HTMLElement>('[data-stage]');
+  const range = dialog?.querySelector<HTMLInputElement>('[data-scale]');
+  const out = dialog?.querySelector<HTMLOutputElement>('[data-scale-out]');
+
+  if (dialog && open && stage && range && out) {
+    const apply = (v: number) => {
+      stage.style.setProperty('--k', String(v));
+      out.value = `${v.toFixed(3)}×`;
+    };
+    const saved = read<number>('mm-scale', 1);
+    range.value = String(saved);
+    apply(saved);
+
+    open.addEventListener('click', () => {
+      dialog.showModal();
+      track('actual_size_open');
+    });
+    range.addEventListener('input', () => apply(Number(range.value)));
+    range.addEventListener('change', () => write('mm-scale', Number(range.value)));
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  }
+</script>
+
+<style>
+  :global(html:not([data-js])) [data-js-only] {
+    display: none;
+  }
+  .actual-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    text-underline-offset: 0.25em;
+  }
+  .actual-btn:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .actual {
+    inline-size: min(100vw - 2 * var(--gutter), 60rem);
+    max-block-size: calc(100dvh - 2rem);
+    margin: auto;
+    border-radius: var(--r-l);
+    background: var(--bg);
+    color: var(--ink);
+    z-index: var(--z-modal);
+    opacity: 0;
+    translate: 0 1rem;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      translate var(--dur-3) var(--ease-out),
+      overlay var(--dur-3) allow-discrete,
+      display var(--dur-3) allow-discrete;
+  }
+  .actual[open] {
+    opacity: 1;
+    translate: 0 0;
+  }
+  @starting-style {
+    .actual[open] {
+      opacity: 0;
+      translate: 0 1rem;
+    }
+  }
+  .actual::backdrop {
+    background: oklch(0.1 0.005 355 / 0.6);
+  }
+  .actual__inner {
+    display: grid;
+    gap: var(--space-m);
+    padding: clamp(1rem, 0.5rem + 2vw, 2rem);
+  }
+  .actual__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .actual__title {
+    font-size: var(--step-3);
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+  }
+  .actual__close {
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+  }
+  .actual__close:hover {
+    background: var(--surface);
+  }
+  .actual__step {
+    max-inline-size: 60ch;
+    color: var(--ink-muted);
+  }
+
+  /* 1 CSS mm is 96/25.4 px; --k corrects for this screen's real pixel size. */
+  .actual__stage {
+    --k: 1;
+    --mm: calc(1mm * var(--k));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: calc(12 * var(--mm));
+    padding: var(--space-m);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+    overflow: auto;
+  }
+  .actual__card {
+    flex: none;
+    inline-size: calc(var(--card-w) * var(--mm));
+    block-size: calc(var(--card-h) * var(--mm));
+    border: 1.5px dashed var(--ink-muted);
+    border-radius: calc(var(--card-r) * var(--mm));
+    display: grid;
+    place-items: end start;
+    padding: 0.5rem 0.6rem;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .actual__dial {
+    position: relative;
+    flex: none;
+    inline-size: calc(var(--base) * var(--mm));
+    aspect-ratio: 1;
+  }
+  .actual__dial > span {
+    position: absolute;
+    border-radius: 50%;
+    inset: 50% auto auto 50%;
+    translate: -50% -50%;
+  }
+  .actual__base {
+    inline-size: calc(var(--base) * var(--mm));
+    aspect-ratio: 1;
+    background: var(--alu-300);
+  }
+  .actual__knob {
+    inline-size: calc(var(--knob) * var(--mm));
+    aspect-ratio: 1;
+    background: var(--alu-200);
+    box-shadow: var(--shadow-1);
+  }
+  .actual__disp {
+    inline-size: calc(var(--disp) * var(--mm));
+    aspect-ratio: 1;
+    background: var(--graphite-950);
+  }
+  .actual__dial > .actual__tick {
+    inline-size: calc(1.4 * var(--mm));
+    block-size: calc(4 * var(--mm));
+    border-radius: var(--r-pill);
+    background: var(--tally);
+    translate: -50% calc(-50% - 24 * var(--mm));
+  }
+  .actual__controls {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-s);
+    align-items: center;
+  }
+  .actual__controls label {
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+  }
+  .actual__controls input {
+    accent-color: var(--tally);
+    min-block-size: 2.75rem;
+  }
+  .actual__note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  @media (max-width: 36rem) {
+    .actual__controls {
+      grid-template-columns: 1fr auto;
+    }
+    .actual__controls label {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .actual,
+    .actual[open] {
+      translate: 0 0;
+    }
+  }
+</style>

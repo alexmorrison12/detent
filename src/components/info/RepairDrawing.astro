@@ -1,0 +1,120 @@
+---
+/**
+ * Bottom view of Detent One for the repair guide: the foot, its peel notch,
+ * and the four T6 screws under it drawn as hidden (dashed) features, the
+ * way an engineering drawing shows what you cannot see yet.
+ */
+import { DIMENSIONS as D } from '@/data/engineering';
+import { EDITIONS } from '@/data/product';
+import { SITE } from '@/config/site';
+
+const R = D.baseDia / 2;
+const FOOT = 32;
+const SCREW_R = 22;
+const f = (n: number) => Number(n.toFixed(2));
+const screws = [45, 135, 225, 315].map((deg) => {
+  const a = (deg * Math.PI) / 180;
+  return { x: f(SCREW_R * Math.cos(a)), y: f(SCREW_R * Math.sin(a)) };
+});
+/** Six-lobed Torx recess, as a star polygon. */
+const torx = (cx: number, cy: number, ro = 1.9, ri = 1.15) =>
+  Array.from({ length: 12 }, (_, i) => {
+    const a = (i * Math.PI) / 6 - Math.PI / 2;
+    const rr = i % 2 ? ri : ro;
+    return `${i ? 'L' : 'M'}${f(cx + rr * Math.cos(a))} ${f(cy + rr * Math.sin(a))}`;
+  }).join('') + 'Z';
+const engraving = `${SITE.product.toUpperCase()} · ${EDITIONS[0]!.sku} · 6061-T6 · SERIAL ENGRAVED HERE ·`;
+---
+
+<svg class="repair-dwg" viewBox="-60 -50 120 100" role="img" aria-labelledby="repair-dwg-t repair-dwg-d">
+  <title id="repair-dwg-t">Bottom view of Detent One</title>
+  <desc id="repair-dwg-d">
+    The silicone foot covers four Torx T6 screws, placed evenly around the center. Peel the foot back from the notch at the bottom edge to reach
+    them.
+  </desc>
+  <defs>
+    <path id="engrave-path" d={`M0 ${R - 2.6} A${R - 2.6} ${R - 2.6} 0 1 1 0.01 ${R - 2.6}`}></path>
+  </defs>
+  <line class="rd-center" x1="-42" y1="0" x2="42" y2="0"></line>
+  <line class="rd-center" x1="0" y1="-42" x2="0" y2="42"></line>
+  <circle class="rd-solid" r={R}></circle>
+  <circle class="rd-thin" r={R - 0.6}></circle>
+  <text class="rd-engrave"><textPath href="#engrave-path" startOffset="4%">{engraving}</textPath></text>
+  <path class="rd-foot" d={`M${-4} ${FOOT - 0.25} A${FOOT} ${FOOT} 0 1 1 4 ${FOOT - 0.25} A4 4 0 0 0 -4 ${FOOT - 0.25}Z`}></path>
+  {
+    screws.map((s) => (
+      <g class="rd-screw">
+        <circle cx={s.x} cy={s.y} r="2.9" />
+        <path d={torx(s.x, s.y)} />
+      </g>
+    ))
+  }
+  <g class="rd-dim">
+    <path d={`M${screws[3]!.x + 2.2} ${screws[3]!.y - 2.2}L40 -38H52`}></path>
+    <text x="52" y="-39.4" text-anchor="end">4 × T6</text>
+    <path d={`M0 ${FOOT + 3.2}L-14 46H-52`}></path>
+    <text x="-52" y="44.6">Peel from the notch</text>
+    <path d={`M${-FOOT * 0.7} ${-FOOT * 0.7}L-40 -38H-52`}></path>
+    <text x="-52" y="-39.4">Micro-suction foot</text>
+  </g>
+</svg>
+
+<style>
+  .repair-dwg {
+    inline-size: 100%;
+    color: var(--ink-strong);
+    overflow: visible;
+  }
+  .repair-dwg * {
+    vector-effect: non-scaling-stroke;
+  }
+  .rd-solid {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+  }
+  .rd-thin {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 0.7;
+  }
+  .rd-center {
+    stroke: var(--ink-faint);
+    stroke-width: 0.7;
+    stroke-dasharray: 14 3 2 3;
+  }
+  .rd-foot {
+    fill: var(--surface);
+    stroke: currentColor;
+    stroke-width: 1;
+  }
+  .rd-screw circle,
+  .rd-screw path {
+    fill: none;
+    stroke: var(--accent-text);
+    stroke-width: 1;
+    stroke-dasharray: 2 1.6;
+  }
+  .rd-engrave {
+    fill: var(--ink-muted);
+    font-family: var(--font-mono);
+    font-size: 2.3px;
+    letter-spacing: 0.12em;
+  }
+  .rd-dim path {
+    fill: none;
+    stroke: var(--ink-muted);
+    stroke-width: 0.75;
+  }
+  .rd-dim text {
+    fill: var(--ink-strong);
+    font-family: var(--font-sans);
+    font-size: 3.3px;
+    font-weight: 600;
+  }
+  @media (max-width: 40rem) {
+    .rd-dim text {
+      font-size: 4.2px;
+    }
+  }
+</style>

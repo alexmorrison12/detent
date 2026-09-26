@@ -1,0 +1,90 @@
+---
+/**
+ * A product render with a download link. The render pipeline writes
+ * /renders/<finish>-hero.webp; until it exists (or if it fails to load) the
+ * DialStill illustration shows through underneath, so the tile never breaks.
+ */
+import DialStill from '@/components/dial/DialStill.astro';
+import type { FinishId } from '@/data/product';
+import { url } from '@/lib/url';
+
+interface Props {
+  finish: FinishId;
+  name: string;
+  file: string;
+  note?: string;
+}
+const { finish, name, file, note } = Astro.props;
+---
+
+<figure class="render" data-render>
+  <div class="render__frame">
+    <div class="render__still" aria-hidden="true"><DialStill finish={finish} view="hero" /></div>
+    <img src={url(file)} alt={`Detent One in ${name}`} width="1200" height="1200" loading="lazy" decoding="async" class="render__img" data-render-img />
+  </div>
+  <figcaption class="render__cap">
+    <span class="render__name">{name}{note && <span class="render__note"> · {note}</span>}</span>
+    <a href={url(file)} download class="render__dl" data-track="press_download" data-track-asset={`render-${finish}`}>
+      WebP<span class="visually-hidden">, Detent One in {name}</span>
+    </a>
+  </figcaption>
+</figure>
+
+<script>
+  document.querySelectorAll<HTMLImageElement>('[data-render-img]').forEach((img) => {
+    const hide = () => img.setAttribute('data-missing', '');
+    if (img.complete && img.naturalWidth === 0) hide();
+    img.addEventListener('error', hide, { once: true });
+  });
+</script>
+
+<style>
+  .render {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .render__frame {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+    overflow: hidden;
+  }
+  .render__still {
+    position: absolute;
+    inset: 14%;
+  }
+  .render__img {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+  .render__img[data-missing] {
+    visibility: hidden;
+  }
+  .render__cap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-s);
+    font-size: var(--step--1);
+  }
+  .render__name {
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .render__note {
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+  .render__dl {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 2.75rem;
+    font-weight: 620;
+    color: var(--accent-text);
+  }
+</style>

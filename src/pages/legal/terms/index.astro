@@ -1,0 +1,54 @@
+---
+import LegalPage from '@/components/info/LegalPage.astro';
+import { SITE } from '@/config/site';
+import { SMARTKNOB } from '@/data/story';
+import { url } from '@/lib/url';
+---
+
+<LegalPage
+  title="Terms"
+  heading="Terms."
+  description="Detent's terms in plain words: this is a concept site, nothing is for sale, prices and dates are illustrative, and third-party names belong to their owners."
+  summary="Detent One is a concept. Nothing here is for sale, no order you place is real, and no money moves. Enjoy the site, quote it fairly, and please don’t present it as a real store."
+  other={{ label: 'Privacy', href: '/legal/privacy/' }}
+>
+  <h2>What this site is</h2>
+  <p>
+    {SITE.conceptNotice} The shop, the cart, the reservation and the checkout are working demos. They never take payment and never create an order.
+  </p>
+
+  <h2>Prices, dates and specs</h2>
+  <p>
+    Prices, launch dates, batches, warranty and trial terms describe how the product would be sold. They are design material, not an offer, and they
+    create no contract. Specs are design targets.
+  </p>
+
+  <h2>People on this site</h2>
+  <p>
+    The founders, early testers and every quote attributed to them are fictional. Any resemblance to real people is a coincidence. The only real
+    person named here is {SMARTKNOB.author}, credited on the <a href={url('/story/')}>story page</a> for the open-source <a href={SMARTKNOB.url} rel="noopener">{SMARTKNOB.name}</a> project that inspired Detent. He has no
+    involvement with this site.
+  </p>
+
+  <h2>Other companies’ names</h2>
+  <p>
+    Apps named in the <a href={url('/integrations/')}>integrations directory</a> and elsewhere belong to their owners. They are named only to show what
+    the dial would do in them. No company listed has partnered with, endorsed or reviewed Detent. No logos of other companies are used.
+  </p>
+
+  <h2>Using what you find here</h2>
+  <ul>
+    <li>Browse, play with the dial, screenshot and screen-record it. That is what it is for.</li>
+    <li>Quote the site for commentary, reviews, teaching and design critique, and link back.</li>
+    <li>Do not use it, or a copy of it, to take orders, collect payments or pass it off as a real store.</li>
+  </ul>
+
+  <h2>No warranty on the website</h2>
+  <p>
+    The site is provided as it is. We work to keep it accurate, fast and accessible, but we do not promise it is free of mistakes, and we are not
+    liable for anything that happens because you relied on a concept.
+  </p>
+
+  <h2>Changes</h2>
+  <p>If these terms change, the date at the top changes with them. Questions go to <a href={`mailto:${SITE.email}`}>{SITE.email}</a>, a placeholder address that does not receive mail.</p>
+</LegalPage>

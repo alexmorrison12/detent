@@ -1,0 +1,114 @@
+---
+/**
+ * The DESIGN.md signature, used on /story/: a headline set in Archivo's
+ * width axis, driven by a real dial. Half a turn condenses it from 125% to
+ * 62%; the other half brings it back. Without JS (or before the dial is
+ * touched) the headline sits at its expanded default.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+
+interface Props {
+  title: string;
+  lede: string;
+  hint: string;
+}
+const { title, lede, hint } = Astro.props;
+---
+
+<header class="stretch container" data-stretch>
+  <div class="stretch__text">
+    <h1 class="stretch__title" data-stretch-title>{title}</h1>
+    <p class="lede stretch__lede">{lede}</p>
+    <p class="stretch__hint" data-js-only>
+      <span class="readout" data-stretch-out>wdth 125</span>
+      <span>{hint}</span>
+    </p>
+  </div>
+  <div class="stretch__dial">
+    <DialStage id="story-dial" interactive finish="raw" profile="fluid" camera="hero" display="WIDTH" label="Turn to change the headline's width" priority />
+  </div>
+</header>
+
+<script>
+  import { track } from '@/lib/analytics';
+
+  const root = document.querySelector<HTMLElement>('[data-stretch]');
+  const title = root?.querySelector<HTMLElement>('[data-stretch-title]');
+  const out = root?.querySelector<HTMLElement>('[data-stretch-out]');
+  const dial = document.getElementById('story-dial');
+  let tracked = false;
+  let frame = 0;
+  let pending = 0;
+
+  dial?.addEventListener('detent:change', (e) => {
+    pending = e.detail.angle;
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      // 0° = fully expanded; 180° either way = fully condensed.
+      const v = (1 + Math.cos((pending * Math.PI) / 180)) / 2;
+      const wdth = Math.round(62 + 63 * v);
+      title?.style.setProperty('font-stretch', `${wdth}%`);
+      if (out) out.textContent = `wdth ${wdth}`;
+      if (!tracked) {
+        tracked = true;
+        track('story_stretch');
+      }
+    });
+  });
+</script>
+
+<style>
+  .stretch {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-l) var(--space-2xl);
+    align-items: center;
+    padding-block: clamp(2.5rem, 1rem + 5vw, 6rem) var(--space-2xl);
+  }
+  :global(html:not([data-js])) [data-js-only] {
+    display: none !important;
+  }
+  .stretch__text {
+    display: grid;
+    gap: var(--space-m);
+  }
+  .stretch__title {
+    font-size: clamp(3rem, 1rem + 6vw, 6rem);
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.025em;
+    line-height: 0.92;
+    color: var(--ink-strong);
+    /* Room for two lines at any width so turning never shifts the page. */
+    min-block-size: 1.84em;
+    display: flex;
+    align-items: flex-end;
+    text-wrap: balance;
+  }
+  .stretch__hint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem var(--space-s);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .stretch__hint .readout {
+    color: var(--accent-text);
+    min-inline-size: 8ch;
+  }
+  .stretch__dial {
+    inline-size: min(100%, 30rem);
+    justify-self: center;
+  }
+  @media (max-width: 56rem) {
+    .stretch {
+      grid-template-columns: 1fr;
+    }
+    .stretch__dial {
+      inline-size: min(78vw, 22rem);
+      order: -1;
+    }
+  }
+</style>
