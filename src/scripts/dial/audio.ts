@@ -13,7 +13,8 @@
  *   first user gesture after sound is on. We never touch navigator.audioSession,
  *   so iOS keeps the "ambient" session: your music keeps playing and the silent
  *   switch is respected.
- * - Clicks are pre-rendered once with OfflineAudioContext, then each tick is a
+ * - Clicks are pre-rendered once with OfflineAudioContext (after the gesture that
+ *   created the context has painted, never inside it), then each tick is a
  *   one-shot AudioBufferSourceNode with ±3% pitch jitter so repeats don't sound
  *   robotic. At most one voice per 12 ms: fast spins thin out instead of buzzing.
  * - The context is suspended on pagehide (bfcache-safe, no unload handlers).
@@ -107,8 +108,22 @@ function ensureContext(): AudioContext | null {
   master.gain.value = 0.85;
   master.connect(comp).connect(ctx.destination);
   if (recorder) master.connect(recorder);
-  rendering = prerender(ctx.sampleRate).catch(() => {});
+  // Synthesizing the voices takes tens of ms on a slow phone: never inside the click
+  // that turned sound on (that click must paint at once). Start after the next frame.
+  const sampleRate = ctx.sampleRate;
+  rendering = afterNextPaint()
+    .then(() => prerender(sampleRate))
+    .catch(() => {});
   return ctx;
+}
+
+function afterNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    const next = () => setTimeout(resolve, 0);
+    if (typeof requestAnimationFrame === 'function' && document.visibilityState === 'visible')
+      requestAnimationFrame(next);
+    else next();
+  });
 }
 
 /**
@@ -451,15 +466,19 @@ async function prerender(sampleRate: number): Promise<void> {
     (window as Window & { webkitOfflineAudioContext?: typeof OfflineAudioContext })
       .webkitOfflineAudioContext;
   if (!OAC || !ctx) return;
-  // The looping swish for Fluid is plain pink noise; render it on the live context.
-  buffers.set('noise', makeNoise(ctx, 2, true));
+  // One short burst of white noise serves every recipe (an AudioBuffer isn't tied to
+  // the context that made it), instead of a fresh 0.4 s buffer per click voice.
+  const grain = makeNoise(ctx, 0.4);
   const jobs = (Object.keys(RECIPES) as (keyof typeof RECIPES)[]).map(async (key) => {
     const [dur, recipe] = RECIPES[key];
     const off = new OAC(1, Math.ceil(sampleRate * dur), sampleRate);
-    recipe(off, makeNoise(off, 0.4));
+    recipe(off, grain);
     buffers.set(key, await off.startRendering());
   });
   await Promise.all(jobs);
+  // The looping swish for Fluid is plain pink noise; last, in a task of its own.
+  await new Promise((r) => setTimeout(r, 0));
+  if (ctx) buffers.set('noise', makeNoise(ctx, 2, true));
 }
 
 /** Resolves when click buffers exist (or immediately if audio never started). */

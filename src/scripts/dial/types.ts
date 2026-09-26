@@ -26,6 +26,10 @@
  *   feelColor: string | null   override the display/halo color (hex)
  *   valueText: ((s: DialValueState) => string) | null   (extension) custom aria-valuetext,
  *                        e.g. s => `Frame ${s.index} of 240`. null = plain-words default.
+ *                        Prefer this to writing aria-valuetext yourself: the engine calls it
+ *                        with the destination the moment a key is pressed. (A page that does
+ *                        write aria-valuetext/-valuenow/-valuemin/-valuemax/-label directly
+ *                        owns that attribute from then on; the engine stops writing it.)
  *
  * Methods:
  *   setAngle(deg, { instant?: boolean })
@@ -35,6 +39,8 @@
  *                                    have come to rest and the final frame is drawn
  *   partAnchors(): DialPartAnchor[]  (extension) host-relative CSS px anchor per part, for
  *                                    labelling the exploded view (right edge of each part)
+ *   refreshAria(): void              (extension) re-run valueText now, when the page's state
+ *                                    changed without the knob moving (e.g. "Armed")
  *
  * Events (bubble, composed):
  *   detent:ready   { renderer }      fired whenever the live renderer changes (svg, then webgl2;
@@ -126,6 +132,7 @@ export interface DetentDialElement extends HTMLElement {
   getCanvas(): HTMLCanvasElement | null;
   whenSettled?(): Promise<void>;
   partAnchors?(): DialPartAnchor[];
+  refreshAria?(): void;
 }
 
 declare global {

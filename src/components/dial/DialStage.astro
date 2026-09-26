@@ -2,8 +2,10 @@
 /**
  * The way pages place a Detent dial. Server-renders a product still (so there
  * is an image before JS, for no-JS, and as the LCP candidate), then upgrades
- * to the live <detent-dial>: SVG right away if needed, three.js when the dial
- * nears the viewport and the browser is idle. Pages never import three.js.
+ * to the live <detent-dial> once its engine arrives (a small loader fetches it
+ * when the dial nears the viewport after load, or the moment someone reaches
+ * for it): SVG when needed, three.js when the dial is in view, the browser is
+ * idle and there is a real GPU. Pages never import three.js.
  *
  *   <DialStage interactive finish="graphite" profile="ratchet" priority />
  *   <DialStage camera="exploded" finish="raw" />
@@ -34,7 +36,7 @@ interface Props {
   muted?: boolean;
   /** Boot 3D immediately instead of on idle (above-the-fold toys). */
   eager?: boolean;
-  /** sizes attribute for the still's srcset. */
+  /** sizes attribute for the still's srcset: pass the real rendered width (required for `priority`). */
   sizes?: string;
   /** Opt-in cross-document view transition name (must be unique on the page). */
   transitionName?: string;
@@ -58,9 +60,9 @@ const {
   transitionName,
 } = Astro.props;
 
-// The still whose framing matches this camera; 'config' starts on the hero still
-// and the live dial glides from there once it takes over.
-const stillView: StillView = camera === 'config' ? 'hero' : camera;
+// Every camera has a still framed exactly like the live dial's first frame, so the
+// 3D takeover is a crossfade, never a camera move.
+const stillView: StillView = camera;
 const dialId = id ?? (steppers ? `dial-${Math.random().toString(36).slice(2, 8)}` : undefined);
 const style = transitionName ? `view-transition-name: ${transitionName}` : undefined;
 ---
@@ -139,19 +141,10 @@ const style = transitionName ? `view-transition-name: ${transitionName}` : undef
 )}
 
 <script>
-  import '@/scripts/dial/detent-dial';
-  import { hapticTap } from '@/scripts/dial/haptics';
-  import { unlockAudio } from '@/scripts/dial/audio';
-
-  document.addEventListener('click', (e) => {
-    const btn = (e.target as Element | null)?.closest<HTMLButtonElement>('[data-dial-step]');
-    if (!btn) return;
-    const dial = btn.closest('.dial-stage-wrap')?.querySelector('detent-dial');
-    if (!dial) return;
-    unlockAudio();
-    hapticTap();
-    dial.nudge(Number(btn.dataset.dialStep) || 0);
-  });
+  // A tiny loader: the engine arrives when a dial nears the viewport (after load,
+  // on idle) or the moment someone reaches for one. The still covers until then.
+  import { watchDials } from '@/scripts/dial/loader';
+  watchDials();
 </script>
 
 <style>

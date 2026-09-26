@@ -28,6 +28,23 @@ export const MM = {
   knurlTeeth: 150,
 } as const;
 
+/**
+ * Type on the round display, in model mm (display radius 18.2), for the canvas and
+ * SVG renderers alike. Sized for the smallest place the dial appears (a ~190 px
+ * hero on a phone), not for the 1600 px still: the display is the product's voice.
+ */
+export const TYPE = {
+  name: 2.4,
+  nameY: -7.1,
+  text: 8.5,
+  textY: 3.1,
+  sub: 1.75,
+  subY: 8.7,
+} as const;
+/** The big readout steps down for longer strings so it stays inside the tick ring. */
+export const readoutSize = (text: string) =>
+  text.length > 4 ? 5.6 : text.length > 3 ? 6.8 : TYPE.text;
+
 /** Explode choreography: how far each part lifts (mm) and when it starts moving. */
 export const PARTS: { id: DialPartId; lift: number; order: number; y: number; r: number }[] = [
   { id: 'glass', lift: 118, order: 0, y: 43.8, r: 19.4 },
@@ -71,13 +88,17 @@ export interface Rig {
 
 export const FOV = 28;
 
+/**
+ * hero sits high enough (36°) that the round display reads at phone sizes (a 27°
+ * view foreshortened it to 0.45 and the product sat small in its own frame).
+ */
 export const PRESETS: Record<CameraPreset, Rig> = {
-  hero: { az: -32, el: 27, dist: 236, ty: 21 },
+  hero: { az: -32, el: 36, dist: 205, ty: 20 },
   top: { az: 0, el: 89.5, dist: 228, ty: 22 },
   side: { az: 90, el: 1.5, dist: 238, ty: 21 },
   front: { az: 0, el: 13, dist: 240, ty: 21 },
   exploded: { az: -32, el: 22, dist: 236, ty: 21 },
-  config: { az: 30, el: 36, dist: 222, ty: 19 },
+  config: { az: 30, el: 40, dist: 212, ty: 18 },
 };
 
 /** Blend a rig toward the framing that fits the fully exploded stack. */

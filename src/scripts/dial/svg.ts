@@ -1,19 +1,31 @@
 /**
- * SVG renderer: Detent One drawn as an oblique projection of the same
- * millimetre model the 3D renderer uses. It follows the camera rig (elevation,
- * azimuth, distance), the explode choreography, the knurl turning with the knob
- * and a live round display. Used before three.js loads, for quality="low",
- * without WebGL2, and after a lost GPU context. No dependencies.
+ * SVG renderer: Detent One drawn from the same millimetre model the 3D
+ * renderer uses, with the same camera (elevation, azimuth, distance and its
+ * perspective: each level is scaled by its depth, so the knob top reads larger
+ * than the base exactly as in 3D and the SVG → 3D crossfade doesn't jump). It
+ * follows the explode choreography, the diamond knurl turning with the knob and
+ * a live round display. Used before three.js loads, for quality="low", without
+ * a GPU, and after a lost GPU context. No dependencies.
  */
-import { MM, FOV, PARTS, partLift, partProgress } from './model';
+import { MM, FOV, PARTS, TYPE, partLift, partProgress, readoutSize } from './model';
 import { mix, shade } from './color';
 import type { DialPartAnchor } from './types';
-import type { DialView, KnobCircle, ViewState } from './view';
+import {
+  enclose,
+  hullRings,
+  type DialView,
+  type Ellipse,
+  type KnobCircle,
+  type KnobGrip,
+  type ViewState,
+} from './view';
 
 const NS = 'http://www.w3.org/2000/svg';
 const DEG = Math.PI / 180;
 const VIEW_K = 2 * Math.tan((FOV / 2) * DEG);
-const KNURL_TEETH = 96;
+/** Diamond knurl, as in 3D (144 teeth, 12 rows); drawn every other tooth. */
+const KNURL_TEETH = 144;
+const KNURL_DRAWN = 72;
 const CHAMFER = '#e4e4e2';
 let uid = 0;
 
@@ -43,6 +55,9 @@ export class SvgView implements DialView {
   private sinE = 0.5;
   private cosE = 0.86;
   private az = 0;
+  /** Camera distance (mm) and target height, for perspective. */
+  private D = 236;
+  private ty = 21;
   private lift: Record<string, number> = {};
   private geoKey = '';
   private finishKey = '';
@@ -51,6 +66,7 @@ export class SvgView implements DialView {
   private n: Record<string, SVGElement> = {};
   private stops: Record<string, SVGStopElement[]> = {};
   private seat = 0;
+  private explode = 0;
 
   constructor() {
     const svg = node('svg', {
@@ -174,9 +190,23 @@ export class SvgView implements DialView {
       face,
     );
     node('circle', { r: MM.boreR, fill: '#050405' }, face);
+    // The tally line in its dark engraved groove (matches the 3D inlay).
+    node(
+      'line',
+      {
+        x1: 0,
+        x2: 0,
+        y1: -26.1,
+        y2: -27.3,
+        'stroke-width': 1.85,
+        'stroke-linecap': 'round',
+        stroke: '#030303',
+      },
+      face,
+    );
     this.n.indicator = node(
       'line',
-      { x1: 0, x2: 0, y1: -25.7, y2: -27.7, 'stroke-width': 1.05, 'stroke-linecap': 'round' },
+      { x1: 0, x2: 0, y1: -26.1, y2: -27.3, 'stroke-width': 1.25, 'stroke-linecap': 'round' },
       face,
     );
 
@@ -216,9 +246,9 @@ export class SvgView implements DialView {
     this.n.name = node(
       'text',
       {
-        y: -6.6,
+        y: TYPE.nameY,
         'text-anchor': 'middle',
-        'font-size': 1.75,
+        'font-size': TYPE.name,
         'font-weight': 720,
         'letter-spacing': 0.3,
         style: 'font-family: var(--font-sans); font-stretch: 125%',
@@ -228,9 +258,9 @@ export class SvgView implements DialView {
     this.n.text = node(
       'text',
       {
-        y: 2.7,
+        y: TYPE.textY,
         'text-anchor': 'middle',
-        'font-size': 7,
+        'font-size': TYPE.text,
         'font-weight': 640,
         fill: '#f4f1f2',
         style:
@@ -241,12 +271,12 @@ export class SvgView implements DialView {
     this.n.sub = node(
       'text',
       {
-        y: 8.2,
+        y: TYPE.subY,
         'text-anchor': 'middle',
-        'font-size': 1.45,
+        'font-size': TYPE.sub,
         'font-weight': 450,
         fill: '#f4f1f2',
-        'fill-opacity': 0.55,
+        'fill-opacity': 0.6,
         'letter-spacing': 0.18,
         style: 'font-family: var(--font-mono)',
       },
@@ -352,25 +382,57 @@ export class SvgView implements DialView {
 
   /* -------------------------------- projection -------------------------------- */
 
+  /**
+   * Perspective projection of a model point, as the 3D camera sees it: x to the
+   * right, height y, z toward the viewer (mm) → drawing units (the viewBox is
+   * centred on the camera target, one unit = one mm at the target's depth).
+   */
+  private proj(x: number, y: number, z: number) {
+    const up = (y - this.ty) * this.cosE - z * this.sinE;
+    const k = this.D / Math.max(1, this.D - (y - this.ty) * this.sinE - z * this.cosE);
+    return { x: x * k, y: -this.ty * this.cosE - up * k };
+  }
+  /** Drawing y of the axis at height y. */
   private Y(y: number) {
-    return -y * this.cosE;
+    return this.proj(0, y, 0).y;
   }
-  private side(r: number, y0: number, y1: number): string {
-    const ry = r * this.sinE;
-    const t = this.Y(y1);
-    const b = this.Y(y0);
-    return `M${f2(-r)} ${f2(t)}L${f2(-r)} ${f2(b)}A${f2(r)} ${f2(ry)} 0 0 0 ${f2(r)} ${f2(b)}L${f2(r)} ${f2(t)}A${f2(r)} ${f2(ry)} 0 0 1 ${f2(-r)} ${f2(t)}Z`;
+  /**
+   * The projected ellipse of a horizontal circle (off-centre: its back half is
+   * smaller). ry is signed: negative when the camera is below that level (a side
+   * view looks up at the knob's top), where the circle's front arc is its upper one.
+   */
+  private circ(r: number, y: number) {
+    const back = this.proj(0, y, -r).y;
+    const front = this.proj(0, y, r).y;
+    return { cy: (back + front) / 2, rx: this.proj(r, y, 0).x, ry: (front - back) / 2 };
   }
-  private ell(name: string, r: number, y: number) {
-    set(this.n[name]!, {
-      cx: 0,
-      cy: f2(this.Y(y)),
-      rx: f2(r),
-      ry: f2(Math.max(0.01, r * this.sinE)),
-    });
+  /** The visible band of a cylinder (or a chamfer's cone when rTop differs). */
+  private side(r: number, y0: number, y1: number, rTop = r): string {
+    const b = this.circ(r, y0);
+    const t = this.circ(rTop, y1);
+    // Each edge follows its circle's front arc: the lower one seen from above, the upper from below.
+    const ry = (c: { ry: number }) => f2(Math.max(0.01, Math.abs(c.ry)));
+    return `M${f2(-t.rx)} ${f2(t.cy)}L${f2(-b.rx)} ${f2(b.cy)}A${f2(b.rx)} ${ry(b)} 0 0 ${b.ry >= 0 ? 0 : 1} ${f2(b.rx)} ${f2(b.cy)}L${f2(t.rx)} ${f2(t.cy)}A${f2(t.rx)} ${ry(t)} 0 0 ${t.ry >= 0 ? 1 : 0} ${f2(-t.rx)} ${f2(t.cy)}Z`;
   }
-  private faceTransform(y: number, rot: number) {
-    return `translate(0 ${f2(this.Y(y))}) scale(1 ${f2(Math.max(0.001, this.sinE))}) rotate(${f2(rot)})`;
+  /** A top face (ellipse element); hidden when the camera is below it. */
+  private ell(name: string, r: number, y: number, pad = 0) {
+    const c = this.circ(r, y);
+    const el = this.n[name]!;
+    el.style.visibility = c.ry > 0 ? '' : 'hidden';
+    set(el, { cx: 0, cy: f2(c.cy), rx: f2(c.rx), ry: f2(Math.max(0.01, c.ry) + pad) });
+  }
+  /** Place a flat, round group (drawn in mm around its centre, outer radius R) on its level. */
+  private placeFace(el: SVGElement, y: number, rot: number, R: number) {
+    const c = this.circ(R, y);
+    el.style.visibility = c.ry > 0 ? '' : 'hidden';
+    el.setAttribute(
+      'transform',
+      `translate(0 ${f2(c.cy)}) scale(${f2(c.rx / R)} ${f2(Math.max(0.001, c.ry) / R)}) rotate(${f2(rot)})`,
+    );
+  }
+  /** A point on a circle of radius r at height y, angle b (rad, 0 = away from the viewer). */
+  private rim(r: number, y: number, b: number) {
+    return this.proj(r * Math.sin(b), y, -r * Math.cos(b));
   }
   private show(name: string, on: boolean) {
     this.n[name]!.style.display = on ? '' : 'none';
@@ -403,26 +465,26 @@ export class SvgView implements DialView {
     this.sinE = Math.sin(el);
     this.cosE = Math.cos(el);
     this.az = r.az;
+    // The 3D camera backs off for tall hosts so the width still fits; match its distance.
+    const aspect = this.w / this.h;
+    this.D = r.dist * (aspect < 1 ? 1 / aspect : 1);
+    this.ty = r.ty;
     const size = VIEW_K * r.dist;
     const cy = this.Y(r.ty);
     this.vb = { x: -size / 2, y: cy - size / 2, s: size };
     this.el.setAttribute('viewBox', `${f2(this.vb.x)} ${f2(this.vb.y)} ${f2(size)} ${f2(size)}`);
 
     for (const part of PARTS) this.lift[part.id] = partLift(part.id, s.explode);
+    this.explode = s.explode;
     this.seat = s.press * 0.5;
     const L = this.lift;
-    const trans = (name: string, dy: number) =>
-      this.n[name]!.setAttribute('transform', `translate(0 ${f2(this.Y(dy))})`);
 
-    // Ground
-    this.ell('shadow', 44, 0);
-    this.ell('glow', 64, 0);
-    set(this.n.shadow!, { ry: f2(44 * this.sinE + 2.2) });
-    set(this.n.glow!, { ry: f2(64 * this.sinE + 1.5) });
+    // Ground (moves with the foot, as in 3D)
+    this.ell('shadow', 44, L.foot!, 2.2);
+    this.ell('glow', 64, L.foot!, 1.5);
 
     // Foot
-    trans('foot', L.foot!);
-    set(this.n.footSide!, { d: this.side(MM.footR, 0, MM.footH) });
+    set(this.n.footSide!, { d: this.side(MM.footR, L.foot!, L.foot! + MM.footH) });
 
     // Base
     // Paths overlap by a hair so anti-aliased seams never show the glow behind.
@@ -431,10 +493,13 @@ export class SvgView implements DialView {
       d: this.side(MM.baseR - 0.35, MM.slotBottom - 0.35, MM.slotTop + 0.35),
     });
     set(this.n.slot!, { d: this.side(MM.baseR - MM.slotDepth, MM.slotBottom, MM.slotTop) });
+    // The chamfer is a cone that meets the top face exactly (a straight band left a
+    // sliver open, and the halo showed through as a maroon seam).
+    const bc = MM.baseChamfer;
     set(this.n.baseChamfer!, {
-      d: this.side(MM.baseR, MM.baseTop - MM.baseChamfer, MM.baseTop - 0.2),
+      d: this.side(MM.baseR, MM.baseTop - bc, MM.baseTop, MM.baseR - bc + 0.15),
     });
-    this.ell('baseTop', MM.baseR - MM.baseChamfer, MM.baseTop);
+    this.ell('baseTop', MM.baseR - bc + 0.2, MM.baseTop);
     this.ell('baseWell', MM.knobR + 0.6, MM.baseTop);
 
     // Internals
@@ -447,10 +512,10 @@ export class SvgView implements DialView {
       this.ell('battLabel', 17, at(12.5, 'battery'));
       set(this.n.pcbSide!, { d: this.side(26.5, at(13.2, 'encoder'), at(14.8, 'encoder')) });
       this.ell('pcbTop', 26.5, at(14.8, 'encoder'));
-      this.n.pcbFace!.setAttribute('transform', this.faceTransform(at(14.8, 'encoder'), this.az));
+      this.placeFace(this.n.pcbFace!, at(14.8, 'encoder'), this.az, 26.5);
       set(this.n.statorSide!, { d: this.side(17.5, at(15.5, 'stator'), at(22.5, 'stator')) });
       this.ell('statorTop', 17.5, at(22.5, 'stator'));
-      this.n.statorFace!.setAttribute('transform', this.faceTransform(at(22.5, 'stator'), this.az));
+      this.placeFace(this.n.statorFace!, at(22.5, 'stator'), this.az, 17.5);
       const rotorLift = partProgress(3, s.explode);
       set(this.n.rotorSide!, { d: this.side(24.2, at(15.5, 'rotor'), at(24.5, 'rotor')) });
       this.ell('rotorTop', 24.2, at(24.5, 'rotor'));
@@ -462,9 +527,9 @@ export class SvgView implements DialView {
       for (let i = 0; i < 14; i++) {
         const b = ((i * 360) / 14 + this.az + rotorLift * 60) * DEG;
         if (Math.cos(b) > -0.05) continue;
-        const x = 24.2 * Math.sin(b);
-        const dz = -24.2 * Math.cos(b) * this.sinE;
-        d += `M${f2(x)} ${f2(this.Y(y1) + dz)}L${f2(x)} ${f2(this.Y(y0) + dz)}`;
+        const p0 = this.rim(24.2, y1, b);
+        const p1 = this.rim(24.2, y0, b);
+        d += `M${f2(p0.x)} ${f2(p0.y)}L${f2(p1.x)} ${f2(p1.y)}`;
       }
       set(this.n.rotorStripes!, { d });
       const vis = (name: string, order: number) =>
@@ -476,45 +541,72 @@ export class SvgView implements DialView {
     }
 
     // Knob (lifted when exploded, seated a hair when pressed)
-    trans('knob', L.knob! - this.seat);
+    const kl = this.knobLift();
     const c = MM.knobChamfer;
-    set(this.n.knobLower!, { d: this.side(MM.knobR, MM.knobBottom, MM.knurlBottom) });
-    set(this.n.knurlSide!, { d: this.side(MM.knobR - 0.2, MM.knurlBottom, MM.knurlTop) });
-    set(this.n.knobUpper!, { d: this.side(MM.knobR, MM.knurlTop, MM.knobTop - c + 0.2) });
-    set(this.n.knobChamfer!, { d: this.side(MM.knobR, MM.knobTop - c, MM.knobTop - 0.15) });
+    set(this.n.knobLower!, { d: this.side(MM.knobR, MM.knobBottom + kl, MM.knurlBottom + kl) });
+    set(this.n.knurlSide!, {
+      d: this.side(MM.knobR - 0.2, MM.knurlBottom + kl, MM.knurlTop + kl),
+    });
+    set(this.n.knobUpper!, {
+      d: this.side(MM.knobR, MM.knurlTop + kl, MM.knobTop - c + 0.2 + kl),
+    });
+    set(this.n.knobChamfer!, {
+      d: this.side(MM.knobR, MM.knobTop - c + kl, MM.knobTop + kl, MM.knobR - c + 0.1),
+    });
 
     // Display hub + glass (stationary; lifts with the display when exploded)
-    trans('display', L.display! - this.seat * 0.3);
-    set(this.n.hubSide!, { d: this.side(MM.hubR, 41.2, 43.8) });
+    const dl = this.displayLift();
+    set(this.n.hubSide!, { d: this.side(MM.hubR, 41.2 + dl, 43.8 + dl) });
+  }
+
+  private knobLift() {
+    return (this.lift.knob ?? 0) - this.seat;
+  }
+  private displayLift() {
+    return (this.lift.display ?? 0) - this.seat * 0.3;
   }
 
   private drawKnob(s: ViewState) {
     const rot = s.theta / DEG + this.az + partProgress(2, s.explode) * 40;
-    this.n.face!.setAttribute('transform', this.faceTransform(MM.knobTop, rot));
-    // Knurl: only the teeth facing the camera, as vertical grooves + highlights.
+    const kl = this.knobLift();
+    this.placeFace(this.n.face!, MM.knobTop + kl, rot, MM.knobR);
+    // Diamond knurl: two families of helical grooves crossing, as machined (one tooth
+    // per row, like the 3D normal map), only on the side facing the camera.
+    const r = MM.knobR - 0.2;
+    const y0 = MM.knurlBottom + kl;
+    const y1 = MM.knurlTop + kl;
+    const step = (2 * Math.PI) / KNURL_DRAWN;
+    const twist = (12 * 2 * Math.PI) / KNURL_TEETH; // 12 rows, one tooth each
+    const phase = (((rot * DEG) % step) + step) % step;
+    const helix = (b0: number, dir: number) => {
+      let d = '';
+      let pen = false;
+      for (let j = 0; j <= 3; j++) {
+        const f = j / 3;
+        const b = b0 + dir * twist * (f - 0.5);
+        if (Math.cos(b) > -0.02) {
+          pen = false;
+          continue;
+        }
+        const p = this.rim(r, y0 + (y1 - y0) * f, b);
+        d += `${pen ? 'L' : 'M'}${f2(p.x)} ${f2(p.y)}`;
+        pen = true;
+      }
+      return d;
+    };
     let dark = '';
     let light = '';
-    const r = MM.knobR - 0.2;
-    const top = this.Y(MM.knurlTop);
-    const bot = this.Y(MM.knurlBottom);
-    const step = 360 / KNURL_TEETH;
-    const phase = rot % step;
-    for (let i = 0; i < KNURL_TEETH; i++) {
-      const b = (i * step + phase) * DEG;
-      const cb = Math.cos(b);
-      if (cb > -0.04) continue;
-      const x = r * Math.sin(b);
-      const dz = -r * cb * this.sinE;
-      dark += `M${f2(x)} ${f2(top + dz)}L${f2(x)} ${f2(bot + dz)}`;
-      const x2 = r * Math.sin(b + step * 0.35 * DEG);
-      light += `M${f2(x2)} ${f2(top + dz)}L${f2(x2)} ${f2(bot + dz)}`;
+    for (let i = 0; i < KNURL_DRAWN; i++) {
+      const b = i * step + phase;
+      dark += helix(b, 1);
+      light += helix(b + step / 2, -1);
     }
     this.n.knurlDark!.setAttribute('d', dark);
     this.n.knurlLight!.setAttribute('d', light);
   }
 
   private drawDisplay(s: ViewState) {
-    this.n.screen!.setAttribute('transform', this.faceTransform(43.8, this.az));
+    this.placeFace(this.n.screen!, 43.8 + this.displayLift(), this.az, MM.hubR);
     const p = s.p;
     const scaleKey = `${p.detents}|${p.stops?.join(',')}|${p.snaps.join(',')}|${p.accents.join(',')}|${p.spring}`;
     if (scaleKey !== this.scaleKey) {
@@ -555,8 +647,7 @@ export class SvgView implements DialView {
     );
     this.n.name!.textContent = s.name.toUpperCase();
     this.n.text!.textContent = s.text;
-    const len = s.text.length;
-    this.n.text!.setAttribute('font-size', String(len > 4 ? 4.6 : len > 3 ? 5.6 : 7));
+    this.n.text!.setAttribute('font-size', String(readoutSize(s.text)));
     this.n.sub!.textContent = s.sub;
     this.n.flash!.setAttribute('opacity', f2(s.press));
   }
@@ -617,18 +708,54 @@ export class SvgView implements DialView {
   }
 
   knobCircle(): KnobCircle | null {
-    const lift = (this.lift.knob ?? 0) - this.seat;
-    const top = this.Y(MM.knobTop + lift) - MM.knobR * this.sinE;
-    const bot = this.Y(MM.knobBottom + lift) + MM.knobR * this.sinE;
+    const lift = this.knobLift();
+    const yt = MM.knobTop + lift;
+    const yb = MM.knobBottom + lift;
+    const t = this.circ(MM.knobR, yt);
+    const b = this.circ(MM.knobR, yb);
+    const top = t.cy - Math.abs(t.ry);
+    const bot = b.cy + Math.abs(b.ry);
     const c = this.toPx(0, (top + bot) / 2);
-    const r = Math.max(MM.knobR, (bot - top) / 2) * c.k;
+    const r = Math.max(t.rx, (bot - top) / 2) * c.k;
     return { x: c.x, y: c.y, r };
+  }
+
+  grip(px: number, py: number): KnobGrip | null {
+    const k = Math.min(this.w, this.h) / this.vb.s;
+    // Host px → drawing mm, relative to the centre of the knob's top face.
+    const x = (px - (this.w - this.vb.s * k) / 2) / k + this.vb.x;
+    const dy = (py - (this.h - this.vb.s * k) / 2) / k + this.vb.y;
+    const yt = MM.knobTop + this.knobLift();
+    const rpx = this.circ(MM.knobR, yt).rx * k;
+    // Camera at or below the face (side view): the knob can only be turned by its side.
+    if (this.ty + this.D * this.sinE < yt + 1) return { a: 0, r: Infinity, side: true, rpx };
+    // Invert the projection onto the plane of the top face (z toward the viewer).
+    const u = (-this.ty * this.cosE - dy) / this.D;
+    const up0 = (yt - this.ty) * this.cosE;
+    const d0 = this.D - (yt - this.ty) * this.sinE;
+    const den = this.sinE - u * this.cosE;
+    if (den < 1e-4) return { a: 0, r: Infinity, side: false, rpx };
+    const z = (up0 - u * d0) / den;
+    const fx = (x * (d0 - z * this.cosE)) / this.D;
+    const r = Math.hypot(fx, z) / MM.knobR;
+    return { a: Math.atan2(fx, -z), r, side: r > 1 && z > 0, rpx };
+  }
+
+  outline(): Ellipse | null {
+    const pts: { x: number; y: number }[] = [];
+    for (const [r, y] of hullRings(this.explode, this.seat)) {
+      for (let i = 0; i < 24; i++) {
+        const p = this.rim(r, y, (i / 24) * Math.PI * 2);
+        pts.push(this.toPx(p.x, p.y));
+      }
+    }
+    return enclose(pts);
   }
 
   anchors(): DialPartAnchor[] {
     return PARTS.map((p) => {
       const lift = this.lift[p.id] ?? 0;
-      const a = this.toPx(p.r, this.Y(p.y + lift));
+      const a = this.toPx(this.circ(p.r, p.y + lift).rx, this.Y(p.y + lift));
       const visible =
         p.lift === 0 || ['knob', 'display', 'glass', 'foot'].includes(p.id) || Math.abs(lift) > 0.5;
       return { id: p.id, x: a.x, y: a.y, visible };

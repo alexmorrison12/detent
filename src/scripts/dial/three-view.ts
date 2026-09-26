@@ -18,7 +18,6 @@
  * - Render on demand only: the element calls draw() while something moves.
  */
 import {
-  AdditiveBlending,
   BackSide,
   BoxGeometry,
   BufferGeometry,
@@ -59,7 +58,15 @@ import { FOV, MM, PARTS, partLift, partProgress } from './model';
 import { luminance, mix } from './color';
 import { displayKey, drawDisplay, loadDisplayFonts } from './display';
 import type { DialPartAnchor } from './types';
-import type { DialView, KnobCircle, ViewState } from './view';
+import {
+  enclose,
+  hullRings,
+  type DialView,
+  type Ellipse,
+  type KnobCircle,
+  type KnobGrip,
+  type ViewState,
+} from './view';
 
 const DEG = Math.PI / 180;
 const SEGS = 192;
@@ -228,7 +235,9 @@ function studioEnvironment(): Scene {
     m.lookAt(0, 0, 0);
     scene.add(m);
   };
-  // Room: floor darker (a desk), walls mid-grey, ceiling a little lighter.
+  // Room: floor darker (a desk), walls mid-grey, ceiling a little lighter. At the hero
+  // and config angles the knob and base sides mirror the floor, so it can't be black:
+  // a near-black floor turned Raw gunmetal and Glacier slate.
   const room = new Mesh(
     box.clone(),
     new MeshBasicMaterial({ color: new Color(0.38, 0.38, 0.39), side: BackSide }),
@@ -238,7 +247,7 @@ function studioEnvironment(): Scene {
   scene.add(room);
   const floor = new Mesh(
     new PlaneGeometry(30, 30),
-    new MeshBasicMaterial({ color: new Color(0.06, 0.058, 0.06) }),
+    new MeshBasicMaterial({ color: new Color(0.22, 0.214, 0.22) }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -5.5;
@@ -257,6 +266,15 @@ function studioEnvironment(): Scene {
   panel(9, 0.5, -7, 0.7, 7, 0.2, 3.2);
   // Warm bounce card, low and wide in front: the sides of dark finishes keep their shape.
   panel(2, -2.2, 11, 18, 3.2, 0.2, [1.25, 1.08, 0.9]);
+  // Floor-to-ceiling strips, front-left and right: a highlight runs down every side,
+  // so cylinders read as turned metal (and Graphite's base isn't a void).
+  panel(-9, 2, 7, 1.4, 16, 0.2, 5);
+  panel(10, 2, -1, 1.2, 16, 0.2, 3);
+  // A low cyc light between them and the desk: the lower sides pick up a lit band.
+  panel(0, -4.4, 9, 26, 2, 0.2, 1.5);
+  // A soft strip back-right, where the hero view mirrors off the cover glass: one
+  // highlight band crosses the display, so it reads as glass over a screen.
+  panel(5.5, 6, -8.6, 11, 1.1, 0.2, 2.4);
   box.dispose();
   return scene;
 }
@@ -271,7 +289,7 @@ interface FinishMats {
   knurl: MeshPhysicalMaterial;
   base: MeshPhysicalMaterial;
   bore: MeshPhysicalMaterial;
-  indicator: MeshStandardMaterial;
+  indicator: MeshBasicMaterial;
 }
 
 class Engine {
@@ -283,15 +301,15 @@ class Engine {
   losses = 0;
   private w = 0;
   private h = 0;
-  readonly tex: {
+  tex!: {
     knurl: DataTexture;
     rings: DataTexture;
     leds: DataTexture;
     shadow: CanvasTexture;
     glow: CanvasTexture;
   };
-  readonly geo: Record<string, BufferGeometry>;
-  readonly mat: Record<string, Material>;
+  geo!: Record<string, BufferGeometry>;
+  mat!: Record<string, Material>;
   private finishes = new Map<FinishId, FinishMats>();
 
   constructor(readonly antialias: boolean) {
@@ -310,30 +328,46 @@ class Engine {
     r.outputColorSpace = SRGBColorSpace;
     r.autoClear = false;
     r.setClearColor(0x000000, 0);
-    this.buildEnv();
+  }
 
+  /**
+   * The expensive half, one step per task so no single task blocks input for long
+   * (a tap during boot is handled between steps): studio lighting, textures, geometry.
+   */
+  async build(): Promise<void> {
+    const r = this.renderer;
+    this.buildEnv();
+    await yieldToMain();
+
+    const knurl = knurlNormalMap();
+    const rings = ringRoughnessMap();
+    const leds = ledStripMap();
+    await yieldToMain();
     this.tex = {
-      knurl: knurlNormalMap(),
-      rings: ringRoughnessMap(),
-      leds: ledStripMap(),
+      knurl,
+      rings,
+      leds,
       shadow: radialTexture(
         140,
         (r) =>
-          0.78 * smooth(41, 33, r) + 0.3 * Math.exp(-Math.max(0, r - 33) / 10) * smooth(70, 40, r),
+          0.78 * smooth(41, 33, r) + 0.3 * Math.exp(-Math.max(0, r - 33) / 8) * smooth(54, 38, r),
       ),
+      // Shadow and glow fall to nothing inside the frame (half-width ≈ 51 mm at the hero
+      // distance), so the canvas edge never shows as a lit or shaded rectangle.
       glow: radialTexture(180, (r, a) => {
         if (r < 35) return 0.7;
         const d = r - 35.5;
         return (
-          (0.62 * Math.exp(-d / 4.5) + 0.2 * Math.exp(-d / 13)) *
+          (0.62 * Math.exp(-d / 4.5) + 0.12 * Math.exp(-d / 9)) *
           (1 + 0.12 * Math.cos(a * 24)) *
-          smooth(80, 58, r)
+          smooth(54, 40, r)
         );
       }),
     };
     const maxAniso = r.capabilities.getMaxAnisotropy();
     this.tex.knurl.anisotropy = Math.min(8, maxAniso);
     this.tex.rings.anisotropy = Math.min(4, maxAniso);
+    await yieldToMain();
 
     this.geo = this.buildGeometry();
     this.mat = this.buildSharedMaterials();
@@ -399,6 +433,9 @@ class Engine {
       [24.95, k.knobTop - 0.12],
       [20.9, k.knobTop - 0.12],
     ]);
+    // Per-vertex tangents running around the ring: without them the anisotropic
+    // (turned-metal) highlight takes each triangle's own frame and breaks into wedges.
+    g.knobTop.computeTangents();
     g.knobInner = lathe([
       [20.9, k.knobTop - 0.12],
       [k.boreR + 0.2, k.knobTop - 0.7],
@@ -416,8 +453,12 @@ class Engine {
       true,
     );
     g.knurl.translate(0, (k.knurlTop + k.knurlBottom) / 2, 0);
-    g.indicator = new BoxGeometry(0.95, 0.14, 2.3);
-    g.indicator.translate(0, k.knobTop + 0.02, -26.6);
+    // The tally line: a lit inlay on the outer ring, set in a dark engraved groove so it
+    // reads on every finish (Raw and Tally included) and survives the hero foreshortening.
+    g.indicator = new BoxGeometry(1.25, 0.14, 2.5);
+    g.indicator.translate(0, k.knobTop + 0.06, -26.7);
+    g.groove = new BoxGeometry(1.85, 0.1, 3.05);
+    g.groove.translate(0, k.knobTop + 0.03, -26.7);
 
     // Base (static)
     const bc = k.baseChamfer;
@@ -474,9 +515,13 @@ class Engine {
       [k.hubR, 40.6],
       [k.hubR, 43.55],
     ]);
-    g.glass = lathe([
+    // Cover glass: a polished bevel you can see edge-on, and a clear face.
+    g.glassEdge = lathe([
       [k.hubR, 43.55],
       [k.hubR, 43.7],
+      [k.hubR - 0.3, k.glassTop],
+    ]);
+    g.glass = lathe([
       [k.hubR - 0.3, k.glassTop],
       [0, k.glassTop],
     ]);
@@ -559,15 +604,18 @@ class Engine {
         clearcoatRoughness: 0.1,
       }),
       bezel: new MeshBasicMaterial({ color: '#030303' }),
+      // Clear, not additive: an additive face wrote full alpha and floated as an opaque
+      // grey disc in the exploded view. Faint tint, strong mirror (scaled by opacity).
       glass: new MeshPhysicalMaterial({
-        color: '#000000',
+        color: '#0b0b0c',
         metalness: 0,
-        roughness: 0.05,
+        roughness: 0.02,
         ior: 1.52,
+        specularIntensity: 1,
         transparent: true,
-        blending: AdditiveBlending,
+        opacity: 0.16,
         depthWrite: false,
-        envMapIntensity: 0.6,
+        envMapIntensity: 2.2,
       }),
       shadow: new MeshBasicMaterial({
         color: '#000000',
@@ -600,16 +648,18 @@ class Engine {
     let m = this.finishes.get(f.id);
     if (m) return m;
     // Very dark anodize reads as a black hole under IBL; lift the albedo a touch.
-    const body = luminance(f.body) < 0.05 ? mix(f.body, '#ffffff', 0.09) : f.body;
+    const body = luminance(f.body) < 0.05 ? mix(f.body, '#ffffff', 0.16) : f.body;
     const color = new Color(body);
     const anod = f.id !== 'raw';
     m = {
+      // Anodizing is a clear oxide over the metal: a glossy coat that carries the studio's
+      // strip lights as crisp bands, which is what gives the dark finishes their form.
       body: new MeshPhysicalMaterial({
         color,
         metalness: f.metalness,
         roughness: f.roughness,
-        clearcoat: anod ? 0.18 : 0,
-        clearcoatRoughness: 0.5,
+        clearcoat: anod ? 0.6 : 0,
+        clearcoatRoughness: 0.22,
       }),
       top: new MeshPhysicalMaterial({
         color: new Color(mix(body, '#ffffff', anod ? 0.04 : 0.08)),
@@ -632,21 +682,16 @@ class Engine {
         color,
         metalness: f.metalness,
         roughness: Math.min(1, f.roughness + 0.1),
-        clearcoat: anod ? 0.22 : 0,
-        clearcoatRoughness: 0.45,
+        clearcoat: anod ? 0.6 : 0,
+        clearcoatRoughness: 0.22,
       }),
       bore: new MeshPhysicalMaterial({
         color: new Color(mix(f.body, '#000000', 0.55)),
         metalness: f.metalness,
         roughness: 0.5,
       }),
-      indicator: new MeshStandardMaterial({
-        color: f.accent,
-        emissive: new Color(f.accent),
-        emissiveIntensity: 0.55,
-        roughness: 0.35,
-        metalness: 0.1,
-      }),
+      // Lit, not painted: tone mapping must not dim the one signal on a dark page.
+      indicator: new MeshBasicMaterial({ color: f.accent, toneMapped: false }),
     };
     this.finishes.set(f.id, m);
     return m;
@@ -677,21 +722,30 @@ class Engine {
   }
 }
 
-let engine: Engine | null = null;
-let engineFailed = false;
+/** Give the main thread back between boot steps (input, rendering), then continue. */
+function yieldToMain(): Promise<void> {
+  const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+  return s?.yield ? s.yield() : new Promise((r) => setTimeout(r, 0));
+}
 
-function getEngine(antialias: boolean): Engine | null {
-  if (engine || engineFailed) return engine;
-  try {
-    engine = new Engine(antialias);
-    // QA hook (dev builds only): window.__detentEngine.renderer.forceContextLoss()
-    if (import.meta.env.DEV)
-      (window as Window & { __detentEngine?: Engine }).__detentEngine = engine;
-  } catch {
-    engineFailed = true;
-    engine = null;
-  }
-  return engine;
+let engine: Engine | null = null;
+let booting: Promise<Engine | null> | null = null;
+
+function getEngine(antialias: boolean): Promise<Engine | null> {
+  booting ??= (async () => {
+    try {
+      const e = new Engine(antialias);
+      await yieldToMain();
+      await e.build();
+      engine = e;
+      // QA hook (dev builds only): window.__detentEngine.renderer.forceContextLoss()
+      if (import.meta.env.DEV) (window as Window & { __detentEngine?: Engine }).__detentEngine = e;
+      return e;
+    } catch {
+      return null;
+    }
+  })();
+  return booting;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -726,6 +780,7 @@ export class ThreeView implements DialView {
   private meshes: Record<string, Mesh> = {};
   private lastState: ViewState | null = null;
   private tmp = new Vector3();
+  private tmp2 = new Vector3();
 
   constructor(private engine: Engine) {
     this.el = document.createElement('canvas');
@@ -867,6 +922,7 @@ export class ThreeView implements DialView {
     mesh('knobChamfer', G.knobChamfer!, M.chamfer!, knob);
     mesh('knobInner', G.knobInner!, M.chamfer!, knob);
     mesh('bore', G.bore!, M.dark!, knob);
+    mesh('groove', G.groove!, M.bezel!, knob);
     mesh('indicator', G.indicator!, M.dark!, knob);
 
     const display = group('display');
@@ -874,6 +930,7 @@ export class ThreeView implements DialView {
     mesh('bezel', G.bezel!, M.bezel!, display);
     mesh('display', G.display!, this.own.display, display);
     const glass = group('glass');
+    mesh('glassEdge', G.glassEdge!, M.chamfer!, glass);
     mesh('glass', G.glass!, M.glass!, glass, 5);
 
     engine.views.add(this);
@@ -1031,6 +1088,45 @@ export class ThreeView implements DialView {
     return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, r: Math.max(x1 - x0, y1 - y0) / 2 };
   }
 
+  grip(px: number, py: number): KnobGrip | null {
+    const s = this.lastState;
+    if (!s) return null;
+    const face = MM.knobTop + partLift('knob', s.explode) - s.press * 0.45;
+    const cam = this.camera.position;
+    // The knob's projected radius, measured along the screen's horizontal at the face.
+    const right = this.tmp2.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+    const c = this.project(0, face, 0);
+    const e = this.project(right.x * MM.knobR, face + right.y * MM.knobR, right.z * MM.knobR);
+    const rpx = Math.max(1, Math.hypot(e.x - c.x, e.y - c.y));
+    if (cam.y < face + 1) return { a: 0, r: Infinity, side: true, rpx };
+    // Cast the pointer onto the plane of the top face.
+    const dir = this.tmp
+      .set((px / this.cssW) * 2 - 1, 1 - (py / this.cssH) * 2, 0.5)
+      .unproject(this.camera)
+      .sub(cam);
+    if (dir.y > -1e-6) return { a: 0, r: Infinity, side: false, rpx };
+    const t = (face - cam.y) / dir.y;
+    const x = cam.x + dir.x * t;
+    const z = cam.z + dir.z * t;
+    const r = Math.hypot(x, z) / MM.knobR;
+    // In front of the axis (toward the camera) and off the face: the knurled band.
+    const front = x * cam.x + z * cam.z > 0;
+    return { a: Math.atan2(x, -z), r, side: r > 1 && front, rpx };
+  }
+
+  outline(): Ellipse | null {
+    const s = this.lastState;
+    if (!s) return null;
+    const pts: { x: number; y: number }[] = [];
+    for (const [r, y] of hullRings(s.explode, s.press * 0.45)) {
+      for (let i = 0; i < 24; i++) {
+        const b = (i / 24) * Math.PI * 2;
+        pts.push(this.project(r * Math.sin(b), y, r * Math.cos(b)));
+      }
+    }
+    return enclose(pts);
+  }
+
   anchors(): DialPartAnchor[] {
     const s = this.lastState;
     const right = new Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
@@ -1064,12 +1160,12 @@ export async function createThreeView(
   initial?: ViewState,
 ): Promise<ThreeView | null> {
   await loadDisplayFonts();
-  const e = getEngine(opts.antialias);
+  const e = await getEngine(opts.antialias);
   if (!e || e.lost) return null;
-  const yieldToMain = () => new Promise<void>((r) => setTimeout(r, 0));
   await yieldToMain();
   const view = new ThreeView(e);
   if (initial) view.prime(initial);
+  await yieldToMain();
   // Compile shaders without blocking input where the driver can (KHR_parallel_shader_compile).
   if (e.renderer.extensions.has('KHR_parallel_shader_compile')) {
     try {

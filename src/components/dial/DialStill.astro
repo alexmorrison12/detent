@@ -2,15 +2,21 @@
 /**
  * A static picture of Detent One: product stills rendered from the live
  * three.js scene by scripts/render-stills.mjs (public/renders/*).
- * AVIF first, WebP fallback, 800 w and 1600 w, transparent background, square.
+ * AVIF first, WebP fallback, 240/480/800/1600 w, transparent background, square.
  *
  *   <DialStill finish="glacier" view="top" />
  *   <DialStill finish="graphite" view="hero" priority />   // above the fold: eager + fetchpriority=high
+ *   <DialStill finish="raw" view="top" sizes="(min-width: 64rem) 7rem, 72px" />
+ *
+ * Pass `sizes` whenever you know the rendered width. Lazy stills also let the
+ * browser measure the real layout width first (sizes="auto"), so a thumbnail
+ * never pulls a hero-sized file; an eager (priority) still can't be measured
+ * before it loads, so its `sizes` should always be given.
  */
 import { byFinish, type FinishId } from '@/data/product';
 import { url } from '@/lib/url';
 
-export type StillView = 'hero' | 'top' | 'side' | 'front' | 'exploded';
+export type StillView = 'hero' | 'top' | 'side' | 'front' | 'exploded' | 'config';
 
 interface Props {
   finish?: FinishId;
@@ -26,12 +32,13 @@ const {
   view = 'hero',
   alt,
   priority = false,
-  sizes = '(min-width: 64rem) 44vw, 92vw',
+  sizes: sizesProp,
   class: className,
 } = Astro.props;
 const f = byFinish(finish);
 const phrase: Record<StillView, string> = {
   hero: 'three-quarter view from above, display lit',
+  config: 'three-quarter view from above and to the right, display lit',
   top: 'seen from directly above, the round display showing the Ratchet feel',
   side: 'in profile: the knurled knob ring on its heavy base',
   front: 'from the front, at desk height',
@@ -39,16 +46,20 @@ const phrase: Record<StillView, string> = {
     'exploded into its parts: glass, display, knob ring, magnet rotor, copper stator, encoder board, battery, base and foot',
 };
 const label = alt ?? `Detent One in ${f.name}, ${phrase[view]}`;
-const src = (ext: 'avif' | 'webp', small: boolean) =>
-  url(`/renders/${finish}-${view}${small ? '-800' : ''}.${ext}`);
-const set = (ext: 'avif' | 'webp') => `${src(ext, true)} 800w, ${src(ext, false)} 1600w`;
+const WIDTHS = [240, 480, 800, 1600] as const;
+const src = (ext: 'avif' | 'webp', w: (typeof WIDTHS)[number]) =>
+  url(`/renders/${finish}-${view}${w === 1600 ? '' : `-${w}`}.${ext}`);
+const set = (ext: 'avif' | 'webp') => WIDTHS.map((w) => `${src(ext, w)} ${w}w`).join(', ');
+const fallbackSizes = sizesProp ?? '(min-width: 64rem) 44vw, 92vw';
+// "auto" (lazy images only) = the laid-out width; the list after it is for browsers without it.
+const sizes = priority ? fallbackSizes : `auto, ${fallbackSizes}`;
 ---
 
 <picture class:list={['dial-still', className]}>
   <source type="image/avif" srcset={set('avif')} sizes={sizes} />
   <source type="image/webp" srcset={set('webp')} sizes={sizes} />
   <img
-    src={src('webp', true)}
+    src={src('webp', 800)}
     width="1600"
     height="1600"
     alt={label}

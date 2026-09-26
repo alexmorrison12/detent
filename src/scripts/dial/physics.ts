@@ -28,13 +28,20 @@ const K_BUMP = 2800; // accent wells without detents (Wall's unity bump)
 const K_MAGNET = 700; // peak pull of a snap point
 const K_SPRING = 150; // spring-return at strength 1
 const K_STOP = 16000; // end stops: 4× detent, a wall
+/** Critically damped both ways: the wall absorbs a push instead of storing it (no catapult). */
+const C_STOP = 2 * Math.sqrt(K_STOP);
 const K_COUPLE = 5200; // pointer → knob coupling
 const C_COUPLE = 2 * 0.85 * Math.sqrt(K_COUPLE);
 const SNAP_FRACTION = 0.55; // hysteresis: switch detent after 55% of the way
 const BUMP_HALF_WIDTH = 7 * DEG;
 const MAGNET_RADIUS = 15 * DEG;
 const STOP_OVERSHOOT = 4 * DEG; // hard clamp beyond the virtual stop
+const STOP_PUSH = 6 * DEG; // how far a finger can drag the target past a stop
 const MAX_RELEASE = 25; // rad/s
+/** Coulomb (dry) friction for detentless knobs, rad/s²: a flick glides, then stops. */
+const DRY_FRICTION = 1.5;
+/** A finger-driven move (keys, setAngle) lets go only once the knob is this still. */
+const TWEEN_REST = 0.05; // rad/s
 
 export interface PhysicsEvent {
   kind: TickKind;
@@ -89,8 +96,15 @@ export function resolvePhysics(p: Partial<FeelPhysics> | FeelPhysics): ResolvedP
   };
 }
 
-/** Viscous damping coefficient (1/s) for a 0..1 damping value. Fluid (0.05) ≈ 1.6 s spin-down. */
+/**
+ * Viscous damping coefficient (1/s) for a 0..1 damping value. Detentless knobs add
+ * dry friction on top, so Fluid (0.05) glides about 1.6 turns and 2.7 s after a
+ * 600°/s flick instead of creeping for 10 s.
+ */
 const viscous = (d: number) => 0.45 + 22 * Math.pow(d, 1.6);
+
+const sameAngles = (a: readonly number[] | null, b: readonly number[] | null) =>
+  a === b || (!!a && !!b && a.length === b.length && a.every((x, i) => Math.abs(x - b[i]!) < 1e-9));
 
 interface Tween {
   from: number;
@@ -124,12 +138,48 @@ export class DialPhysics {
     this.p = resolvePhysics(p);
   }
 
-  setParams(p: Partial<FeelPhysics> | FeelPhysics): void {
-    this.p = resolvePhysics(p);
+  /**
+   * Swap the physics. Tuning (strength, damping, spring, accents) keeps whatever
+   * move is under way; returns true only when the grid itself (detents, stops,
+   * snap points) changed, so the caller can decide where the knob should land.
+   */
+  setParams(p: Partial<FeelPhysics> | FeelPhysics): boolean {
+    const prev = this.p;
+    const next = resolvePhysics(p);
+    this.p = next;
+    if (!sameAngles(prev.accents, next.accents)) this.bumpSide.clear();
+    const regrid =
+      prev.detents !== next.detents ||
+      !sameAngles(prev.stops, next.stops) ||
+      !sameAngles(prev.snaps, next.snaps);
+    if (!regrid) return false;
     this.recenter();
     this.stopLatch = 0;
     this.snapLatch = -1;
     this.bumpSide.clear();
+    return true;
+  }
+
+  /** Where a finger-driven move (keys, setAngle, nudge) is heading, or null when none is. */
+  get goal(): number | null {
+    return this.tween ? this.tween.to : null;
+  }
+
+  /** The detent index, value and stop state the knob will have when it rests at theta. */
+  describe(theta: number): { index: number; value: number; atStop: 'min' | 'max' | null } {
+    const w = this.width;
+    const s = this.p.stops;
+    let value: number;
+    let atStop: 'min' | 'max' | null = null;
+    if (s) {
+      value = clamp01((theta - s[0]) / (s[1] - s[0]));
+      if (theta <= s[0] + 0.5 * DEG) atStop = 'min';
+      else if (theta >= s[1] - 0.5 * DEG) atStop = 'max';
+    } else {
+      const t = theta / TAU;
+      value = t - Math.floor(t);
+    }
+    return { index: w ? Math.round(theta / w) : 0, value, atStop };
   }
 
   /** Detent width (rad), or 0 when the profile has none. */
@@ -201,8 +251,8 @@ export class DialPhysics {
   /** Pointer moved: add an (unwrapped) angle delta to the target. */
   drag(delta: number, dt: number): void {
     let t = this.target + delta;
-    // Never let the target run deep into an end stop.
-    if (this.p.stops) t = clamp(t, this.p.stops[0] - 20 * DEG, this.p.stops[1] + 20 * DEG);
+    // Never let the target run deep into an end stop: a push you can feel, not a loaded spring.
+    if (this.p.stops) t = clamp(t, this.p.stops[0] - STOP_PUSH, this.p.stops[1] + STOP_PUSH);
     const v = dt > 0 ? (t - this.target) / dt : 0;
     this.targetOmega += (clamp(v, -60, 60) - this.targetOmega) * 0.35;
     this.target = t;
@@ -212,6 +262,11 @@ export class DialPhysics {
     this.grabbed = false;
     this.targetOmega = 0;
     this.omega = this.reduced ? 0 : clamp(omega, -MAX_RELEASE, MAX_RELEASE);
+    // Let go while pressed into a stop: the knob eases back onto the wall (critically
+    // damped, ~30 ms) and rests there. It is never fired off it.
+    const s = this.p.stops;
+    if (s && this.theta > s[1]) this.omega = Math.min(this.omega, 0);
+    else if (s && this.theta < s[0]) this.omega = Math.max(this.omega, 0);
   }
 
   /** True while anything is still moving. */
@@ -294,14 +349,16 @@ export class DialPhysics {
       tw.t += dt;
       const tgt = this.targetNow();
       a += K_COUPLE * (tgt - this.theta) - C_COUPLE * this.omega;
-      // Let go once the finger has arrived and the knob has caught up, or shortly after
-      // (a spring or magnet may hold the knob a few degrees off the target forever).
-      if (
-        tw.t >= tw.dur &&
-        ((Math.abs(tgt - this.theta) < 0.2 * DEG && Math.abs(this.omega) < 0.3) ||
-          tw.t > tw.dur + 0.25)
-      )
+      // Let go once the finger has arrived and the knob has caught up and stopped, or
+      // shortly after (a spring or magnet may hold the knob a few degrees off forever).
+      const caught = Math.abs(tgt - this.theta) < 0.2 * DEG && Math.abs(this.omega) < TWEEN_REST;
+      if (tw.t >= tw.dur && (caught || tw.t > tw.dur + 0.25)) {
         this.tween = null;
+        // A finger that places a knob doesn't flick it: nothing coasts past the step
+        // (arrow keys on a slider land on the step, even on low-friction feels).
+        this.omega = 0;
+        if (!p.detents && !p.spring && Math.abs(tw.to - this.theta) < 0.3 * DEG) this.theta = tw.to;
+      }
     }
 
     // Periodic detent wells with hysteresis.
@@ -376,21 +433,18 @@ export class DialPhysics {
     // Viscous damping.
     a += -viscous(p.damping) * this.omega;
 
-    // Virtual end stops: a very stiff wall.
+    // Virtual end stops: a very stiff, dead wall. Damped in both directions, so what
+    // goes in comes out at rest instead of springing the knob back across the range.
     if (p.stops) {
       const [lo, hi] = p.stops;
       if (this.theta > hi) {
-        a +=
-          -K_STOP * (this.theta - hi) -
-          (this.omega > 0 ? 2 * 0.6 * Math.sqrt(K_STOP) * this.omega : 0);
+        a += -K_STOP * (this.theta - hi) - C_STOP * this.omega;
         if (this.stopLatch !== 1) {
           this.stopLatch = 1;
           this.emit('stop', 1, true);
         }
       } else if (this.theta < lo) {
-        a +=
-          -K_STOP * (this.theta - lo) -
-          (this.omega < 0 ? 2 * 0.6 * Math.sqrt(K_STOP) * this.omega : 0);
+        a += -K_STOP * (this.theta - lo) - C_STOP * this.omega;
         if (this.stopLatch !== -1) {
           this.stopLatch = -1;
           this.emit('stop', 0, true);
@@ -404,6 +458,13 @@ export class DialPhysics {
     this.lastAccel = a;
     this.omega += a * dt;
     if (!Number.isFinite(this.omega)) this.omega = 0;
+    // Dry friction on a free, detentless knob: it takes speed off without reversing it,
+    // so a flick ends in a stop rather than an imperceptible, endless creep. (Not on a
+    // spring return: stiction would park the knob a hair off centre.)
+    if (!w && !p.spring && !this.grabbed && !this.tween) {
+      const f = DRY_FRICTION * dt;
+      this.omega = Math.abs(this.omega) <= f ? 0 : this.omega - Math.sign(this.omega) * f;
+    }
     this.theta += this.omega * dt;
 
     // Hard stop: bounce off the wall instead of sinking into it.
