@@ -1,44 +1,183 @@
 ---
 /**
- * Cart drawer shell. Opened by any [data-cart-open] button; closed by
- * [data-cart-close], Esc, or a backdrop click. The shop feature owns the
- * contents (src/components/shop/*) and may replace this file's internals,
- * but must keep: id="cart-drawer", [data-cart-open]/[data-cart-close].
+ * Cart drawer. A modal <dialog> opened by any [data-cart-open] button, by a
+ * `detent:cart-open` window event (the configurator fires it after adding)
+ * or by #cart in the URL. Closed by [data-cart-close], Esc or a backdrop
+ * click. Contract kept for the rest of the site: id="cart-drawer",
+ * [data-cart-open], [data-cart-close].
+ *
+ * Lines are rendered by src/scripts/shop/cart-drawer.ts from the cart store;
+ * thumbnails come from the <template>s below so product colors stay in data.
  */
+import { ACCESSORIES, FINISHES } from '@/data/product';
+import { url } from '@/lib/url';
+
+const accIcons: Record<string, string> = {
+  plinth:
+    '<path d="M3.5 19.5h17v-3.2L3.5 18.8z"/><circle cx="12" cy="11" r="4.6"/><path d="M12 6.4v2.2"/>',
+  case: '<rect x="3.5" y="7.5" width="17" height="11" rx="4"/><path d="M8.5 7.5V6a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 15.5 6v1.5M3.5 13h17"/>',
+  cable:
+    '<rect x="2.5" y="10" width="4" height="4" rx="1"/><path d="M6.5 12h1.5c0-3 3-3 3 0s3 3 3 0 3-3 3 0h1.5"/><path d="M19.5 12h2"/>',
+};
 ---
 
-<dialog id="cart-drawer" class="cart-drawer" aria-labelledby="cart-title" data-world="day">
+<dialog
+  id="cart-drawer"
+  class="cart-drawer"
+  aria-labelledby="cart-title"
+  data-world="day"
+  closedby="any"
+>
   <div class="cart-drawer__panel">
-    <div class="cart-drawer__head">
-      <h2 id="cart-title">Your cart</h2>
+    <header class="cart-drawer__head">
+      <h2 id="cart-title" tabindex="-1">
+        Your cart <span class="cart-drawer__count readout" data-cart-drawer-count></span>
+      </h2>
       <button class="cart-drawer__close" type="button" data-cart-close aria-label="Close cart">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          ></path>
         </svg>
       </button>
+    </header>
+
+    <p class="visually-hidden" role="status" data-cart-live></p>
+
+    <div class="cart-drawer__notice" data-cart-notice hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M5 12.5l4.2 4.2L19 7"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></path>
+      </svg>
+      <p data-cart-notice-text></p>
+      <button type="button" class="cart-drawer__undo" data-cart-undo hidden>
+        Undo
+      </button>
     </div>
+
     <div class="cart-drawer__body" data-cart-body>
-      <p class="muted">Your cart is empty.</p>
+      <ul role="list" class="cart-lines" data-cart-lines></ul>
+      <div class="cart-empty" data-cart-empty>
+        <svg class="cart-empty__mark" viewBox="-60 -60 120 120" aria-hidden="true">
+          {Array.from({ length: 24 }, (_, i) => (
+            <line
+              x1="0"
+              y1="-56"
+              x2="0"
+              y2={i % 6 === 0 ? -47 : -51}
+              transform={`rotate(${i * 15})`}
+            />
+          ))}
+          <circle r="36" class="cart-empty__knob"></circle>
+          <line x1="0" y1="-31" x2="0" y2="-21" class="cart-empty__tally"></line>
+        </svg>
+        <p class="cart-empty__title">Nothing in here yet.</p>
+        <p class="cart-empty__text">
+          A Detent takes about a minute to configure. Turning the dial is the fun part.
+        </p>
+        <a class="btn btn--primary" href={url('/shop/#configure')} data-cart-close>
+          Build yours
+        </a>
+      </div>
     </div>
+
+    <footer class="cart-drawer__foot" data-cart-foot hidden>
+      <dl class="cart-sum">
+        <div>
+          <dt>Subtotal</dt>
+          <dd class="readout" data-cart-subtotal></dd>
+        </div>
+        <div>
+          <dt>Shipping</dt>
+          <dd>Free, tracked and insured</dd>
+        </div>
+      </dl>
+      <p class="cart-sum__note" data-cart-installments></p>
+      <div class="cart-drawer__actions">
+        <a
+          class="btn btn--primary cart-drawer__cta"
+          href={url('/shop/checkout/')}
+          data-track="checkout_start"
+          data-track-method="standard"
+          data-no-prerender
+        >
+          Checkout
+        </a>
+        <a
+          class="btn cart-drawer__cta cart-drawer__express"
+          href={url('/shop/checkout/?express=1')}
+          data-track="checkout_start"
+          data-track-method="express"
+          data-no-prerender
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <rect
+              x="3"
+              y="6"
+              width="18"
+              height="13"
+              rx="3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+            ></rect>
+            <path
+              d="M3 10h18M15.5 14.5h2"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+            ></path>
+          </svg>
+          Express checkout
+        </a>
+      </div>
+      <p class="concept-note">Checkout is a demo. Detent is a concept, so no payment is taken.</p>
+    </footer>
   </div>
+
+  {FINISHES.map((f) => (
+    <template data-thumb={`finish:${f.id}`}>
+      <span
+        class="cart-thumb cart-thumb--knob"
+        style={`--chip: ${f.body}; --chip-accent: ${f.accent}`}
+      />
+    </template>
+  ))}
+  {ACCESSORIES.map((a) => (
+    <template data-thumb={`acc:${a.id}`}>
+      <span class="cart-thumb cart-thumb--acc">
+        <svg
+          viewBox="0 0 24 24"
+          width="26"
+          height="26"
+          aria-hidden="true"
+          set:html={accIcons[a.id] ?? '<circle cx="12" cy="12" r="7"/>'}
+        />
+      </span>
+    </template>
+  ))}
 </dialog>
 
 <script>
-  const drawer = document.getElementById('cart-drawer') as HTMLDialogElement | null;
-  document.addEventListener('click', (e) => {
-    const t = e.target as Element;
-    if (t.closest('[data-cart-open]')) drawer?.showModal();
-    else if (t.closest('[data-cart-close]')) drawer?.close();
-    else if (t === drawer) drawer?.close(); // backdrop click
-  });
+  import '@/scripts/shop/cart-drawer';
 </script>
 
 <style>
   .cart-drawer {
     position: fixed;
     inset: 0 0 0 auto;
-    width: min(100vw, 28rem);
-    height: 100dvh;
+    inline-size: min(100vw, 28rem);
+    block-size: 100dvh;
     margin: 0;
     background: var(--bg);
     color: var(--ink);
@@ -59,40 +198,333 @@
   }
   .cart-drawer::backdrop {
     background: oklch(0.1 0.005 355 / 0.55);
+    opacity: 0;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      overlay var(--dur-3) allow-discrete,
+      display var(--dur-3) allow-discrete;
   }
+  .cart-drawer[open]::backdrop {
+    opacity: 1;
+  }
+  @starting-style {
+    .cart-drawer[open]::backdrop {
+      opacity: 0;
+    }
+  }
+  :global(html:has(.cart-drawer[open])) {
+    overflow: hidden;
+  }
+
   .cart-drawer__panel {
-    display: grid;
-    grid-template-rows: auto 1fr;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    block-size: 100%;
   }
   .cart-drawer__head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-m);
-    border-bottom: 1px solid var(--line);
+    padding: var(--space-s) var(--space-m);
+    border-block-end: 1px solid var(--line);
   }
   .cart-drawer__head h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
     font-size: var(--step-1);
+    font-stretch: var(--stretch-ui);
+  }
+  .cart-drawer__head h2:focus {
+    outline: none;
+  }
+  .cart-drawer__head h2:focus-visible {
+    outline: 2px solid var(--focus);
+  }
+  .cart-drawer__count {
+    font-size: var(--step--1);
+    font-weight: 400;
+    color: var(--ink-muted);
   }
   .cart-drawer__close {
     display: grid;
     place-items: center;
-    inline-size: 2.5rem;
-    block-size: 2.5rem;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
     border-radius: 50%;
+    color: var(--ink-muted);
   }
   .cart-drawer__close:hover {
     background: var(--surface);
+    color: var(--ink-strong);
   }
+
+  .cart-drawer__notice {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    margin: var(--space-s) var(--space-m) 0;
+    padding: var(--space-2xs) var(--space-xs);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+    font-size: var(--step--1);
+    color: var(--ink-strong);
+  }
+  .cart-drawer__notice svg {
+    flex: none;
+    color: var(--accent-text);
+  }
+  .cart-drawer__notice p {
+    flex: 1;
+  }
+  .cart-drawer__undo {
+    min-block-size: 2.75rem;
+    padding-inline: var(--space-xs);
+    font-weight: 650;
+    color: var(--accent-text);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .cart-drawer__notice:not([hidden]) {
+      animation: notice-in var(--dur-3) var(--ease-out);
+    }
+    @keyframes notice-in {
+      from {
+        opacity: 0;
+        translate: 0 -4px;
+      }
+    }
+  }
+
   .cart-drawer__body {
-    padding: var(--space-m);
+    flex: 1 1 auto;
+    min-block-size: 0;
+    padding: var(--space-xs) var(--space-m) var(--space-m);
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
+
+  .cart-lines {
+    display: grid;
+  }
+  .cart-lines :global(.line) {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--space-s);
+    align-items: start;
+    padding-block: var(--space-s);
+    border-block-end: 1px solid var(--line);
+  }
+  .cart-lines :global(.line__name) {
+    font-weight: 680;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.3;
+  }
+  .cart-lines :global(.line__meta) {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    overflow-wrap: anywhere;
+  }
+  .cart-lines :global(.line__controls) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-block-start: var(--space-2xs);
+  }
+  .cart-lines :global(.qty) {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+  }
+  .cart-lines :global(.qty__btn) {
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    border-radius: 50%;
+    color: var(--ink-strong);
+  }
+  .cart-lines :global(.qty__btn:hover) {
+    background: var(--surface);
+  }
+  .cart-lines :global(.qty__btn[aria-disabled='true']) {
+    color: var(--ink-faint);
+    cursor: default;
+    background: none;
+  }
+  .cart-lines :global(.qty__val) {
+    min-inline-size: 1.6ch;
+    text-align: center;
+    color: var(--ink-strong);
+  }
+  .cart-lines :global(.line__remove) {
+    min-block-size: 2.75rem;
+    padding-inline: var(--space-2xs);
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    text-decoration-color: var(--line-strong);
+  }
+  .cart-lines :global(.line__remove:hover) {
+    color: var(--ink-strong);
+    text-decoration-color: currentColor;
+  }
+  .cart-lines :global(.line__price) {
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+
+  :global(.cart-thumb) {
+    display: grid;
+    place-items: center;
+    inline-size: 3.5rem;
+    aspect-ratio: 1;
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+  }
+  :global(.cart-thumb--knob) {
+    position: relative;
+    background:
+      radial-gradient(circle at 50% 50%, var(--chip) 0 44%, transparent 45%), var(--bg-raised);
+  }
+  :global(.cart-thumb--knob::after) {
+    content: '';
+    position: absolute;
+    inset-block-start: 21%;
+    inset-inline-start: calc(50% - 1.5px);
+    inline-size: 3px;
+    block-size: 13%;
+    border-radius: 2px;
+    background: var(--chip-accent);
+    transform-origin: 50% 223%;
+    transform: rotate(35deg);
+  }
+  :global(.cart-thumb--acc svg) {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  :global(.cart-thumb--reservation) {
+    outline: 1.5px dashed var(--line-strong);
+    outline-offset: -1.5px;
+  }
+
+  .cart-empty {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-xs);
+    padding-block: var(--space-2xl) var(--space-l);
+    text-align: center;
+  }
+  .cart-empty__mark {
+    inline-size: 6rem;
+    margin-block-end: var(--space-xs);
+  }
+  .cart-empty__mark line {
+    stroke: var(--ink-faint);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+  }
+  .cart-empty__knob {
+    fill: var(--surface);
+    stroke: var(--line-strong);
+  }
+  .cart-empty__mark .cart-empty__tally {
+    stroke: var(--tally);
+    stroke-width: 4;
+  }
+  .cart-empty__title {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .cart-empty__text {
+    max-width: 30ch;
+    color: var(--ink-muted);
+    margin-block-end: var(--space-s);
+  }
+
+  .cart-drawer__foot {
+    display: grid;
+    gap: var(--space-xs);
+    padding: var(--space-m) var(--space-m) calc(var(--space-m) + env(safe-area-inset-bottom));
+    border-block-start: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .cart-sum {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .cart-sum div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .cart-sum div:first-child {
+    font-weight: 650;
+    color: var(--ink-strong);
+  }
+  .cart-sum div:first-child dd {
+    font-size: var(--step-1);
+    font-weight: 500;
+  }
+  .cart-sum div + div {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .cart-sum__note {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .cart-drawer__actions {
+    display: grid;
+    gap: var(--space-2xs);
+    margin-block-start: var(--space-2xs);
+  }
+  .cart-drawer__cta {
+    min-block-size: 3.25rem;
+    font-size: var(--step-0);
+  }
+  .cart-drawer__express {
+    --btn-bg: var(--ink-strong);
+    --btn-ink: var(--bg);
+    --btn-line: var(--ink-strong);
+  }
+  .cart-drawer__express:hover {
+    --btn-bg: var(--graphite-700);
+    --btn-line: var(--graphite-700);
+  }
+
+  /* Reduced motion: a short crossfade instead of the slide. */
   @media (prefers-reduced-motion: reduce) {
-    .cart-drawer,
+    .cart-drawer {
+      translate: 0 0;
+      opacity: 0;
+      transition:
+        opacity var(--dur-2) linear,
+        overlay var(--dur-2) allow-discrete,
+        display var(--dur-2) allow-discrete;
+    }
     .cart-drawer[open] {
       translate: 0 0;
+      opacity: 1;
+    }
+    @starting-style {
+      .cart-drawer[open] {
+        translate: 0 0;
+        opacity: 0;
+      }
+    }
+    .cart-drawer__notice:not([hidden]) {
+      animation: none;
     }
   }
 </style>

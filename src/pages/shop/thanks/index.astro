@@ -1,0 +1,486 @@
+---
+/**
+ * /shop/thanks/: demo order confirmation. What happens next (a real,
+ * ordered timeline), the order recap, a concept referral ("Give $30, get
+ * $30") and a share action. Personalized from the order checkout left in
+ * sessionStorage; no personal details were stored.
+ */
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import { ogPath } from '@/config/og';
+import { LAUNCH, PHASES } from '@/config/launch';
+import { PAYMENT, formatUsd } from '@/data/product';
+import { REFERRAL } from '@/data/shop';
+import { url } from '@/lib/url';
+
+const launchDay = new Date(LAUNCH.launchDate).toLocaleDateString('en-US', {
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+const give = formatUsd(REFERRAL.giveUsd);
+const get = formatUsd(REFERRAL.getUsd);
+
+interface Step {
+  when: string;
+  title: string;
+  text: string;
+}
+const orderSteps: Step[] = [
+  {
+    when: 'Today',
+    title: 'Order confirmed',
+    text: 'In a live store, the receipt would already be in your inbox. This was a demo, so nothing was sent and nothing was charged.',
+  },
+  {
+    when: 'Before it ships',
+    title: 'Machined, then tested',
+    text: 'One email when your body comes off the mill, one when it passes its haptics test. That’s all the email you get.',
+  },
+  { when: LAUNCH.firstShipBatch, title: 'Batch 1 ships', text: 'Tracked, insured and free.' },
+  {
+    when: 'Day one',
+    title: 'It wakes up in your first feel',
+    text: 'Plug it in and turn it. The other five feels are one press away.',
+  },
+  {
+    when: `Day ${PAYMENT.trialDays}`,
+    title: 'Studio trial ends',
+    text: 'If it hasn’t earned its spot on your desk, send it back with the prepaid label for a full refund.',
+  },
+  {
+    when: `Year ${PAYMENT.warrantyYears}`,
+    title: 'Warranty ends',
+    text: 'Parts and labor until then. After that: four Torx screws and a parts list.',
+  },
+];
+const reservationSteps: Step[] = [
+  {
+    when: 'Today',
+    title: 'Place held',
+    text: 'Your deposit holds a place in line and locks the launch price. It is fully refundable until your batch ships. Nothing was charged in this demo.',
+  },
+  {
+    when: launchDay,
+    title: 'Orders open',
+    text: `${PHASES.launch.name}: we email you to complete the order, and the deposit comes off the price.`,
+  },
+  { when: LAUNCH.firstShipBatch, title: 'Batch 1 ships', text: 'Tracked, insured and free.' },
+  {
+    when: 'Day one',
+    title: 'It wakes up in your first feel',
+    text: 'Plug it in and turn it. The other five feels are one press away.',
+  },
+  {
+    when: `Day ${PAYMENT.trialDays}`,
+    title: 'Studio trial ends',
+    text: 'If it hasn’t earned its spot on your desk, send it back with the prepaid label for a full refund.',
+  },
+];
+---
+
+<BaseLayout
+  title="Order confirmed"
+  description="Your Detent demo order: what happens next, your batch date, the studio trial and warranty. A concept demo; nothing was charged."
+  ogImage={ogPath('shop')}
+  world="day"
+  chrome="minimal"
+  hideHeaderCta
+  noindex
+>
+  <div class="ty container">
+    <section class="ty__hero" aria-labelledby="ty-title">
+      <div class="ty__intro">
+        <p class="ty__id readout" data-ty-id hidden></p>
+        <h1 id="ty-title" class="display ty__title" data-ty-title>
+          Thanks. Here’s what happens next.
+        </h1>
+        <p class="lede" data-ty-lede>
+          Your Detent ships with Batch 1 in {LAUNCH.firstShipBatch}.
+        </p>
+        <p class="ty__concept" data-ty-concept>
+          <span class="ty__dot" aria-hidden="true"></span>Detent is a concept: this was a demo
+          order, and nothing was charged.
+        </p>
+      </div>
+      <div class="ty__dial">
+        <DialStage
+          id="thanks-dial"
+          interactive
+          camera="hero"
+          finish="graphite"
+          profile="ratchet"
+          display="BATCH 1"
+          label="Your Detent. Turn it while you wait."
+        />
+      </div>
+    </section>
+
+    <div class="ty__empty" data-ty-empty hidden>
+      <a class="btn btn--primary btn--lg" href={url('/shop/#configure')}>
+        Build yours
+      </a>
+    </div>
+
+    <div class="ty__body" data-ty-body>
+      <section class="ty__next" aria-labelledby="ty-next-title">
+        <h2 id="ty-next-title" class="ty__h2">
+          What happens next
+        </h2>
+        {[
+          { kind: 'order', steps: orderSteps },
+          { kind: 'reservation', steps: reservationSteps },
+        ].map(({ kind, steps }) => (
+          <ol class="timeline" data-ty-timeline={kind} hidden={kind !== 'order'}>
+            {steps.map((s, i) => (
+              <li class:list={['timeline__step', { 'timeline__step--now': i === 0 }]}>
+                <p class="timeline__when readout">{s.when}</p>
+                <div class="timeline__what">
+                  <p class="timeline__title">{s.title}</p>
+                  <p class="timeline__text">
+                    {s.text}
+                    {s.title === 'Batch 1 ships' && <span data-ty-transit />}
+                    {s.title.startsWith('It wakes up') && <span data-ty-feel />}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ))}
+      </section>
+
+      <aside class="ty__side">
+        <section class="ty__recap" aria-labelledby="ty-recap-title" data-ty-recap hidden>
+          <h2 id="ty-recap-title" class="ty__h2">
+            Your order
+          </h2>
+          <ul role="list" class="ty__lines" data-ty-lines></ul>
+          <dl class="ty__totals">
+            <div>
+              <dt>Shipping</dt>
+              <dd>Free</dd>
+            </div>
+            <div class="ty__grand">
+              <dt data-ty-total-label>Total</dt>
+              <dd class="readout" data-ty-total></dd>
+            </div>
+          </dl>
+          <button type="button" class="ty__share" data-ty-share-build hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M12 15V4m0 0L8 8m4-4 4 4M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></path>
+            </svg>
+            Share your build
+          </button>
+          <p class="ty__status" role="status" data-ty-build-status></p>
+        </section>
+
+        <section
+          class="ty__refer"
+          aria-labelledby="ty-refer-title"
+          data-world="night"
+          data-ty-refer
+          hidden
+        >
+          <h2 id="ty-refer-title" class="ty__refer-title">
+            Give {give}, get {get}.
+          </h2>
+          <p>
+            Send a friend your link. They get {give} off their Detent, and you get {get} back when
+            theirs ships.
+          </p>
+          <div class="ty__code">
+            <label for="ty-link" class="visually-hidden">
+              Your referral link
+            </label>
+            <input id="ty-link" class="input readout ty__link" type="text" readonly data-ty-link />
+            <button type="button" class="btn btn--solid" data-ty-copy>
+              Copy
+            </button>
+          </div>
+          <button type="button" class="ty__share ty__share--light" data-ty-share-ref hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M12 15V4m0 0L8 8m4-4 4 4M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              ></path>
+            </svg>
+            Share with a friend
+          </button>
+          <p class="ty__status" role="status" data-ty-ref-status></p>
+          <p class="concept-note">
+            Concept: the referral program is part of the demo. No credit is issued and no money
+            moves.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    <nav class="ty__more" aria-label="While you wait">
+      <a class="link-arrow" href={url('/profiles/')}>
+        Learn the six feels
+      </a>
+      <a class="link-arrow" href={url('/crack/')}>
+        Crack the safe
+      </a>
+      <a class="link-arrow" href={url('/')}>
+        Back to Detent One
+      </a>
+    </nav>
+  </div>
+</BaseLayout>
+
+<script>
+  import '@/scripts/shop/thanks';
+</script>
+
+<style>
+  .ty {
+    padding-block: var(--space-xl) var(--section-y);
+  }
+  .ty__hero {
+    display: grid;
+    gap: var(--space-xl);
+    align-items: center;
+    margin-block-end: var(--space-2xl);
+  }
+  @media (min-width: 56rem) {
+    .ty__hero {
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    }
+  }
+  .ty__intro {
+    display: grid;
+    gap: var(--space-m);
+    justify-items: start;
+  }
+  .ty__id {
+    color: var(--ink-muted);
+  }
+  .ty__title {
+    font-size: var(--step-5);
+    max-inline-size: 14ch;
+  }
+  .ty__concept {
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0.55rem 0.9rem;
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+    font-size: var(--step--1);
+  }
+  .ty__dot {
+    flex: none;
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background: var(--tally);
+  }
+  .ty__dial {
+    inline-size: min(100%, 24rem);
+    justify-self: center;
+  }
+  .ty__empty {
+    margin-block: calc(-1 * var(--space-l)) var(--space-xl);
+  }
+
+  .ty__body {
+    display: grid;
+    gap: var(--space-2xl);
+  }
+  @media (min-width: 60rem) {
+    .ty__body {
+      grid-template-columns: minmax(0, 1.4fr) minmax(20rem, 1fr);
+      column-gap: clamp(var(--space-xl), 6vw, var(--space-3xl));
+    }
+  }
+  .ty__h2 {
+    font-size: var(--step-2);
+    font-stretch: var(--stretch-ui);
+    margin-block-end: var(--space-l);
+  }
+
+  /* The timeline is a scale: each step is a detent. */
+  .timeline {
+    list-style: none;
+    padding: 0;
+    display: grid;
+  }
+  .timeline__step {
+    position: relative;
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: var(--space-m);
+    padding-block: 0 var(--space-l);
+    padding-inline-start: var(--space-l);
+  }
+  .timeline__step::before {
+    content: '';
+    position: absolute;
+    inset-block: 0.55em 0;
+    inset-inline-start: 0.3rem;
+    border-inline-start: 1px solid var(--line-strong);
+  }
+  .timeline__step:last-child::before {
+    display: none;
+  }
+  .timeline__step::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 0.4em;
+    inset-inline-start: 0;
+    inline-size: 0.65rem;
+    block-size: 0.65rem;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1.5px solid var(--ink-muted);
+  }
+  .timeline__step--now::after {
+    background: var(--tally);
+    border-color: var(--tally);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--tally) 22%, transparent);
+  }
+  .timeline__when {
+    color: var(--ink-muted);
+    padding-block-start: 0.15em;
+  }
+  .timeline__step--now .timeline__when {
+    color: var(--accent-text);
+  }
+  .timeline__title {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .timeline__text {
+    color: var(--ink-muted);
+    max-inline-size: 52ch;
+  }
+  @media (max-width: 36rem) {
+    .timeline__step {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.2rem;
+    }
+  }
+
+  .ty__side {
+    display: grid;
+    gap: var(--space-l);
+    align-content: start;
+  }
+  .ty__recap {
+    padding: var(--space-m);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-l);
+  }
+  .ty__recap .ty__h2 {
+    font-size: var(--step-1);
+    margin-block-end: var(--space-s);
+  }
+  .ty__lines {
+    display: grid;
+    gap: var(--space-2xs);
+    padding-block-end: var(--space-s);
+    border-block-end: 1px solid var(--line);
+    font-size: var(--step--1);
+  }
+  .ty__lines :global(li) {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .ty__lines :global(.ty__line-meta) {
+    display: block;
+    color: var(--ink-muted);
+  }
+  .ty__totals {
+    display: grid;
+    gap: 0.3rem;
+    padding-block: var(--space-s);
+    font-size: var(--step--1);
+  }
+  .ty__totals div {
+    display: flex;
+    justify-content: space-between;
+  }
+  .ty__totals dt {
+    color: var(--ink-muted);
+  }
+  .ty__totals .ty__grand dt,
+  .ty__totals .ty__grand dd {
+    color: var(--ink-strong);
+    font-weight: 650;
+    font-size: var(--step-0);
+  }
+  .ty__share {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    min-block-size: 2.75rem;
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--accent-text);
+  }
+  .ty__share:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .ty__status {
+    font-size: var(--step--1);
+  }
+  .ty__status:empty {
+    display: none;
+  }
+
+  .ty__refer {
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-l) var(--space-m) var(--space-m);
+    border-radius: var(--r-l);
+  }
+  .ty__refer-title {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+  }
+  .ty__refer p {
+    color: var(--ink);
+  }
+  .ty__code {
+    display: flex;
+    gap: var(--space-2xs);
+  }
+  .ty__link {
+    flex: 1;
+    min-inline-size: 0;
+    font-size: var(--step--2);
+  }
+  .ty__share--light {
+    justify-self: start;
+  }
+  .ty__refer .concept-note {
+    color: var(--ink-muted);
+  }
+
+  .ty__more {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-s) var(--space-xl);
+    margin-block-start: var(--space-2xl);
+    padding-block-start: var(--space-l);
+    border-block-start: 1px solid var(--line);
+  }
+</style>

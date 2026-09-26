@@ -1,0 +1,330 @@
+---
+/**
+ * #compare: Detent One vs Founders Edition, honest and scannable, plus
+ * what is in the box (drawn as a packing diagram keyed to the list).
+ */
+import { EDITIONS, FINISHES, SPECS, byEdition } from '@/data/product';
+import { COMPARE } from '@/data/shop-content';
+import { url } from '@/lib/url';
+
+const inBox = SPECS.find((g) => g.title === 'In the box')?.rows ?? [];
+const founders = byEdition('founders');
+const foundersExtras = founders.includes.filter((i) => !/^Everything/.test(i));
+const chips = (edition: (typeof EDITIONS)[number]) =>
+  FINISHES.filter((f) => edition.finishes.includes(f.id));
+---
+
+<section id="compare" class="section compare" aria-labelledby="compare-title">
+  <div class="container">
+    <header class="compare__head">
+      <h2 id="compare-title" class="display display--m">
+        Two editions. One instrument.
+      </h2>
+      <p class="lede">
+        The motor, the sensor, the display and every line of software are identical. Founders
+        Edition changes the color, adds a number and puts it on walnut.
+      </p>
+    </header>
+
+    <div class="compare__body">
+      <table class="compare__table" role="table">
+        <caption class="visually-hidden">Detent One compared with Founders Edition</caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col">
+              <span class="visually-hidden">Feature</span>
+            </th>
+            {EDITIONS.map((e) => (
+              <th role="columnheader" scope="col" class="compare__edition">
+                <span class="compare__chips" aria-hidden="true">
+                  {chips(e).map((f) => (
+                    <span class="compare__chip" style={`--chip: ${f.body}`} />
+                  ))}
+                </span>
+                {e.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {COMPARE.map((r) => (
+            <tr role="row" class:list={['compare__row', { 'compare__row--same': r.same }]}>
+              <th role="rowheader" scope="row">
+                {r.label}
+              </th>
+              <td role="cell" data-edition={EDITIONS[0]!.name}>
+                {r.one}
+              </td>
+              <td role="cell" data-edition={EDITIONS[1]!.name}>
+                {r.founders}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot role="rowgroup">
+          <tr role="row" class="compare__cta">
+            <td role="cell"></td>
+            {EDITIONS.map((e) => (
+              <td role="cell">
+                <a
+                  class="link-arrow"
+                  href={url(`/shop/?edition=${e.id}#configure`)}
+                  data-build-link
+                >
+                  Configure {e.name}
+                </a>
+              </td>
+            ))}
+          </tr>
+        </tfoot>
+      </table>
+
+      <aside class="box" aria-labelledby="box-title">
+        <h3 id="box-title" class="box__title">
+          What’s in the box
+        </h3>
+        <svg
+          class="box__drawing"
+          viewBox="0 0 320 210"
+          role="img"
+          aria-labelledby="box-drawing-title"
+        >
+          <title id="box-drawing-title">Packing diagram: the dial on the left, the coiled cable top right, the quick-start card bottom right.</title>
+          <rect class="box__tray" x="6" y="6" width="308" height="198" rx="10"></rect>
+          <rect class="box__pocket" x="20" y="22" width="150" height="166" rx="8"></rect>
+          <circle class="box__part" cx="95" cy="105" r="58"></circle>
+          <circle class="box__part box__part--knob" cx="95" cy="105" r="46"></circle>
+          <line
+            class="box__tally"
+            x1="95"
+            y1="66"
+            x2="95"
+            y2="78"
+            transform="rotate(35 95 105)"
+          ></line>
+          <rect class="box__pocket" x="184" y="22" width="116" height="78" rx="8"></rect>
+          <circle class="box__part" cx="232" cy="61" r="24"></circle>
+          <circle class="box__part" cx="232" cy="61" r="18.5"></circle>
+          <circle class="box__part" cx="232" cy="61" r="13"></circle>
+          <path class="box__part" d="M256 61h14"></path>
+          <rect class="box__part" x="270" y="55" width="17" height="12" rx="3"></rect>
+          <rect class="box__pocket" x="184" y="112" width="116" height="76" rx="8"></rect>
+          <rect class="box__part" x="198" y="126" width="88" height="48" rx="3"></rect>
+          <line class="box__part box__part--fine" x1="208" y1="140" x2="258" y2="140"></line>
+          <line class="box__part box__part--fine" x1="208" y1="150" x2="270" y2="150"></line>
+          <line class="box__part box__part--fine" x1="208" y1="160" x2="240" y2="160"></line>
+          <g class="box__keys">
+            <circle cx="36" cy="38" r="9"></circle>
+            <text x="36" y="41.5">
+              1
+            </text>
+            <circle cx="200" cy="38" r="9"></circle>
+            <text x="200" y="41.5">
+              2
+            </text>
+            <circle cx="200" cy="128" r="9"></circle>
+            <text x="200" y="131.5">
+              3
+            </text>
+          </g>
+        </svg>
+        <ol class="box__list">
+          {inBox.map((row) => (
+            <li>
+              <span class="box__label">{row.label}</span>
+              <span class="box__value">{row.value}</span>
+            </li>
+          ))}
+        </ol>
+        <p class="box__extra">
+          <strong>Founders Edition adds:</strong>
+          {foundersExtras.map((x) => x.replace(/\s*\(.*\)/, '')).join('; ')}.
+        </p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<style>
+  .compare {
+    border-block-start: 1px solid var(--line);
+  }
+  .compare__head {
+    display: grid;
+    gap: var(--space-s);
+    margin-block-end: var(--space-2xl);
+    max-inline-size: 48rem;
+  }
+  .compare__body {
+    display: grid;
+    gap: var(--space-2xl);
+    align-items: start;
+  }
+  @media (min-width: 64rem) {
+    .compare__body {
+      grid-template-columns: minmax(0, 1.8fr) minmax(18rem, 1fr);
+    }
+  }
+
+  .compare__table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+  }
+  .compare__table th,
+  .compare__table td {
+    padding: var(--space-xs) var(--space-s) var(--space-xs) 0;
+    text-align: start;
+    vertical-align: baseline;
+    border-block-end: 1px solid var(--line);
+  }
+  .compare__table thead th {
+    border-block-end: 1px solid var(--line-strong);
+    padding-block-end: var(--space-s);
+  }
+  .compare__edition {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    inline-size: 38%;
+  }
+  .compare__chips {
+    display: flex;
+    gap: 0.3rem;
+    margin-block-end: var(--space-2xs);
+  }
+  .compare__chip {
+    inline-size: 1rem;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--chip);
+    box-shadow: 0 0 0 1px var(--line-strong);
+  }
+  .compare__table tbody th {
+    font-weight: 600;
+    color: var(--ink-strong);
+    inline-size: 24%;
+  }
+  .compare__table td {
+    color: var(--ink);
+  }
+  .compare__row--same td {
+    color: var(--ink-muted);
+  }
+  .compare__cta td {
+    border-block-end: 0;
+    padding-block-start: var(--space-m);
+  }
+
+  @media (max-width: 40rem) {
+    .compare__table thead {
+      display: none;
+    }
+    .compare__table tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: var(--space-s);
+      padding-block: var(--space-xs);
+      border-block-end: 1px solid var(--line);
+    }
+    .compare__table th,
+    .compare__table td {
+      border: 0;
+      padding: 0;
+    }
+    .compare__table tbody th {
+      grid-column: 1 / -1;
+      inline-size: auto;
+      margin-block-end: 0.2rem;
+    }
+    .compare__table tbody td::before {
+      content: attr(data-edition);
+      display: block;
+      font-size: var(--step--2);
+      color: var(--ink-muted);
+    }
+    .compare__table tr.compare__cta {
+      border: 0;
+    }
+    .compare__cta td:first-child {
+      display: none;
+    }
+  }
+
+  .box {
+    display: grid;
+    gap: var(--space-s);
+    padding: var(--space-m);
+    border-radius: var(--r-l);
+    background: var(--bg-raised);
+  }
+  .box__title {
+    font-size: var(--step-1);
+    font-stretch: var(--stretch-ui);
+  }
+  .box__drawing {
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .box__tray {
+    fill: var(--bg);
+    stroke: var(--line-strong);
+  }
+  .box__pocket {
+    fill: var(--surface);
+    stroke: none;
+  }
+  .box__part {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .box__part--knob {
+    fill: var(--bg);
+  }
+  .box__part--fine {
+    stroke: var(--ink-faint);
+    stroke-width: 1.2;
+  }
+  .box__tally {
+    stroke: var(--tally);
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+  .box__keys circle {
+    fill: var(--ink-strong);
+  }
+  .box__keys text {
+    fill: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  .box__list {
+    display: grid;
+    gap: var(--space-2xs);
+    padding-inline-start: 1.4em;
+    font-size: var(--step--1);
+  }
+  .box__list li::marker {
+    font-family: var(--font-mono);
+    color: var(--ink-muted);
+  }
+  .box__label {
+    font-weight: 650;
+    color: var(--ink-strong);
+    margin-inline-end: 0.4em;
+  }
+  .box__value {
+    color: var(--ink);
+  }
+  .box__extra {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--line);
+  }
+</style>

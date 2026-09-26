@@ -1,0 +1,270 @@
+---
+/**
+ * "Your build": line items, the phase's price, deposit/balance while
+ * reserving, the primary action and the risk reversals. Sticky beside the
+ * configurator on wide screens; inline at the end of the form elsewhere
+ * (the SummaryBar covers small screens while it is out of view).
+ */
+import { BUILD_PHASE, LAUNCH } from '@/config/launch';
+import { PAYMENT, byEdition, formatUsd } from '@/data/product';
+import { DEFAULT_BUILD, buildTitle, quote, type Build } from '@/scripts/shop/build';
+import { quoteLinesHtml } from '@/scripts/shop/render';
+import BuildAction from './BuildAction.astro';
+
+interface Props {
+  build?: Build;
+}
+const { build = DEFAULT_BUILD } = Astro.props;
+const q = quote(build, BUILD_PHASE);
+const launchEnds = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+const one = byEdition('one');
+---
+
+<aside class="panel" id="build-summary" aria-labelledby="build-summary-title" data-panel>
+  <header class="panel__head">
+    <h2 id="build-summary-title" class="panel__title">
+      Your build
+    </h2>
+    <p class="panel__name" data-build-title>
+      {buildTitle(build)}
+    </p>
+  </header>
+
+  <ul
+    role="list"
+    class="panel__lines qlines readout"
+    data-build-lines
+    set:html={quoteLinesHtml(q.lines)}
+  />
+
+  <div class="panel__total">
+    <span class="panel__total-label">Total</span>
+    <span class="panel__total-value readout">
+      <s class="panel__regular" data-build-regular hidden={q.regularTotal <= q.total}>
+        <span class="visually-hidden">Regular price </span>
+        <span data-build-regular-value>{formatUsd(q.regularTotal)}</span>
+      </s>
+      <span data-build-total>{formatUsd(q.total)}</span>
+    </span>
+  </div>
+
+  <div class="panel__notes">
+    <p data-phase-only="tease waitlist">
+      {one.name} is {formatUsd(one.launchPriceUsd)} for waitlist members who reserve. Founders
+      Edition is always {formatUsd(byEdition('founders').priceUsd)}.
+    </p>
+    <p data-phase-only="reserve">
+      Launch price, locked by your deposit. {formatUsd(one.priceUsd)} after launch week.
+    </p>
+    <p data-phase-only="launch">
+      Launch price until {launchEnds}. {formatUsd(one.priceUsd)} after that.
+    </p>
+    <p class="panel__installments" data-build-installments>
+      {PAYMENT.installmentLabel(q.total)}.
+    </p>
+  </div>
+
+  <dl class="panel__due readout" data-phase-only="reserve">
+    <div>
+      <dt>Due today, refundable</dt>
+      <dd data-build-deposit>{formatUsd(q.deposit)}</dd>
+    </div>
+    <div>
+      <dt>When Batch 1 ships</dt>
+      <dd data-build-balance>{formatUsd(q.total - q.deposit)}</dd>
+    </div>
+  </dl>
+
+  <BuildAction placement="panel" />
+
+  <dl class="panel__facts">
+    <div>
+      <dt>Ships</dt>
+      <dd>Batch 1, {LAUNCH.firstShipBatch}</dd>
+    </div>
+    <div>
+      <dt>Shipping</dt>
+      <dd>Free, tracked and insured</dd>
+    </div>
+    <div>
+      <dt>Trial</dt>
+      <dd>{PAYMENT.trialDays} days, free returns</dd>
+    </div>
+    <div>
+      <dt>Warranty</dt>
+      <dd>{PAYMENT.warrantyYears} years, parts and labor</dd>
+    </div>
+  </dl>
+
+  <div class="panel__share">
+    <button type="button" class="panel__share-btn" data-copy-build hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+        ></path>
+      </svg>
+      Copy link to this build
+    </button>
+    <button type="button" class="panel__share-btn" data-share-build hidden>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M12 15V4m0 0L8 8m4-4 4 4M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        ></path>
+      </svg>
+      Share
+    </button>
+    <p class="panel__share-status" role="status" data-share-status></p>
+  </div>
+</aside>
+
+<style>
+  .panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-m);
+    padding: var(--space-m);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-l);
+    background: var(--bg);
+  }
+  .panel__head {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .panel__title {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .panel__name {
+    font-size: var(--step-1);
+    font-weight: 720;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    line-height: 1.2;
+  }
+
+  .panel__lines {
+    padding-block: var(--space-s);
+    border-block: 1px solid var(--line);
+  }
+
+  .panel__total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+  }
+  .panel__total-label {
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .panel__total-value {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+    font-size: var(--step-3);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .panel__regular {
+    font-size: var(--step-0);
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .panel__notes {
+    display: grid;
+    gap: 0.3rem;
+    margin-block-start: calc(-1 * var(--space-xs));
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .panel__installments {
+    color: var(--ink);
+  }
+
+  .panel__due {
+    display: grid;
+    gap: 0.4rem;
+    padding: var(--space-s);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+    font-size: var(--step--2);
+  }
+  .panel__due div,
+  .panel__facts div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-s);
+  }
+  .panel__due dt {
+    color: var(--ink);
+  }
+  .panel__due dd {
+    color: var(--ink-strong);
+  }
+  .panel__due div:first-child dd {
+    font-weight: 650;
+  }
+
+  .panel__facts {
+    display: grid;
+    gap: 0.35rem;
+    font-size: var(--step--1);
+  }
+  .panel__facts dt {
+    color: var(--ink-muted);
+  }
+  .panel__facts dd {
+    color: var(--ink);
+    text-align: end;
+  }
+
+  .panel__share {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2xs) var(--space-s);
+    padding-block-start: var(--space-s);
+    border-block-start: 1px solid var(--line);
+  }
+  .panel__share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--accent-text);
+  }
+  .panel__share-btn:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .panel__share-status {
+    flex-basis: 100%;
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .panel__share-status:empty {
+    display: none;
+  }
+</style>

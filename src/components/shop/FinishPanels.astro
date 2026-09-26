@@ -1,0 +1,162 @@
+---
+/**
+ * #finishes: four anodize samples, each on its own ground, with a still and
+ * its sensory line. Links preset the configurator in place.
+ */
+import DialStill from '@/components/dial/DialStill.astro';
+import { FINISHES, byEdition } from '@/data/product';
+import { url } from '@/lib/url';
+
+const founders = byEdition('founders');
+---
+
+<section id="finishes" class="section finishes" aria-labelledby="finishes-title">
+  <div class="container">
+    <header class="finishes__head">
+      <h2 id="finishes-title" class="display display--m">
+        Four finishes. One of them is numbered.
+      </h2>
+      <p class="lede">
+        Every body is machined from the same billet, then bead-blasted. Three are anodized. You
+        choose how it catches the lamp.
+      </p>
+    </header>
+    <ul role="list" class="finishes__list">
+      {FINISHES.map((f) => (
+        <li
+          class:list={['fin', `fin--${f.id}`]}
+          data-world={f.id === 'graphite' || f.id === 'tally' ? 'night' : 'day'}
+        >
+          <div class="fin__still">
+            <DialStill finish={f.id} view="top" />
+          </div>
+          <div class="fin__text">
+            <h3 class="fin__name">{f.name}</h3>
+            <p class="fin__line">{f.line}</p>
+            {f.foundersOnly ? (
+              <a
+                class="fin__link"
+                href={url(`/shop/?edition=${founders.id}#configure`)}
+                data-build-link
+              >
+                Build the {founders.name}
+              </a>
+            ) : (
+              <a class="fin__link" href={url(`/shop/?finish=${f.id}#configure`)} data-build-link>
+                Build it in {f.name}
+              </a>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .finishes__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 46rem;
+    margin-block-end: var(--space-2xl);
+  }
+  .finishes__list {
+    display: grid;
+    gap: var(--space-2xs);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  }
+  .fin {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: var(--space-l);
+    padding: var(--space-l) var(--space-m) var(--space-m);
+    border-radius: var(--r-l);
+    background: var(--fin-bg);
+    color: var(--ink);
+    min-block-size: 30rem;
+  }
+  .fin--raw {
+    --fin-bg: var(--alu-100);
+  }
+  .fin--graphite {
+    --fin-bg: var(--graphite-950);
+  }
+  .fin--glacier {
+    --fin-bg: oklch(0.93 0.03 238);
+    --ink-muted: oklch(0.42 0.03 240);
+  }
+  .fin--tally {
+    --fin-bg: oklch(0.36 0.13 355);
+    --ink: oklch(0.97 0.01 355);
+    --ink-strong: var(--white);
+    --ink-muted: oklch(0.88 0.03 355);
+    --accent-text: var(--white);
+  }
+  .fin__still {
+    inline-size: min(100%, 14rem);
+    aspect-ratio: 1;
+    justify-self: center;
+    align-self: center;
+  }
+  .fin__text {
+    display: grid;
+    gap: var(--space-2xs);
+    align-content: end;
+  }
+  .fin__name {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+  }
+  .fin__line {
+    color: var(--ink-muted);
+    font-size: var(--step--1);
+    max-inline-size: 32ch;
+    min-block-size: 3lh;
+  }
+  .fin__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    margin-block-start: var(--space-2xs);
+    min-block-size: 2.75rem;
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    text-decoration: none;
+  }
+  .fin__link::after {
+    content: '→';
+    transition: translate var(--dur-2) var(--ease-out);
+  }
+  .fin__link:hover::after {
+    translate: 3px 0;
+  }
+  .fin__link:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .fin__still {
+      transition: rotate var(--dur-4) var(--ease-out);
+    }
+    .fin:hover .fin__still {
+      rotate: 24deg;
+    }
+  }
+  @media (max-width: 40rem) {
+    .fin {
+      grid-template-columns: 7rem 1fr;
+      grid-template-rows: auto;
+      min-block-size: 0;
+      gap: var(--space-m);
+      padding: var(--space-m);
+      align-items: center;
+    }
+    .fin__line {
+      min-block-size: 0;
+    }
+  }
+</style>

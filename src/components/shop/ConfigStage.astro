@@ -1,0 +1,304 @@
+---
+/**
+ * The configurator stage: the live dial inside an engraved bezel that draws
+ * the selected feel (detents, stops, spring, snaps) and carries the
+ * engraving along its lower arc. Server-renders the default build; the
+ * configurator script redraws it on every change.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import { byEdition, byFinish, byProfile } from '@/data/product';
+import { LAUNCH } from '@/config/launch';
+import { ENGRAVING } from '@/data/shop';
+import { DEFAULT_BUILD, type Build } from '@/scripts/shop/build';
+import { feelRingMarkup, feelSummary, RING_R } from '@/scripts/shop/feel-ring';
+
+interface Props {
+  build?: Build;
+}
+const { build = DEFAULT_BUILD } = Astro.props;
+const profile = byProfile(build.feel);
+const edition = byEdition(build.edition);
+const finish = byFinish(build.finish);
+const serialMax = String(LAUNCH.foundersRun).padStart(4, '0');
+const textR = RING_R + 11;
+---
+
+<div class="stage" data-stage data-feel={profile.id}>
+  <div class="stage__row stage__row--top">
+    <p class="stage__feel">
+      <span class="stage__dot" aria-hidden="true"></span>
+      <span data-feel-name>{profile.name}</span>
+      <span class="readout stage__summary" data-feel-summary>
+        {feelSummary(profile)}
+      </span>
+    </p>
+    <p class="readout stage__angle" aria-hidden="true">
+      <span data-angle>+000.0</span>°
+    </p>
+  </div>
+
+  <div class="stage__square">
+    <svg
+      class="stage__ring stage__feelsvg"
+      viewBox="-100 -100 200 200"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g class="stage__feelring" data-feel-ring set:html={feelRingMarkup(profile)} />
+    </svg>
+    <svg class="stage__ring" viewBox="-100 -100 200 200" aria-hidden="true" focusable="false">
+      <defs>
+        <path id="engrave-arc" d={`M ${-textR} 0 A ${textR} ${textR} 0 0 0 ${textR} 0`}></path>
+        <path
+          id="serial-arc"
+          d={`M ${-(textR - 4)} 0 A ${textR - 4} ${textR - 4} 0 0 1 ${textR - 4} 0`}
+        ></path>
+      </defs>
+      <circle class="stage__halo" r="64"></circle>
+      <g class="stage__marker" data-marker>
+        <circle cx="0" cy={-RING_R} r="3.4"></circle>
+      </g>
+      <text class="stage__engrave" data-empty={build.engrave ? undefined : ''}>
+        <textPath href="#engrave-arc" startOffset="50%" text-anchor="middle" data-engrave-text>
+          {build.engrave || `Engraving, up to ${ENGRAVING.maxLength} characters`}
+        </textPath>
+      </text>
+      <text
+        class="stage__serial"
+        data-serial
+        visibility={build.edition === 'founders' ? 'visible' : 'hidden'}
+      >
+        <textPath href="#serial-arc" startOffset="50%" text-anchor="middle">
+          {`Founders Edition · Nº ···· of ${serialMax}`}
+        </textPath>
+      </text>
+    </svg>
+    <div class="stage__dial">
+      <DialStage
+        id="config-dial"
+        interactive
+        camera="config"
+        finish={build.finish}
+        profile={build.feel}
+        label="Your Detent One. Turn it to feel the selected profile."
+        priority
+      />
+    </div>
+  </div>
+
+  <div class="stage__row stage__row--bottom">
+    <p class="stage__hint">
+      Drag it, or focus it and use the arrow keys. It clicks like the feel you pick.
+    </p>
+    <p class="readout stage__sku" data-stage-sku>
+      {edition.sku} · {finish.name}
+    </p>
+  </div>
+</div>
+
+<style>
+  .stage {
+    --feel: var(--feel-ratchet);
+    display: grid;
+    gap: var(--space-s);
+    container-type: inline-size;
+  }
+  .stage[data-feel='fluid'] {
+    --feel: var(--feel-fluid);
+  }
+  .stage[data-feel='spring'] {
+    --feel: var(--feel-spring);
+  }
+  .stage[data-feel='clock'] {
+    --feel: var(--feel-clock);
+  }
+  .stage[data-feel='wall'] {
+    --feel: var(--feel-wall);
+  }
+  .stage[data-feel='magnet'] {
+    --feel: var(--feel-magnet);
+  }
+
+  .stage__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-s);
+    min-block-size: 1.6em;
+  }
+  .stage__feel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.6em;
+    row-gap: 0.1em;
+    font-weight: 650;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .stage__dot {
+    inline-size: 0.7em;
+    block-size: 0.7em;
+    border-radius: 50%;
+    background: var(--feel);
+    box-shadow: 0 0 0 1px var(--line-strong);
+    align-self: center;
+    transition: background-color var(--dur-3) var(--ease-out);
+  }
+  .stage__summary,
+  .stage__sku,
+  .stage__angle {
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .stage__angle {
+    font-size: var(--step--1);
+    white-space: nowrap;
+  }
+  .stage__hint {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    max-width: 34ch;
+  }
+  .stage__sku {
+    white-space: nowrap;
+  }
+
+  .stage__square {
+    position: relative;
+    aspect-ratio: 1;
+    inline-size: 100%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--bg-raised) 62%, var(--bg) 100%);
+  }
+  .stage__ring {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .stage__dial {
+    position: absolute;
+    inset: 17%;
+  }
+  .stage__dial :global(.dial-stage) {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+
+  .stage__halo {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 10;
+    opacity: 0.4;
+    filter: blur(5px);
+    transition: stroke var(--dur-3) var(--ease-out);
+  }
+  .stage__ring :global(.fr-grad) {
+    stroke: var(--line-strong);
+    stroke-width: 0.5;
+  }
+  .stage__ring :global(.fr-track) {
+    fill: none;
+    stroke: var(--ink-faint);
+    stroke-width: 0.8;
+  }
+  .stage__ring :global(.fr-dead) {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-width: 0.8;
+    stroke-dasharray: 1.2 2.4;
+  }
+  .stage__ring :global(.fr-flow) {
+    fill: none;
+    stroke: var(--feel);
+    stroke-width: 2.4;
+    opacity: 0.55;
+  }
+  .stage__ring :global(.fr-tick) {
+    stroke: var(--ink-muted);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+  }
+  .stage__ring :global(.fr-accent),
+  .stage__ring :global(.fr-stop) {
+    stroke: var(--ink-strong);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+  }
+  .stage__ring :global(.fr-snap) {
+    fill: var(--bg);
+    stroke: var(--ink-strong);
+    stroke-width: 1.4;
+  }
+  /* The bezel sweeps in clockwise from noon whenever a feel is drawn:
+     the knob mapping its own detents. Without @property the ring is simply
+     shown; the finished state is always the visible one. */
+  @property --sweep {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 360deg;
+  }
+  .stage__feelsvg {
+    -webkit-mask-image: conic-gradient(#000 var(--sweep), transparent var(--sweep));
+    mask-image: conic-gradient(#000 var(--sweep), transparent var(--sweep));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .stage[data-sweep] .stage__feelsvg {
+      animation: feel-sweep 700ms var(--ease-out-quart);
+    }
+  }
+  @keyframes feel-sweep {
+    from {
+      --sweep: 0deg;
+    }
+    to {
+      --sweep: 360deg;
+    }
+  }
+
+  .stage__marker circle {
+    fill: var(--tally);
+    stroke: var(--bg);
+    stroke-width: 1.4;
+  }
+
+  .stage__engrave,
+  .stage__serial {
+    font-family: var(--font-sans);
+    font-stretch: var(--stretch-display);
+    font-weight: 700;
+    font-size: 6.4px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    fill: var(--ink-strong);
+  }
+  /* Laser burn: a fresh letter glows tally, then cools to ink. */
+  @media (prefers-reduced-motion: no-preference) {
+    .stage__engrave {
+      transition: fill 700ms var(--ease-out);
+    }
+    .stage__engrave[data-burning] {
+      fill: var(--tally);
+      transition: none;
+    }
+  }
+  .stage__engrave[data-empty] {
+    fill: var(--ink-muted);
+    font-weight: 500;
+    letter-spacing: 0.12em;
+  }
+  .stage__serial {
+    font-size: 5.2px;
+    fill: var(--accent-text);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage__halo,
+    .stage__dot {
+      transition: none;
+    }
+  }
+</style>

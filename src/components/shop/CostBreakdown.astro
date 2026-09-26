@@ -1,0 +1,183 @@
+---
+/**
+ * Why it costs what it costs: an abridged bill of materials in the night
+ * world. Each row is a part, its real spec (from SPECS) and what it gets
+ * you. No adjectives doing the work.
+ */
+import { byEdition, formatUsd } from '@/data/product';
+import { BOM } from '@/data/shop-content';
+import { url } from '@/lib/url';
+
+const one = byEdition('one');
+---
+
+<section class="section why" data-world="night" aria-labelledby="why-title">
+  <div class="container">
+    <header class="why__head">
+      <h2 id="why-title" class="display display--l">
+        Why it costs {formatUsd(one.priceUsd)}.
+      </h2>
+      <p class="lede">
+        A motor, a sensor and a screen inside one block of metal, built to be opened and fixed. The
+        bill of materials, abridged.
+      </p>
+    </header>
+
+    <table class="bom" role="table">
+      <caption class="visually-hidden">
+        Bill of materials, abridged: part, specification, and what it gets you
+      </caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th role="columnheader" scope="col">
+            Part
+          </th>
+          <th role="columnheader" scope="col">
+            Specification
+          </th>
+          <th role="columnheader" scope="col">
+            What it gets you
+          </th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        {BOM.map((row) => (
+          <tr role="row">
+            <th role="rowheader" scope="row" class="bom__part">
+              {row.part}
+            </th>
+            <td role="cell" class="bom__spec readout">
+              {row.spec.map((s) => (
+                <span>{s}</span>
+              ))}
+            </td>
+            <td role="cell" class="bom__why">
+              {row.why}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <p class="why__foot">
+      What you don’t pay for: a subscription, an account or a cloud.
+      <a class="link-arrow" href={url('/specs/')}>
+        Every spec
+      </a>
+    </p>
+  </div>
+</section>
+
+<style>
+  .why__head {
+    display: grid;
+    gap: var(--space-s);
+    max-inline-size: 52rem;
+    margin-block-end: var(--space-2xl);
+  }
+  .bom {
+    inline-size: 100%;
+    border-collapse: collapse;
+  }
+  .bom thead th {
+    padding-block-end: var(--space-s);
+    border-block-end: 1px solid var(--line-strong);
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink-muted);
+    text-align: start;
+  }
+  .bom tbody th,
+  .bom td {
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+    vertical-align: baseline;
+    text-align: start;
+  }
+  .bom__part {
+    inline-size: 22%;
+    padding-inline-end: var(--space-m);
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    color: var(--ink-strong);
+  }
+  .bom__spec {
+    inline-size: 38%;
+    padding-inline-end: var(--space-l);
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  .bom__spec span {
+    display: block;
+  }
+  .bom__spec span + span {
+    color: var(--ink-muted);
+  }
+  .bom__why {
+    color: var(--ink-muted);
+    max-inline-size: 44ch;
+  }
+  /* The row you are reading lights up, like a part being pointed at. */
+  @media (hover: hover) {
+    .bom tbody tr {
+      transition: opacity var(--dur-2) var(--ease-out);
+    }
+    .bom tbody:hover tr:not(:hover) {
+      opacity: 0.55;
+    }
+    .bom tbody tr:hover .bom__part {
+      color: var(--accent-text);
+    }
+  }
+  .why__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs) var(--space-m);
+    align-items: baseline;
+    margin-block-start: var(--space-xl);
+    color: var(--ink);
+  }
+
+  @media (max-width: 48rem) {
+    .bom thead {
+      position: absolute;
+      clip-path: inset(50%);
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+    }
+  }
+  @media (max-width: 48rem) {
+    .bom,
+    .bom tbody,
+    .bom tr {
+      display: block;
+    }
+    .bom tr {
+      padding-block: var(--space-m);
+      border-block-end: 1px solid var(--line);
+    }
+    .bom tbody th,
+    .bom td {
+      display: block;
+      inline-size: auto;
+      padding: 0;
+      border: 0;
+    }
+    .bom__part {
+      font-size: var(--step-2);
+      margin-block-end: var(--space-2xs);
+    }
+    .bom__spec {
+      margin-block-end: var(--space-2xs);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bom tbody tr {
+      transition: none;
+    }
+  }
+</style>
