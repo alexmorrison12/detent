@@ -144,6 +144,25 @@ export const SHIP_REGIONS: ShipRegion[] = [
 
 export const shipRegion = (code: string) => SHIP_REGIONS.find((r) => r.code === code);
 
+/**
+ * A ship line from PHASES[phase].ships ("Batch 2, April 2027") split into
+ * its batch and its date, for the places that set them apart (the
+ * confirmation timeline, the knob's display). A value with no comma is all
+ * date and no batch.
+ */
+export function shipParts(ships: string): { batch: string; date: string } {
+  const i = ships.indexOf(',');
+  return i < 0
+    ? { batch: '', date: ships.trim() }
+    : { batch: ships.slice(0, i).trim(), date: ships.slice(i + 1).trim() };
+}
+
+/** The same line on the knob's round display (≤ 10 characters): "BATCH 2". */
+export function shipsOnKnob(ships: string): string {
+  const { batch, date } = shipParts(ships);
+  return (batch || date).toUpperCase().slice(0, 10);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Referral (concept)                                                          */
 /* -------------------------------------------------------------------------- */

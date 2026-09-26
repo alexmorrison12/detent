@@ -179,9 +179,12 @@ const accIcons: Record<string, string> = {
   .cart-drawer {
     position: fixed;
     inset: 0 0 0 auto;
-    inline-size: min(100vw, 28rem);
+    /* Docked to the right edge: in landscape the notch or rounded corner sits
+       there, so the content keeps clear of it and the sheet grows to match. */
+    inline-size: min(100vw, calc(28rem + env(safe-area-inset-right, 0px)));
     block-size: 100dvh;
     margin: 0;
+    padding-inline-end: env(safe-area-inset-right, 0px);
     background: var(--bg);
     color: var(--ink);
     z-index: var(--z-drawer);
@@ -256,10 +259,6 @@ const accIcons: Record<string, string> = {
     block-size: 2.75rem;
     border-radius: 50%;
     color: var(--ink-muted);
-  }
-  .cart-drawer__close:hover {
-    background: var(--surface);
-    color: var(--ink-strong);
   }
 
   .cart-drawer__notice {
@@ -354,9 +353,6 @@ const accIcons: Record<string, string> = {
     border-radius: 50%;
     color: var(--ink-strong);
   }
-  .cart-lines :global(.qty__btn:hover) {
-    background: var(--surface);
-  }
   .cart-lines :global(.qty__btn[aria-disabled='true']) {
     color: var(--ink-faint);
     cursor: default;
@@ -375,10 +371,6 @@ const accIcons: Record<string, string> = {
     text-decoration: underline;
     text-underline-offset: 0.2em;
     text-decoration-color: var(--line-strong);
-  }
-  .cart-lines :global(.line__remove:hover) {
-    color: var(--ink-strong);
-    text-decoration-color: currentColor;
   }
   .cart-lines :global(.line__price) {
     color: var(--ink-strong);
@@ -525,9 +517,24 @@ const accIcons: Record<string, string> = {
     --btn-ink: var(--bg);
     --btn-line: var(--ink-strong);
   }
-  .cart-drawer__express:hover {
-    --btn-bg: var(--graphite-700);
-    --btn-line: var(--graphite-700);
+
+  /* Hover only where hovering exists: a tap never leaves a control lit. */
+  @media (hover: hover) {
+    .cart-drawer__close:hover {
+      background: var(--surface);
+      color: var(--ink-strong);
+    }
+    .cart-lines :global(.qty__btn:not([aria-disabled='true']):hover) {
+      background: var(--surface);
+    }
+    .cart-lines :global(.line__remove:hover) {
+      color: var(--ink-strong);
+      text-decoration-color: currentColor;
+    }
+    .cart-drawer__express:hover {
+      --btn-bg: var(--graphite-700);
+      --btn-line: var(--graphite-700);
+    }
   }
 
   /* Narrow phones: a smaller thumb and gap buy the name and controls room. */

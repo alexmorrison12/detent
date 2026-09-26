@@ -21,6 +21,21 @@ const edition = byEdition(build.edition);
 const finish = byFinish(build.finish);
 const serialMax = String(LAUNCH.foundersRun).padStart(4, '0');
 const textR = RING_R + 11;
+/*
+ * The dial's real width for its eager (LCP) still: 66% of the stage square
+ * (.stage__dial insets 17%), in each ShopConfigurator layout. Landscape
+ * phones size the square by height; wide screens cap at the container.
+ * Measured: 60vw on phones up to a 26rem stage, ~30vw beside the options,
+ * ~23vw in three columns, 22rem once the container stops growing.
+ */
+const dialSizes = [
+  '(min-width: 48rem) and (max-height: 34rem) calc(66vh - 6rem)',
+  '(min-width: 96rem) 22rem',
+  '(min-width: 75rem) 23vw',
+  '(min-width: 48rem) 30vw',
+  '(min-width: 29rem) 17.2rem',
+  '60vw',
+].join(', ');
 ---
 
 <div class="stage" data-stage data-feel={profile.id}>
@@ -83,6 +98,7 @@ const textR = RING_R + 11;
         profile={build.feel}
         label="Your Detent One. Turn it to feel the selected profile."
         priority
+        sizes={dialSizes}
       />
     </div>
   </div>

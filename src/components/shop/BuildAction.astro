@@ -9,7 +9,7 @@
  * deposit"); the docked bar only hides some words visually to fit a phone.
  */
 import { PHASES, LAUNCH } from '@/config/launch';
-import { PAYMENT, byEdition, formatUsd } from '@/data/product';
+import { PAYMENT, formatUsd } from '@/data/product';
 import { url } from '@/lib/url';
 
 interface Props {
@@ -22,26 +22,42 @@ const reserveOpens = new Date(`${PHASES.reserve.starts}T00:00:00Z`).toLocaleDate
   day: 'numeric',
   timeZone: 'UTC',
 });
+const { tease, waitlist } = PHASES;
 ---
 
 <div class:list={['build-action', `build-action--${placement}`]}>
-  <div class="build-action__group" data-phase-only="tease waitlist">
+  <!-- Before the list opens there is nothing to join yet: the same action as
+       every other tease CTA on the site (PHASES.tease.primary). -->
+  <div class="build-action__group" data-phase-only="tease">
     <a
       class="btn btn--primary"
-      href={url('/l/waitlist/')}
+      href={url(tease.primary.href)}
+      data-track="cta_click"
+      data-track-placement={`configurator-${placement}`}
+      data-track-cta="tease:primary"
+    >
+      <span class="ba__label">{tease.primary.label}</span>
+    </a>
+    {showNote && (
+      <p class="build-action__note">{tease.primary.note} Your build stays saved in this browser.</p>
+    )}
+  </div>
+  <div class="build-action__group" data-phase-only="waitlist">
+    <a
+      class="btn btn--primary"
+      href={url(waitlist.primary.href)}
       data-track="cta_click"
       data-track-placement={`configurator-${placement}`}
       data-track-cta="waitlist:reserve"
     >
       <span class="ba__label">
-        Join the waitlist<span class="ba__long"> to reserve</span>
+        {waitlist.primary.label}
+        <span class="ba__long"> to reserve</span>
       </span>
     </a>
     {showNote && (
       <p class="build-action__note">
-        Reservations open {reserveOpens}. Waitlist members get the{' '}
-        {formatUsd(byEdition('one').launchPriceUsd)} launch price. Your build stays saved in this
-        browser until then.
+        Reservations open {reserveOpens}. Your build stays saved in this browser until then.
       </p>
     )}
   </div>

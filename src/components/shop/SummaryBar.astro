@@ -1,7 +1,8 @@
 ---
 /**
  * Small-screen build summary: a bar docked to the bottom of the viewport
- * while the configurator is on screen and the full price panel is not.
+ * once the headline and dial have scrolled away, until the price panel's own
+ * action comes on screen (configurator.ts decides; data-visible while shown).
  * Tap the total to open a sheet with the line items; the action is always
  * one tap away. Hidden without JS (the inline panel covers that case).
  */
@@ -19,7 +20,7 @@ const q = quote(DEFAULT_BUILD, BUILD_PHASE);
     <p class="summary-bar__name" data-build-title>
       {buildTitle(DEFAULT_BUILD)}
     </p>
-    <ul role="list" class="qlines readout" data-build-lines set:html={quoteLinesHtml(q.lines)} />
+    <ul role="list" class="qlines" data-build-lines set:html={quoteLinesHtml(q.lines)} />
   </div>
   <div class="summary-bar__main">
     <button
