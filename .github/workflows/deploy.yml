@@ -1,0 +1,90 @@
+# Build and publish the site to GitHub Pages.
+#
+# Moving the launch forward is a config change, not a code change:
+#   Settings → Secrets and variables → Actions → Variables
+#     LAUNCH_PHASE       tease | waitlist | reserve | launch | live   (default: reserve)
+#     WAITLIST_ENDPOINT  URL that receives waitlist/reservation POSTs (unset = forms stay in the browser)
+#     SITE_MODE          demo | live   (default: demo; live emits Offers in structured data and feeds)
+# or run this workflow by hand and pick a phase for a one-off build.
+#
+# Site URL and base path come from the Pages configuration, so a custom
+# domain (or a renamed repo) needs no code change.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Launch phase for this build ("configured" uses the LAUNCH_PHASE variable)
+        type: choice
+        required: false
+        default: configured
+        options: [configured, tease, waitlist, reserve, launch, live]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; never cancel a publish that has started.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+        env:
+          PUBLIC_LAUNCH_PHASE: ${{ (inputs.phase && inputs.phase != 'configured') && inputs.phase || vars.LAUNCH_PHASE || 'reserve' }}
+          PUBLIC_WAITLIST_ENDPOINT: ${{ vars.WAITLIST_ENDPOINT }}
+          PUBLIC_SITE_MODE: ${{ vars.SITE_MODE || 'demo' }}
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          SITE_BASE: ${{ steps.pages.outputs.base_path || '/' }}
+
+      - name: Check internal links
+        run: npm run check:links
+        env:
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          SITE_BASE: ${{ steps.pages.outputs.base_path || '/' }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+          # Publish dot-directories too, so /.well-known/ works when it is added.
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
