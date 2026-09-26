@@ -7,6 +7,8 @@
  */
 import { BUILD_PHASE, LAUNCH } from '@/config/launch';
 import { PAYMENT, byEdition, formatUsd } from '@/data/product';
+import { REFERRAL } from '@/data/shop';
+import { url } from '@/lib/url';
 import { DEFAULT_BUILD, buildTitle, quote, type Build } from '@/scripts/shop/build';
 import { quoteLinesHtml } from '@/scripts/shop/render';
 import BuildAction from './BuildAction.astro';
@@ -18,6 +20,12 @@ const { build = DEFAULT_BUILD } = Astro.props;
 const q = quote(build, BUILD_PHASE);
 const launchEnds = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
   weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+/** The real end of launch pricing (72 hours, not a week): "December 4". */
+const launchEndsShort = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
   month: 'long',
   day: 'numeric',
   timeZone: 'UTC',
@@ -59,13 +67,18 @@ const one = byEdition('one');
       Edition is always {formatUsd(byEdition('founders').priceUsd)}.
     </p>
     <p data-phase-only="reserve">
-      Launch price, locked by your deposit. {formatUsd(one.priceUsd)} after launch week.
+      Launch price, locked by your deposit. {formatUsd(one.priceUsd)} after {launchEndsShort}.
     </p>
     <p data-phase-only="launch">
       Launch price until {launchEnds}. {formatUsd(one.priceUsd)} after that.
     </p>
-    <p class="panel__installments" data-build-installments>
+    <!-- Pay over time: the live store only, never beside a deposit (launch plan). -->
+    <p class="panel__installments" data-phase-only="live" data-build-installments>
       {PAYMENT.installmentLabel(q.total)}.
+    </p>
+    <p class="panel__ref" data-ref-note hidden>
+      You came in on a friend’s link. When yours ships, you both get the {REFERRAL.profile}
+      feel.
     </p>
   </div>
 
@@ -80,7 +93,13 @@ const one = byEdition('one');
     </div>
   </dl>
 
+  <p class="panel__held" data-phase-only="reserve" data-held hidden>
+    You already hold <span class="readout" data-held-id></span> for <span data-held-build></span>.
+    Reserving this build adds another. <a href={url('/l/reserve/')}>See your reservation</a>
+  </p>
+
   <BuildAction placement="panel" />
+  <p class="concept-note panel__concept">Concept demo: nothing is charged and nothing is sent.</p>
 
   <dl class="panel__facts">
     <div>
@@ -196,8 +215,21 @@ const one = byEdition('one');
     font-size: var(--step--1);
     color: var(--ink-muted);
   }
-  .panel__installments {
+  .panel__installments,
+  .panel__ref {
     color: var(--ink);
+  }
+  .panel__held {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  .panel__held a {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .panel__concept {
+    margin-block-start: calc(-1 * var(--space-2xs));
+    text-wrap: pretty;
   }
 
   .panel__due {

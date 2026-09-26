@@ -5,9 +5,10 @@
  * fields, ever. Inputs carry no `name`, so even a no-JS submit sends nothing.
  */
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStill from '@/components/dial/DialStill.astro';
 import { ogPath } from '@/config/og';
 import { SITE } from '@/config/site';
-import { LAUNCH } from '@/config/launch';
+import { LAUNCH, PHASES } from '@/config/launch';
 import { PAYMENT } from '@/data/product';
 import { SHIP_REGIONS } from '@/data/shop';
 import { url } from '@/lib/url';
@@ -42,7 +43,7 @@ const us = SHIP_REGIONS[0]!;
       <h1 class="display co__title">Checkout</h1>
       <p class="co__concept">
         <span class="co__concept-dot" aria-hidden="true"></span>
-        Detent is a concept: no payment is taken, and nothing you type here leaves this page.
+        Detent is a concept: no payment is taken, and nothing you type here leaves this browser.
       </p>
     </header>
 
@@ -54,11 +55,28 @@ const us = SHIP_REGIONS[0]!;
     </noscript>
 
     <div class="co__empty" data-co-empty hidden>
-      <p class="co__empty-title">Your cart is empty.</p>
-      <p class="muted">Nothing to check out yet. Configuring a Detent takes about a minute.</p>
-      <a class="btn btn--primary" href={url('/shop/#configure')}>
-        Build yours
-      </a>
+      <div class="co__empty-text">
+        <p class="co__empty-title">Your cart is empty.</p>
+        <p class="muted">Nothing to check out yet. Configuring a Detent takes about a minute.</p>
+        <div class="co__empty-actions">
+          <a class="btn btn--primary btn--lg" href={url('/shop/#configure')}>
+            Build yours
+          </a>
+          <a
+            class="link-arrow"
+            href={url(PHASES.reserve.primary.href)}
+            data-phase-only="reserve"
+            data-track="cta_click"
+            data-track-placement="checkout-empty"
+            data-track-cta="reserve:primary"
+          >
+            {PHASES.reserve.primary.label}
+          </a>
+        </div>
+      </div>
+      <div class="co__empty-still">
+        <DialStill finish="graphite" view="hero" alt="" sizes="(min-width: 56rem) 36vw, 80vw" />
+      </div>
     </div>
 
     <div class="co__grid" data-co-grid>
@@ -86,11 +104,11 @@ const us = SHIP_REGIONS[0]!;
               <dt>Subtotal</dt>
               <dd class="readout" data-co-subtotal></dd>
             </div>
-            <div>
+            <div data-co-only="order">
               <dt>Shipping</dt>
               <dd>Free</dd>
             </div>
-            <div>
+            <div data-co-only="order">
               <dt>Taxes and duties</dt>
               <dd>Included</dd>
             </div>
@@ -100,11 +118,6 @@ const us = SHIP_REGIONS[0]!;
             </div>
           </dl>
           <p class="co__installments" data-co-installments></p>
-          <ul role="list" class="co__assure">
-            <li>{PAYMENT.trialDays}-day studio trial, free returns</li>
-            <li>{PAYMENT.warrantyYears}-year warranty, parts and labor</li>
-            <li>Ships with Batch 1, {LAUNCH.firstShipBatch}</li>
-          </ul>
         </details>
       </aside>
 
@@ -141,8 +154,13 @@ const us = SHIP_REGIONS[0]!;
             Pay with your wallet
           </button>
           <p class="co__hint">
-            In a live store your wallet would fill in the address and pay in one step. In this demo
-            it goes straight to the confirmation, and no address is needed.
+            <span data-co-only="order">
+              In a live store your wallet would fill in the address and pay in one step.
+            </span>
+            <span data-co-only="reservation" hidden>
+              In a live store your wallet would pay the deposit in one step.
+            </span>
+            In this demo it goes straight to the confirmation.
           </p>
         </section>
 
@@ -152,10 +170,7 @@ const us = SHIP_REGIONS[0]!;
 
         <fieldset class="co__step">
           <legend class="co__legend">
-            <span class="co__num readout" aria-hidden="true">
-              1
-            </span>{' '}
-            Contact
+            <span class="co__num readout" aria-hidden="true"></span> Contact
           </legend>
           <div class="field">
             <label for="co-email">Email</label>
@@ -171,17 +186,19 @@ const us = SHIP_REGIONS[0]!;
               data-field="email"
             />
             <p class="co__field-hint" id="co-email-hint">
-              For the receipt and batch updates. In this demo, nothing is sent.
+              <span data-co-only="order">For the receipt and batch updates.</span>
+              <span data-co-only="reservation" hidden>
+                The only thing a reservation needs. When your batch is ready we email a ship date,
+                and ask for the address then.
+              </span>
+              In this demo, nothing is sent.
             </p>
           </div>
         </fieldset>
 
-        <fieldset class="co__step">
+        <fieldset class="co__step" data-co-only="order">
           <legend class="co__legend">
-            <span class="co__num readout" aria-hidden="true">
-              2
-            </span>{' '}
-            Shipping address
+            <span class="co__num readout" aria-hidden="true"></span> Shipping address
           </legend>
           <div class="field">
             <label for="co-name">Full name</label>
@@ -267,12 +284,9 @@ const us = SHIP_REGIONS[0]!;
           </div>
         </fieldset>
 
-        <fieldset class="co__step">
+        <fieldset class="co__step" data-co-only="order">
           <legend class="co__legend">
-            <span class="co__num readout" aria-hidden="true">
-              3
-            </span>{' '}
-            Delivery
+            <span class="co__num readout" aria-hidden="true"></span> Delivery
           </legend>
           <div class="co__delivery" data-co-delivery aria-live="polite">
             <p class="co__delivery-main">
@@ -291,10 +305,7 @@ const us = SHIP_REGIONS[0]!;
 
         <fieldset class="co__step">
           <legend class="co__legend">
-            <span class="co__num readout" aria-hidden="true">
-              4
-            </span>{' '}
-            Payment
+            <span class="co__num readout" aria-hidden="true"></span> Payment
           </legend>
           <div class="co__demo">
             <p class="co__demo-title">Detent is a concept: no payment is taken.</p>
@@ -303,6 +314,17 @@ const us = SHIP_REGIONS[0]!;
               handled entirely by the payment provider.
               {SITE.name} never sees card numbers, and this page has nowhere to type one.
             </p>
+            <!-- The risk reversal sits beside the button on every screen size
+                 (the summary is folded on phones). -->
+            <ul role="list" class="co__assure" data-co-only="order">
+              <li>{PAYMENT.trialDays}-day studio trial, free returns</li>
+              <li>{PAYMENT.warrantyYears}-year warranty</li>
+              <li>Ships with Batch 1, {LAUNCH.firstShipBatch}</li>
+            </ul>
+            <ul role="list" class="co__assure" data-co-only="reservation" hidden>
+              <li>Refundable until your batch ships</li>
+              <li>Credited in full to your order</li>
+            </ul>
             <button type="submit" class="co__wallet co__wallet--lg" data-co-submit>
               <span data-co-submit-label>Complete demo order</span>
               <span class="readout co__submit-total" data-co-submit-total></span>
@@ -369,17 +391,43 @@ const us = SHIP_REGIONS[0]!;
     margin-block-end: var(--space-l);
   }
 
+  /* Empty: the same composition as the confirmation page, text beside the
+     knob, so the page still shows the thing it sells. */
   .co__empty {
+    display: grid;
+    gap: var(--space-xl);
+    align-items: center;
+    padding-block-end: var(--space-2xl);
+  }
+  .co__empty-text {
     display: grid;
     justify-items: start;
     gap: var(--space-s);
-    padding-block: var(--space-2xl);
   }
   .co__empty-title {
-    font-size: var(--step-2);
-    font-weight: 720;
-    font-stretch: var(--stretch-ui);
+    font-size: var(--step-3);
+    font-weight: 760;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
     color: var(--ink-strong);
+  }
+  .co__empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-s) var(--space-l);
+    margin-block-start: var(--space-xs);
+  }
+  .co__empty-still {
+    inline-size: min(100%, 22rem);
+    aspect-ratio: 1;
+    justify-self: center;
+  }
+  @media (min-width: 56rem) {
+    .co__empty {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    }
   }
 
   .co__grid {
@@ -545,28 +593,28 @@ const us = SHIP_REGIONS[0]!;
   .co__installments:empty {
     display: none;
   }
+  /* One compact line of promises right above the button. */
   .co__assure {
-    display: grid;
-    gap: 0.3rem;
-    margin-block-start: var(--space-m);
-    padding-block-start: var(--space-s);
-    border-block-start: 1px solid var(--line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 1.1em;
     font-size: var(--step--1);
-    color: var(--ink);
+    color: var(--ink-strong);
   }
   .co__assure li {
     display: flex;
-    gap: 0.6em;
+    gap: 0.45em;
     align-items: baseline;
   }
   .co__assure li::before {
     content: '';
     flex: none;
-    inline-size: 0.4rem;
-    block-size: 0.4rem;
-    border-radius: 50%;
-    background: var(--ink-faint);
-    translate: 0 -0.1em;
+    inline-size: 0.75em;
+    block-size: 0.4em;
+    border-inline-start: 2px solid var(--accent-text);
+    border-block-end: 2px solid var(--accent-text);
+    rotate: -45deg;
+    translate: 0 -0.2em;
   }
 
   /* Form */
@@ -574,6 +622,7 @@ const us = SHIP_REGIONS[0]!;
     display: grid;
     gap: var(--space-xl);
     max-inline-size: 40rem;
+    counter-reset: co-step;
   }
   .co__errors {
     padding: var(--space-m);
@@ -675,6 +724,10 @@ const us = SHIP_REGIONS[0]!;
     font-stretch: var(--stretch-ui);
     color: var(--ink-strong);
   }
+  /* Steps count themselves, so a reservation (contact, payment) reads 1, 2. */
+  .co__step:not([hidden]) {
+    counter-increment: co-step;
+  }
   .co__num {
     display: grid;
     place-items: center;
@@ -684,6 +737,9 @@ const us = SHIP_REGIONS[0]!;
     border: 1px solid var(--line-strong);
     font-size: var(--step--2);
     color: var(--ink-muted);
+  }
+  .co__num::before {
+    content: counter(co-step);
   }
   .co__step :global(.field) {
     gap: 0.35rem;
@@ -695,6 +751,8 @@ const us = SHIP_REGIONS[0]!;
   .co__row {
     display: grid;
     gap: var(--space-s);
+    /* The postal hint must not stretch the city field beside it. */
+    align-items: start;
   }
   @media (min-width: 36rem) {
     .co__row {

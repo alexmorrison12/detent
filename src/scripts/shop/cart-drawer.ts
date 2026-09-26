@@ -11,12 +11,20 @@ import {
   getCart,
   onCartChange,
   removeLine,
+  replaceLines,
   setQty,
   type CartLine,
   type CartState,
 } from '@/lib/cart';
 import { track } from '@/lib/analytics';
+import { currentPhase, syncCartLines } from './build';
 import { esc } from './render';
+
+// The cart can outlive the phase it was filled in: re-price it for this one.
+const synced = syncCartLines(getCart().lines, currentPhase());
+if (synced.changed) replaceLines(synced.lines);
+/** Shown the next time the drawer opens, so a price change is never silent. */
+let pendingNote = synced.notes.join(' ');
 
 const drawer = document.getElementById('cart-drawer') as HTMLDialogElement | null;
 if (drawer) init(drawer);
@@ -104,10 +112,16 @@ function init(drawer: HTMLDialogElement) {
 
     const subtotal = cartSubtotal(state);
     $('[data-cart-subtotal]').textContent = formatUsd(subtotal);
-    const hasDevice = state.lines.some((l) => l.kind !== 'reservation');
-    $('[data-cart-installments]').textContent = hasDevice
-      ? `${PAYMENT.installmentLabel(subtotal)} at checkout.`
-      : 'Deposits are fully refundable until your batch ships.';
+    const reservationsOnly = state.lines.every((l) => l.kind === 'reservation');
+    // Risk reversal sits right above the buttons, on every screen size.
+    $('[data-cart-assure]').textContent = reservationsOnly
+      ? 'Refundable until your batch ships, and credited to your order.'
+      : `${PAYMENT.trialDays}-day studio trial, free returns. ${PAYMENT.warrantyYears}-year warranty.`;
+    // Pay over time: live store only, never on a deposit (see the launch plan).
+    $('[data-cart-installments]').textContent =
+      !reservationsOnly && currentPhase() === 'live'
+        ? `${PAYMENT.installmentLabel(subtotal)} at checkout.`
+        : '';
 
     if (focusLine && focusCtl) {
       const el = list.querySelector<HTMLElement>(
@@ -132,10 +146,12 @@ function init(drawer: HTMLDialogElement) {
 
   function open(message?: string) {
     render(getCart());
-    if (message) {
+    const text = [message, pendingNote].filter(Boolean).join('. ');
+    pendingNote = '';
+    if (text) {
       removed = null;
-      showNotice(message);
-      announce(`${message}. Cart subtotal ${formatUsd(cartSubtotal())}.`);
+      showNotice(text);
+      announce(`${text.replace(/\.$/, '')}. Cart subtotal ${formatUsd(cartSubtotal())}.`);
     } else {
       notice.hidden = true;
     }

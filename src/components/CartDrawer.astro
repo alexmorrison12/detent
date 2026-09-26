@@ -9,7 +9,7 @@
  * Lines are rendered by src/scripts/shop/cart-drawer.ts from the cart store;
  * thumbnails come from the <template>s below so product colors stay in data.
  */
-import { ACCESSORIES, FINISHES } from '@/data/product';
+import { ACCESSORIES, FINISHES, PAYMENT } from '@/data/product';
 import { url } from '@/lib/url';
 
 const accIcons: Record<string, string> = {
@@ -101,6 +101,9 @@ const accIcons: Record<string, string> = {
           <dd>Free, tracked and insured</dd>
         </div>
       </dl>
+      <p class="cart-sum__assure" data-cart-assure>
+        {PAYMENT.trialDays}-day studio trial, free returns. {PAYMENT.warrantyYears}-year warranty.
+      </p>
       <p class="cart-sum__note" data-cart-installments></p>
       <div class="cart-drawer__actions">
         <a
@@ -311,7 +314,9 @@ const accIcons: Record<string, string> = {
   }
   .cart-lines :global(.line) {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    /* minmax(0, …): the controls wrap inside the middle column instead of
+       pushing the price past the edge on narrow phones. */
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: var(--space-s);
     align-items: start;
     padding-block: var(--space-s);
@@ -330,8 +335,9 @@ const accIcons: Record<string, string> = {
   }
   .cart-lines :global(.line__controls) {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-xs);
+    gap: 0 var(--space-xs);
     margin-block-start: var(--space-2xs);
   }
   .cart-lines :global(.qty) {
@@ -484,6 +490,27 @@ const accIcons: Record<string, string> = {
     font-size: var(--step--1);
     color: var(--ink);
   }
+  .cart-sum__note:empty {
+    display: none;
+  }
+  .cart-sum__assure {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+  /* The same check the notice uses: a promise, not decoration. */
+  .cart-sum__assure::before {
+    content: '';
+    flex: none;
+    inline-size: 0.8em;
+    block-size: 0.45em;
+    border-inline-start: 2px solid var(--accent-text);
+    border-block-end: 2px solid var(--accent-text);
+    rotate: -45deg;
+    translate: 0 -0.2em;
+  }
   .cart-drawer__actions {
     display: grid;
     gap: var(--space-2xs);
@@ -501,6 +528,54 @@ const accIcons: Record<string, string> = {
   .cart-drawer__express:hover {
     --btn-bg: var(--graphite-700);
     --btn-line: var(--graphite-700);
+  }
+
+  /* Narrow phones: a smaller thumb and gap buy the name and controls room. */
+  @media (max-width: 23rem) {
+    .cart-drawer__head,
+    .cart-drawer__body,
+    .cart-drawer__foot {
+      padding-inline: var(--space-s);
+    }
+    .cart-lines :global(.line) {
+      column-gap: var(--space-xs);
+    }
+    .cart-lines :global(.cart-thumb) {
+      inline-size: 2.75rem;
+    }
+  }
+
+  /* Short screens (landscape phones, small phones): a fixed footer would
+     leave no room for the lines, so the whole panel scrolls (header pinned)
+     and the footer tightens up. */
+  @media (max-height: 40rem) {
+    .cart-drawer__panel {
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .cart-drawer__head {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: var(--z-raised);
+      background: var(--bg);
+      padding-block: var(--space-2xs);
+    }
+    .cart-drawer__body {
+      flex: none;
+      overflow: visible;
+    }
+    .cart-drawer__foot {
+      padding-block: var(--space-s) calc(var(--space-s) + env(safe-area-inset-bottom));
+    }
+    .cart-drawer__cta {
+      min-block-size: 2.9rem;
+      padding-inline: 0.8em;
+    }
+  }
+  @media (max-height: 40rem) and (min-width: 30rem) {
+    .cart-drawer__actions {
+      grid-template-columns: 1fr 1fr;
+    }
   }
 
   /* Reduced motion: a short crossfade instead of the slide. */

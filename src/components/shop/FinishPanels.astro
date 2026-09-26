@@ -5,20 +5,23 @@
  */
 import DialStill from '@/components/dial/DialStill.astro';
 import { FINISHES, byEdition } from '@/data/product';
+import { spec } from '@/data/shop-content';
 import { url } from '@/lib/url';
 
 const founders = byEdition('founders');
+/** "6061-T6 aluminum", from the spec sheet. */
+const alloy = spec('Material').split(',')[0];
 ---
 
 <section id="finishes" class="section finishes" aria-labelledby="finishes-title">
   <div class="container">
     <header class="finishes__head">
       <h2 id="finishes-title" class="display display--m">
-        Four finishes. One of them is numbered.
+        How it catches the lamp.
       </h2>
       <p class="lede">
-        Every body is machined from the same billet, then bead-blasted. Three are anodized. You
-        choose how it catches the lamp.
+        Every body is machined from its own billet of {alloy}, then bead-blasted. Raw stays bare,
+        the other three are anodized, and Tally red comes only on the numbered {founders.name}.
       </p>
     </header>
     <ul role="list" class="finishes__list">

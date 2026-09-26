@@ -40,7 +40,8 @@ const reserveOpens = new Date(`${PHASES.reserve.starts}T00:00:00Z`).toLocaleDate
     {showNote && (
       <p class="build-action__note">
         Reservations open {reserveOpens}. Waitlist members get the{' '}
-        {formatUsd(byEdition('one').launchPriceUsd)} launch price, and this link keeps your build.
+        {formatUsd(byEdition('one').launchPriceUsd)} launch price. Your build stays saved in this
+        browser until then.
       </p>
     )}
   </div>

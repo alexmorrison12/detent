@@ -66,6 +66,11 @@ export function clearCart(): CartState {
   return commit(empty());
 }
 
+/** Swap every line at once (one write, one event), e.g. after re-pricing. */
+export function replaceLines(lines: CartLine[]): CartState {
+  return commit({ ...getCart(), lines });
+}
+
 export function cartCount(state = getCart()): number {
   return state.lines.reduce((n, l) => n + l.qty, 0);
 }

@@ -5,6 +5,7 @@
  */
 import { ACCESSORIES, SPECS, PAYMENT, formatUsd, byEdition } from './product';
 import { LAUNCH } from '@/config/launch';
+import { ENGRAVING } from './shop';
 
 /* -------------------------------------------------------------------------- */
 /* Edition comparison                                                         */
@@ -32,9 +33,10 @@ export const COMPARE: CompareRow[] = [
   },
   { label: 'Finish', one: 'Raw, Graphite or Glacier', founders: 'Tally red. Only on this edition' },
   {
-    label: 'Serial number',
-    one: 'Unnumbered',
-    founders: `Engraved on the base, 0001 to ${String(LAUNCH.foundersRun).padStart(4, '0')}`,
+    // Every unit has a device serial (see support); this is the Founders run number.
+    label: 'Edition number',
+    one: 'None',
+    founders: `0001 to ${String(LAUNCH.foundersRun).padStart(4, '0')}, engraved on the base`,
   },
   {
     label: 'Walnut plinth',
@@ -45,7 +47,7 @@ export const COMPARE: CompareRow[] = [
   },
   {
     label: 'Feel profiles',
-    one: 'All six built-in feels, 64 slots on the device',
+    one: `All six built-in feels; ${spec('Profiles on device').split(',')[0]} profiles stored on the dial`,
     founders: `Everything in Detent One, plus the ${featurePack.replace(/^Founders feel pack: /i, 'Founders pack: ')}`,
   },
   { label: 'Firmware', one: 'Stable channel', founders: 'Early channel, for life' },
@@ -56,8 +58,8 @@ export const COMPARE: CompareRow[] = [
   },
   {
     label: 'Engraving',
-    one: 'Free, up to 24 characters',
-    founders: 'Free, up to 24 characters, beside your serial',
+    one: `Free, up to ${ENGRAVING.maxLength} characters`,
+    founders: `Free, up to ${ENGRAVING.maxLength} characters, beside your edition number`,
   },
   { label: 'Motor, encoder, display', one: 'Identical', founders: 'Identical', same: true },
   {

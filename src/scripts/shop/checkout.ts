@@ -1,8 +1,13 @@
 /**
  * /shop/checkout/ demo. Renders the cart summary, validates the form with
  * accessible errors (inline + a focused summary), estimates delivery from
- * the chosen country, and turns the cart into a demo order. No field value
- * is stored or sent anywhere except the country (for the confirmation page).
+ * the chosen country, and turns the cart into a demo order.
+ *
+ * A cart of reservations only asks for an email: the address is collected
+ * when the batch ships, as /l/reserve/ promises. Nothing typed here is sent
+ * anywhere. The order keeps only the country (for the confirmation page); a
+ * demo reservation is also recorded in this browser through the adapter
+ * /l/reserve/ uses, so both pages agree there is one.
  */
 import { FINISHES, PAYMENT, PROFILES, formatUsd } from '@/data/product';
 import { SHIP_REGIONS, shipRegion } from '@/data/shop';
@@ -12,12 +17,13 @@ import {
   clearCart,
   getCart,
   onCartChange,
+  replaceLines,
   type CartState,
 } from '@/lib/cart';
 import { track } from '@/lib/analytics';
-import { isValidEmail } from '@/lib/waitlist';
+import { IS_DEMO, captureRef, isValidEmail, reserve } from '@/lib/waitlist';
 import { url } from '@/lib/url';
-import { cartLinesFor, currentPhase, hasBuildParams, parseBuild } from './build';
+import { cartLinesFor, currentPhase, hasBuildParams, parseBuild, syncCartLines } from './build';
 import { createOrder, saveOrder } from './order';
 import { esc } from './render';
 
@@ -32,9 +38,15 @@ function init(form: HTMLFormElement) {
   const empty = $<HTMLElement>('[data-co-empty]');
   const details = $<HTMLDetailsElement>('[data-co-details]');
 
-  // Agent-friendly deep link: /shop/checkout/?edition=one&finish=raw seeds an empty cart.
+  // The cart may have been filled in an earlier phase: re-price it first.
+  const synced = syncCartLines(getCart().lines, currentPhase());
+  if (synced.changed) replaceLines(synced.lines);
+
+  // Agent-friendly deep link: /shop/checkout/?edition=one&finish=raw adds that
+  // build to the cart (addLine merges an identical line), whatever is already
+  // in it. The params are stripped below, so a reload doesn't add it twice.
   const params = new URLSearchParams(location.search);
-  if (hasBuildParams(params) && getCart().lines.length === 0) {
+  if (hasBuildParams(params)) {
     cartLinesFor(parseBuild(params), currentPhase()).forEach((l) => addLine(l));
   }
   const express = params.get('express') === '1';
@@ -44,13 +56,19 @@ function init(form: HTMLFormElement) {
   const finishOf = (id?: string) => FINISHES.find((f) => f.id === id);
   const feelName = (id?: string) => PROFILES.find((p) => p.id === id)?.name;
 
+  /** A cart of deposits only: no address, no delivery step, no shipping rows. */
+  let reservationsOnly = false;
+
   function renderSummary(state: CartState) {
     const has = state.lines.length > 0;
     grid.hidden = !has;
     empty.hidden = has;
     if (!has) return;
     const subtotal = cartSubtotal(state);
-    const reservationsOnly = state.lines.every((l) => l.kind === 'reservation');
+    reservationsOnly = state.lines.every((l) => l.kind === 'reservation');
+    document.querySelectorAll<HTMLElement>('[data-co-only]').forEach((el) => {
+      el.hidden = el.dataset.coOnly !== (reservationsOnly ? 'reservation' : 'order');
+    });
     $('[data-co-lines]').innerHTML = state.lines
       .map((l) => {
         const f = finishOf(l.finish);
@@ -75,9 +93,11 @@ function init(form: HTMLFormElement) {
     $('[data-co-total]').textContent = formatUsd(subtotal);
     $('[data-co-total-short]').textContent = formatUsd(subtotal);
     $('[data-co-total-label]').textContent = reservationsOnly ? 'Due today, refundable' : 'Total';
-    $('[data-co-installments]').textContent = reservationsOnly
-      ? ''
-      : `${PAYMENT.installmentLabel(subtotal)}.`;
+    // Pay over time: live store only, never on a deposit (see the launch plan).
+    $('[data-co-installments]').textContent =
+      !reservationsOnly && currentPhase() === 'live'
+        ? `${PAYMENT.installmentLabel(subtotal)}.`
+        : '';
     $('[data-co-submit-total]').textContent = formatUsd(subtotal);
     $('[data-co-submit-label]').textContent = reservationsOnly
       ? 'Complete demo reservation'
@@ -216,16 +236,36 @@ function init(form: HTMLFormElement) {
     document.getElementById(a.hash.slice(1))?.focus();
   });
 
+  /** Only the steps on screen are validated: a reservation needs an email. */
+  const activeRules = () => (reservationsOnly ? ['email'] : Object.keys(rules));
+
   /* ------------------------------------------------------------- finish */
-  function complete(method: 'express' | 'form', button: HTMLButtonElement) {
+  async function complete(method: 'express' | 'form', button: HTMLButtonElement) {
     const cart = getCart();
     if (!cart.lines.length) return;
     button.setAttribute('aria-busy', 'true');
     button.disabled = true;
+    // One reservation system: record it where /l/reserve/ looks, so that page
+    // shows it as held (same id) instead of offering a second one. Demo only:
+    // a live endpoint must never receive a reservation from a demo checkout.
+    // Express has no email in the demo (the wallet would supply it).
+    const held = cart.lines.find((l) => l.kind === 'reservation');
+    let reservationId: string | undefined;
+    if (held?.edition && held.finish && method === 'form' && IS_DEMO) {
+      const r = await reserve({
+        email: field('email').value,
+        edition: held.edition,
+        finish: held.finish,
+        source: 'shop-checkout',
+      });
+      if (r.ok) reservationId = r.data.id;
+    }
     const order = createOrder(cart, {
-      country: method === 'express' ? '' : country.value,
-      gift: !!field('gift').checked,
+      country: method === 'express' || reservationsOnly ? '' : country.value,
+      gift: !reservationsOnly && !!field('gift').checked,
       method,
+      id: reservationsOnly ? reservationId : undefined,
+      referredBy: captureRef(),
     });
     saveOrder(order);
     track('demo_order_complete', {
@@ -241,7 +281,7 @@ function init(form: HTMLFormElement) {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const errors = Object.keys(rules)
+    const errors = activeRules()
       .map((name) => ({ name, msg: validate(name) }))
       .filter((x): x is { name: string; msg: string } => !!x.msg)
       .map((x) => ({ id: rules[x.name]!.id, label: rules[x.name]!.label, msg: x.msg }));
@@ -250,11 +290,11 @@ function init(form: HTMLFormElement) {
       track('checkout_error', { fields: errors.length });
       return;
     }
-    complete('form', $<HTMLButtonElement>('[data-co-submit]', form));
+    void complete('form', $<HTMLButtonElement>('[data-co-submit]', form));
   });
 
   const expressBtn = $<HTMLButtonElement>('[data-co-express]', form);
-  expressBtn.addEventListener('click', () => complete('express', expressBtn));
+  expressBtn.addEventListener('click', () => void complete('express', expressBtn));
   if (express) {
     expressBtn.scrollIntoView({ block: 'center' });
     expressBtn.focus({ preventScroll: true });

@@ -1,10 +1,13 @@
 /**
  * /shop/thanks/: personalize the confirmation from the demo order that
- * checkout left in sessionStorage. Also makes sure the cart is empty.
+ * checkout left in sessionStorage. Which copy shows (order, reservation or
+ * nothing to confirm) is decided before first paint by the page's head
+ * script; this only fills in details that don't move the layout.
+ *
+ * It never touches the cart: checkout clears it before coming here, and a
+ * visitor who comes back to this page may have started a new one.
  */
-import { FINISHES, PROFILES, formatUsd } from '@/data/product';
-import { REFERRAL } from '@/data/shop';
-import { cartCount, clearCart } from '@/lib/cart';
+import { EDITIONS, FINISHES, PROFILES, formatUsd } from '@/data/product';
 import { track } from '@/lib/analytics';
 import { url } from '@/lib/url';
 import type { DetentDialElement } from '@/scripts/dial/types';
@@ -13,58 +16,49 @@ import { esc } from './render';
 import { shareOrCopy } from './share';
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel);
+const setAll = (sel: string, text: string) =>
+  document.querySelectorAll(sel).forEach((el) => (el.textContent = text));
 
 const order = lastOrder();
-if (cartCount() > 0 && order) clearCart();
+const dial = $<DetentDialElement>('#thanks-dial');
 
 if (!order) {
-  $('[data-ty-body]')!.hidden = true;
-  $('[data-ty-empty]')!.hidden = false;
-  $('[data-ty-title]')!.textContent = 'Nothing to confirm yet.';
-  $('[data-ty-lede]')!.textContent =
-    'Orders you place in the demo checkout show up here, in this browser. Build one first.';
-  $('[data-ty-concept]')!.hidden = true;
-  $('#thanks-dial')?.setAttribute('display', 'NO ORDER');
+  dial?.setAttribute('display', 'NO ORDER');
 } else {
   const reservation = order.kind === 'reservation';
   const feel = PROFILES.find((p) => p.id === order.firstFeel);
   const first = order.lines.find((l) => l.kind !== 'accessory');
   const finish = FINISHES.find((f) => f.id === first?.finish);
 
-  const id = $<HTMLElement>('[data-ty-id]')!;
-  id.textContent = `Demo ${reservation ? 'reservation' : 'order'} ${order.id}`;
-  id.hidden = false;
-  $('[data-ty-title]')!.textContent = reservation
-    ? 'Reserved. You’re in line.'
-    : 'Done. Now we machine it.';
-  if (finish) {
-    $('[data-ty-lede]')!.textContent = reservation
-      ? `Your ${finish.name} Detent has a place in Batch 1. The deposit comes off the price when you complete the order.`
-      : `Your ${finish.name} Detent ships with Batch 1. Here’s everything between now and your desk.`;
-  }
+  $('[data-ty-id]')!.textContent = `Demo ${reservation ? 'reservation' : 'order'} ${order.id}`;
 
   // The dial on the page is theirs: same finish, same first feel.
-  const dial = $<DetentDialElement>('#thanks-dial');
   if (dial && finish) dial.setAttribute('finish', finish.id);
   if (dial && feel) dial.setAttribute('profile', feel.id);
 
-  // Timeline variant + personal details.
-  document.querySelectorAll<HTMLElement>('[data-ty-timeline]').forEach((ol) => {
-    ol.hidden = ol.dataset.tyTimeline !== (reservation ? 'reservation' : 'order');
-  });
+  // Reservation: the balance they will be asked for, from their own lines.
+  if (reservation) {
+    const held = order.lines.filter((l) => l.kind === 'reservation');
+    const launchTotal = held.reduce(
+      (n, l) => n + (EDITIONS.find((e) => e.id === l.edition)?.launchPriceUsd ?? 0) * l.qty,
+      0,
+    );
+    setAll('[data-ty-deposit]', formatUsd(order.deposit));
+    setAll('[data-ty-balance]', formatUsd(Math.max(0, launchTotal - order.deposit)));
+  }
+
   const [lo, hi] = order.transit;
-  document.querySelectorAll('[data-ty-transit]').forEach((el) => {
-    el.textContent = order.countryName
+  setAll(
+    '[data-ty-transit]',
+    order.countryName
       ? ` To ${order.countryName}, ${lo}–${hi} business days.`
-      : ` ${lo}–${hi} business days to the address in your wallet.`;
-  });
+      : ` ${lo}–${hi} business days to the address in your wallet.`,
+  );
   if (feel) {
-    document
-      .querySelectorAll('[data-ty-feel]')
-      .forEach(
-        (el) =>
-          (el.textContent = ` Yours starts in ${feel.name}: ${feel.feel.charAt(0).toLowerCase()}${feel.feel.slice(1)}`),
-      );
+    setAll(
+      '[data-ty-feel]',
+      ` Yours starts in ${feel.name}: ${feel.feel.charAt(0).toLowerCase()}${feel.feel.slice(1)}`,
+    );
   }
 
   // Recap.
@@ -82,30 +76,14 @@ if (!order) {
   $('[data-ty-total]')!.textContent = formatUsd(order.subtotal);
   $('[data-ty-recap]')!.hidden = false;
 
-  // Share your build.
-  const buildBtn = $<HTMLButtonElement>('[data-ty-share-build]');
-  if (buildBtn && order.build) {
-    buildBtn.hidden = false;
-    const link = new URL(`${url('/shop/')}?${order.build}`, location.origin).toString();
-    buildBtn.addEventListener('click', async () => {
-      const result = await shareOrCopy({
-        title: 'My Detent build',
-        text: `The Detent I just ${reservation ? 'reserved' : 'ordered'}.`,
-        url: link,
-      });
-      const status = $('[data-ty-build-status]');
-      if (status)
-        status.textContent =
-          result === 'copied' ? 'Link to your build copied.' : result === 'failed' ? link : '';
-      track('build_share', { method: result, placement: 'thanks' });
-    });
-  }
-
-  // Referral (concept).
+  // Referral (concept): the build link, carrying this buyer's code. The
+  // reward is a feel profile, never money (REFERRAL in @/data/shop).
   const refer = $<HTMLElement>('[data-ty-refer]')!;
-  const refLink = new URL(`${url('/shop/')}?ref=${order.referral}`, location.origin).toString();
+  const query = `${order.build ? `${order.build}&` : ''}ref=${order.referral}`;
+  const refLink = new URL(`${url('/shop/')}?${query}`, location.origin).toString();
   const input = $<HTMLInputElement>('[data-ty-link]')!;
   input.value = refLink;
+  $('[data-ty-referred]')!.hidden = !order.referredBy;
   refer.hidden = false;
   const refStatus = $<HTMLElement>('[data-ty-ref-status]')!;
   $<HTMLButtonElement>('[data-ty-copy]')!.addEventListener('click', async () => {
@@ -123,8 +101,8 @@ if (!order) {
     shareRef.hidden = false;
     shareRef.addEventListener('click', async () => {
       const result = await shareOrCopy({
-        title: 'Detent One',
-        text: `A knob that clicks one frame at a time. Here’s ${formatUsd(REFERRAL.giveUsd)} off.`,
+        title: 'My Detent build',
+        text: `The Detent I just ${reservation ? 'reserved' : 'ordered'}. Turn it, then build yours.`,
         url: refLink,
       });
       if (result === 'copied') refStatus.textContent = 'Link copied.';

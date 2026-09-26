@@ -15,6 +15,7 @@ import {
   byEdition,
   byFinish,
   byProfile,
+  formatUsd,
   type EditionId,
   type FinishId,
   type ProfileId,
@@ -201,41 +202,39 @@ function key(b: Build): string {
  * the order is completed; the build link keeps them). launch/live: the device
  * plus each accessory. tease/waitlist: nothing is purchasable yet.
  */
-export function cartLinesFor(b: Build, phase: Phase): NewCartLine[] {
+/** The one line a build's device becomes: a deposit in reserve, else the device. */
+function unitLine(b: Build, kind: 'device' | 'reservation', phase: Phase): NewCartLine {
   const e = byEdition(b.edition);
   const f = byFinish(b.finish);
-  const build = serializeBuild(b);
-  if (phase === 'reserve') {
-    return [
-      {
+  const shared = {
+    edition: b.edition,
+    finish: b.finish,
+    engraving: b.engrave || undefined,
+    feel: b.feel,
+    build: serializeBuild(b),
+    qty: b.qty,
+  };
+  return kind === 'reservation'
+    ? {
+        ...shared,
         id: `res:${key(b)}`,
-        kind: 'reservation',
-        edition: b.edition,
-        finish: b.finish,
-        engraving: b.engrave || undefined,
-        feel: b.feel,
-        build,
+        kind,
         name: `Reservation: ${e.name} in ${f.name}`,
         unitPriceUsd: depositFor(b.edition),
-        qty: b.qty,
-      },
-    ];
-  }
+      }
+    : {
+        ...shared,
+        id: `dev:${key(b)}`,
+        kind,
+        name: e.name,
+        unitPriceUsd: devicePrice(b.edition, phase),
+      };
+}
+
+export function cartLinesFor(b: Build, phase: Phase): NewCartLine[] {
+  if (phase === 'reserve') return [unitLine(b, 'reservation', phase)];
   if (phase !== 'launch' && phase !== 'live') return [];
-  const lines: NewCartLine[] = [
-    {
-      id: `dev:${key(b)}`,
-      kind: 'device',
-      edition: b.edition,
-      finish: b.finish,
-      engraving: b.engrave || undefined,
-      feel: b.feel,
-      build,
-      name: e.name,
-      unitPriceUsd: devicePrice(b.edition, phase),
-      qty: b.qty,
-    },
-  ];
+  const lines: NewCartLine[] = [unitLine(b, 'device', phase)];
   for (const id of b.acc) {
     const a = ACCESSORIES.find((x) => x.id === id);
     if (a)
@@ -249,6 +248,71 @@ export function cartLinesFor(b: Build, phase: Phase): NewCartLine[] {
       });
   }
   return lines;
+}
+
+export interface CartSync {
+  lines: CartLine[];
+  changed: boolean;
+  /** One sentence per line that changed kind or price, for the drawer notice. */
+  notes: string[];
+}
+
+/**
+ * Bring stored cart lines in line with a phase. The cart lives in
+ * localStorage, so it outlives the phase it was filled in. A line keeps what
+ * was chosen (build, qty) but never a stale kind or price:
+ * - reserve sells deposits; launch and live sell devices at that phase's
+ *   price. An unpaid reservation left in the cart becomes an order when
+ *   orders open (no deposit was taken, so there is nothing to credit).
+ * - accessory prices are re-read from data.
+ * Tease and waitlist sell nothing, so their carts are left alone.
+ */
+export function syncCartLines(lines: CartLine[], phase: Phase): CartSync {
+  if (phase === 'tease' || phase === 'waitlist') return { lines, changed: false, notes: [] };
+  const want = phase === 'reserve' ? 'reservation' : 'device';
+  const out: CartLine[] = [];
+  const notes: string[] = [];
+  for (const l of lines) {
+    let next: CartLine = { ...l };
+    if (l.kind === 'accessory') {
+      const a = ACCESSORIES.find((x) => x.id === l.accessoryId);
+      if (a && a.priceUsd !== l.unitPriceUsd) {
+        notes.push(`${a.name} is ${formatUsd(a.priceUsd)} now.`);
+        next.unitPriceUsd = a.priceUsd;
+      }
+    } else if (l.edition && l.finish) {
+      const b: Build = {
+        ...DEFAULT_BUILD,
+        edition: l.edition,
+        finish: l.finish,
+        feel: l.feel ?? DEFAULT_BUILD.feel,
+        engrave: l.engraving ?? '',
+        qty: l.qty,
+      };
+      const fresh = unitLine(b, want, phase);
+      if (l.kind !== want) {
+        notes.push(
+          want === 'device'
+            ? `Orders are open: ${buildTitle(b)} is now an order at ${formatUsd(fresh.unitPriceUsd)}.`
+            : `${buildTitle(b)} is a ${formatUsd(fresh.unitPriceUsd)} refundable deposit for now.`,
+        );
+      } else if (fresh.unitPriceUsd !== l.unitPriceUsd) {
+        notes.push(`${buildTitle(b)} is ${formatUsd(fresh.unitPriceUsd)} now.`);
+      }
+      next = {
+        ...l,
+        id: fresh.id,
+        kind: fresh.kind,
+        name: fresh.name,
+        unitPriceUsd: fresh.unitPriceUsd,
+      };
+    }
+    const dup = out.find((x) => x.id === next.id);
+    if (dup) dup.qty = Math.min(MAX_QTY, dup.qty + next.qty);
+    else out.push(next);
+  }
+  const changed = JSON.stringify(out) !== JSON.stringify(lines);
+  return { lines: changed ? out : lines, changed, notes };
 }
 
 /* -------------------------------------------------------------------------- */
