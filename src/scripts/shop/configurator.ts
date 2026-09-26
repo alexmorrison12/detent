@@ -465,8 +465,13 @@ function init(form: HTMLFormElement) {
   /* ------------------------------------------ referral + held reservation */
   // A friend's build link carries ?ref=CODE: keep it (checkout credits it on
   // the order) and say what it means. The reward is a feel, never money.
+  // The note is about the link this page was opened from, so it shows only
+  // while ?ref= is in the URL and is the code that will be credited: not on
+  // a later visit that merely has one stored, not on the visitor's own code,
+  // and not on a second friend's link (the first friend keeps the credit).
+  const friend = captureRef();
   const ref = $<HTMLElement>('[data-ref-note]');
-  if (ref) ref.hidden = !captureRef();
+  if (ref) ref.hidden = !friend || params.get('ref')?.toUpperCase() !== friend;
   // One reservation system: a deposit made on /l/reserve/ shows up here too.
   const held = getReservation();
   const heldNote = $<HTMLElement>('[data-held]');

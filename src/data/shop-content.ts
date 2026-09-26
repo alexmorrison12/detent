@@ -140,6 +140,8 @@ export interface ShopFaq {
   a: string;
   /** data-phase-only list, when the answer only holds in some phases. */
   phases?: string;
+  /** The phases this question is the one open by default in (space-separated). */
+  opens?: string;
 }
 
 /** Find a question in FAQS (throws at build time if it is reworded away). */
@@ -159,10 +161,32 @@ const FAQ_PHASES = new Map<Faq, string>([
   [faq(/pay over time/i), 'live'],
 ]);
 
+/**
+ * The question open by default answers what the phase's action raises: the
+ * deposit while reserving, paying over time in the live store, and when it
+ * ships before reservations open and in launch week (a waitlist visitor has
+ * no deposit to ask about yet).
+ */
+const FAQ_OPENS = new Map<Faq, string>([
+  [faq(/reservation work/i), 'reserve'],
+  [faq(/pay over time/i), 'live'],
+  [faq(/when does it ship/i), 'tease waitlist launch'],
+]);
+
+const inPhases = (list: string | undefined, p: string) => !list || list.split(' ').includes(p);
+
 /** Buying, shipping and launch questions for /shop/, each gated to where it holds. */
 export const SHOP_FAQS: ShopFaq[] = FAQS.filter(
   (f) => f.topic === 'Launch' || f.topic === 'Buying' || f.topic === 'Shipping',
-).map((f) => ({ q: f.q, a: f.a, phases: FAQ_PHASES.get(f) }));
+).map((f) => ({ q: f.q, a: f.a, phases: FAQ_PHASES.get(f), opens: FAQ_OPENS.get(f) }));
+
+// Every phase opens exactly one question, and one it shows (checked at build time).
+for (const p of PHASE_ORDER) {
+  const open = SHOP_FAQS.filter((f) => f.opens && inPhases(f.opens, p));
+  if (open.length !== 1 || !inPhases(open[0]!.phases, p)) {
+    throw new Error(`shop-content: phase "${p}" must open exactly one shop FAQ it shows`);
+  }
+}
 
 /* -------------------------------------------------------------------------- */
 /* Why it costs what it costs: an abridged bill of materials                  */
