@@ -1,0 +1,66 @@
+---
+/**
+ * Detent logo: a solid knob with its tally indicator, plus the wordmark set
+ * in expanded Archivo. The mark's indicator angle can be set per placement.
+ */
+import { url } from '@/lib/url';
+
+interface Props {
+  href?: string | null;
+  /** Indicator rotation in degrees (0 = 12 o'clock). */
+  angle?: number;
+  wordmark?: boolean;
+  class?: string;
+}
+const { href = '/', angle = 35, wordmark = true, class: className } = Astro.props;
+const Tag = href === null ? 'span' : 'a';
+---
+
+<Tag
+  class:list={['logo', className]}
+  href={href === null ? undefined : url(href)}
+  aria-label={href === null ? undefined : 'Detent, home'}
+>
+  <svg class="logo__mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+    <circle cx="16" cy="16" r="14" fill="currentColor"></circle>
+    <line
+      x1="16"
+      y1="5.5"
+      x2="16"
+      y2="11.5"
+      stroke="var(--tally)"
+      stroke-width="3.2"
+      stroke-linecap="round"
+      transform={`rotate(${angle} 16 16)`}></line>
+  </svg>
+  {wordmark && <span class="logo__word">detent</span>}
+</Tag>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--ink-strong);
+    text-decoration: none;
+  }
+  .logo__mark {
+    flex: none;
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+  a.logo:hover .logo__mark {
+    transform: rotate(30deg);
+  }
+  .logo__word {
+    font-size: 1.28rem;
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    a.logo:hover .logo__mark {
+      transform: none;
+    }
+  }
+</style>

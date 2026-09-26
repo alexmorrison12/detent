@@ -1,0 +1,318 @@
+---
+/**
+ * Site header. chrome="full": announcement bar + nav + cart + CTA.
+ * chrome="minimal": logo + CTA only (campaign landing pages: fewer exits).
+ */
+import { PRIMARY_NAV } from '@/config/site';
+import { PHASES, PHASE_ORDER } from '@/config/launch';
+import { url, stripBase } from '@/lib/url';
+import Logo from './Logo.astro';
+import PhaseCTA from './PhaseCTA.astro';
+import SoundToggle from './SoundToggle.astro';
+
+interface Props {
+  chrome?: 'full' | 'minimal';
+  /** Hide the header CTA (e.g. on a page whose hero IS the CTA). */
+  hideCta?: boolean;
+}
+const { chrome = 'full', hideCta = false } = Astro.props;
+const current = stripBase(Astro.url.pathname);
+const isActive = (href: string) => (href === '/' ? current === '/' : current.startsWith(href));
+---
+
+{
+  chrome === 'full' && (
+    <div class="announce">
+      {PHASE_ORDER.map((p) => (
+        <p data-phase-only={p}>
+          <a href={url(PHASES[p].landing)} data-track="banner_click">
+            {PHASES[p].banner}
+          </a>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+<header class="site-header" data-chrome={chrome}>
+  <div class="container site-header__inner">
+    <Logo />
+
+    {
+      chrome === 'full' && (
+        <nav class="site-nav" aria-label="Primary">
+          <ul role="list">
+            {PRIMARY_NAV.map((item) => (
+              <li>
+                <a href={url(item.href)} aria-current={isActive(item.href) ? 'page' : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )
+    }
+
+    <div class="site-header__actions">
+      <SoundToggle />
+      {
+        chrome === 'full' && (
+          <button class="icon-btn cart-btn" type="button" data-cart-open aria-label="Open cart">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path
+                d="M5 7h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z M9 7a3 3 0 0 1 6 0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <span class="cart-btn__count readout" data-cart-count hidden>0</span>
+          </button>
+        )
+      }
+      {!hideCta && <PhaseCTA placement="header" size="sm" showNote={false} class="site-header__cta" />}
+      {
+        chrome === 'full' && (
+          <button class="icon-btn menu-btn" type="button" popovertarget="mobile-nav" aria-label="Menu">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        )
+      }
+    </div>
+  </div>
+
+  {
+    chrome === 'full' && (
+      <div id="mobile-nav" class="mobile-nav" popover>
+        <div class="mobile-nav__top container">
+          <Logo />
+          <button class="icon-btn" type="button" popovertarget="mobile-nav" popovertargetaction="hide" aria-label="Close menu">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+        <nav class="container" aria-label="Mobile">
+          <ul role="list" class="mobile-nav__list">
+            {[{ label: 'Detent One', href: '/' }, ...PRIMARY_NAV].map((item) => (
+              <li>
+                <a href={url(item.href)} aria-current={isActive(item.href) ? 'page' : undefined}>
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <PhaseCTA placement="mobile-nav" size="lg" />
+        </nav>
+      </div>
+    )
+  }
+</header>
+
+<script>
+  import { cartCount, getCart, onCartChange } from '@/lib/cart';
+
+  function paint(n: number) {
+    document.querySelectorAll<HTMLElement>('[data-cart-count]').forEach((el) => {
+      el.textContent = String(n);
+      el.hidden = n === 0;
+    });
+    document.querySelectorAll<HTMLElement>('[data-cart-open]').forEach((b) => {
+      b.setAttribute('aria-label', n ? `Open cart, ${n} item${n === 1 ? '' : 's'}` : 'Open cart');
+    });
+  }
+  paint(cartCount(getCart()));
+  onCartChange((s) => paint(cartCount(s)));
+</script>
+
+<style>
+  .announce {
+    background: var(--graphite-900);
+    color: var(--alu-200);
+    font-size: var(--step--1);
+    text-align: center;
+    padding: 0.55rem var(--gutter);
+    border-bottom: 1px solid oklch(1 0 0 / 0.08);
+  }
+  .announce a {
+    text-decoration: none;
+  }
+  .announce a:hover {
+    text-decoration: underline;
+  }
+
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    background: var(--bg);
+    border-bottom: 1px solid transparent;
+  }
+  @supports (animation-timeline: scroll()) {
+    .site-header {
+      animation: header-rule linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 96px;
+    }
+    @keyframes header-rule {
+      to {
+        border-bottom-color: var(--line);
+      }
+    }
+  }
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-l);
+    min-height: var(--header-h);
+  }
+  .site-nav {
+    margin-inline-start: auto;
+  }
+  .site-nav ul {
+    display: flex;
+    gap: clamp(0.75rem, 2vw, 2rem);
+  }
+  .site-nav a {
+    font-size: var(--step--1);
+    font-weight: 560;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    text-decoration: none;
+    padding-block: 0.5rem;
+    transition: color var(--dur-2) var(--ease-out);
+  }
+  .site-nav a:hover,
+  .site-nav a[aria-current='page'] {
+    color: var(--ink-strong);
+  }
+  .site-nav a[aria-current='page'] {
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.5em;
+  }
+  .site-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+  [data-chrome='minimal'] .site-header__actions {
+    margin-inline-start: auto;
+  }
+  .icon-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: 50%;
+    color: var(--ink-muted);
+    transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+  }
+  .icon-btn:hover {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .cart-btn__count {
+    position: absolute;
+    inset-block-start: 0.1rem;
+    inset-inline-end: 0.05rem;
+    min-inline-size: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 0.62rem;
+    line-height: 1.1rem;
+    text-align: center;
+  }
+  .menu-btn {
+    display: none;
+  }
+
+  .mobile-nav {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--bg);
+    color: var(--ink);
+    overflow-y: auto;
+    opacity: 0;
+    translate: 0 -1rem;
+    transition:
+      opacity var(--dur-3) var(--ease-out),
+      translate var(--dur-3) var(--ease-out),
+      overlay var(--dur-3) allow-discrete,
+      display var(--dur-3) allow-discrete;
+  }
+  .mobile-nav:popover-open {
+    opacity: 1;
+    translate: 0 0;
+  }
+  @starting-style {
+    .mobile-nav:popover-open {
+      opacity: 0;
+      translate: 0 -1rem;
+    }
+  }
+  .mobile-nav__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: var(--header-h);
+  }
+  .mobile-nav__list {
+    display: grid;
+    gap: var(--space-2xs);
+    margin-block: var(--space-xl);
+  }
+  .mobile-nav__list a {
+    display: block;
+    font-size: var(--step-4);
+    font-weight: 760;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    text-decoration: none;
+    color: var(--ink-strong);
+    padding-block: 0.15em;
+  }
+  .mobile-nav__list a[aria-current='page'] {
+    color: var(--accent-text);
+  }
+
+  @media (max-width: 60rem) {
+    .site-nav {
+      display: none;
+    }
+    .menu-btn {
+      display: grid;
+    }
+    .site-header__actions {
+      margin-inline-start: auto;
+    }
+  }
+  @media (max-width: 30rem) {
+    .site-header__inner {
+      gap: var(--space-xs);
+    }
+    .site-header :global(.logo__word) {
+      display: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-nav {
+      translate: none;
+    }
+  }
+</style>

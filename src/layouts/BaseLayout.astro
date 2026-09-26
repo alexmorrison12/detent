@@ -1,0 +1,165 @@
+---
+/**
+ * Every page renders inside BaseLayout.
+ *
+ *   <BaseLayout title="Shop" description="…" world="day" chrome="full" jsonLd={…}>
+ *
+ * - world:  'night' (graphite, default) | 'day' (white). Sections can switch
+ *           locally with data-world.
+ * - chrome: 'full' (announcement + nav + cart + footer), 'minimal' (logo +
+ *           CTA + slim footer, for campaign landing pages), 'none' (render
+ *           pages, full-bleed toys).
+ */
+import '@fontsource-variable/archivo/standard.css';
+import '@fontsource-variable/martian-mono/wght.css';
+import archivoLatin from '@fontsource-variable/archivo/files/archivo-latin-standard-normal.woff2?url';
+import '@/styles/global.css';
+
+import { SITE } from '@/config/site';
+import { BUILD_PHASE, PHASE_ORDER } from '@/config/launch';
+import { url, absoluteUrl } from '@/lib/url';
+import SiteHeader from '@/components/SiteHeader.astro';
+import SiteFooter from '@/components/SiteFooter.astro';
+import CartDrawer from '@/components/CartDrawer.astro';
+
+type JsonLd = Record<string, unknown>;
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Path (relative to site root) of the social card, e.g. '/og/shop.png'. */
+  ogImage?: string;
+  ogImageAlt?: string;
+  world?: 'night' | 'day';
+  chrome?: 'full' | 'minimal' | 'none';
+  hideHeaderCta?: boolean;
+  noindex?: boolean;
+  canonical?: string;
+  jsonLd?: JsonLd | JsonLd[];
+  /** Extra class on <body>. */
+  class?: string;
+}
+
+const {
+  title,
+  description = SITE.description,
+  ogImage = '/og/default.png',
+  ogImageAlt = 'Detent One, a machined aluminum haptic dial',
+  world = 'night',
+  chrome = 'full',
+  hideHeaderCta = false,
+  noindex = false,
+  canonical,
+  jsonLd,
+  class: bodyClass,
+} = Astro.props;
+
+const fullTitle = title ? `${title} · ${SITE.name}` : `${SITE.product}: ${SITE.tagline}`;
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname, Astro.site).toString();
+const ogUrl = absoluteUrl(ogImage, Astro.site);
+
+const baseLd: JsonLd[] = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: SITE.legalName,
+    url: absoluteUrl('/', Astro.site),
+    logo: absoluteUrl('/favicon.svg', Astro.site),
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: SITE.name,
+    url: absoluteUrl('/', Astro.site),
+  },
+];
+const ld = [...baseLd, ...(jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [])];
+
+// Prerender same-site links on hover intent (Chrome); ignored elsewhere.
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+const speculationRules = {
+  prerender: [
+    {
+      where: {
+        and: [
+          { href_matches: `${base}/*` },
+          { not: { href_matches: `${base}/render/*` } },
+          { not: { selector_matches: '[data-no-prerender], [rel~=nofollow]' } },
+        ],
+      },
+      eagerness: 'moderate',
+    },
+  ],
+};
+---
+
+<!doctype html>
+<html lang={SITE.lang} data-phase={BUILD_PHASE} data-sound="off">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <!-- Launch phase: set before first paint so phase-gated content never flashes. -->
+    <script is:inline define:vars={{ BUILD_PHASE, PHASE_ORDER }}>
+      (function () {
+        var root = document.documentElement;
+        var phase = BUILD_PHASE;
+        try {
+          var q = new URLSearchParams(location.search).get('phase');
+          if (q === 'reset') sessionStorage.removeItem('detent:phase');
+          else if (q && PHASE_ORDER.indexOf(q) > -1) sessionStorage.setItem('detent:phase', q);
+          var s = sessionStorage.getItem('detent:phase');
+          if (s && PHASE_ORDER.indexOf(s) > -1) phase = s;
+          if (localStorage.getItem('detent:sound') === 'true') root.dataset.sound = 'on';
+        } catch (e) {}
+        root.dataset.phase = phase;
+        root.dataset.js = '';
+      })();
+    </script>
+
+    <link rel="preload" href={archivoLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href={url('/favicon.svg')} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={url('/apple-touch-icon.png')} />
+    <link rel="manifest" href={url('/manifest.webmanifest')} />
+    <link rel="sitemap" href={url('/sitemap-index.xml')} />
+    <meta name="theme-color" content={SITE.themeColor} />
+    <meta name="color-scheme" content={world === 'day' ? 'light' : 'dark'} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogImageAlt} />
+    <meta property="og:locale" content={SITE.locale} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogUrl} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(ld)} />
+    <script type="speculationrules" set:html={JSON.stringify(speculationRules)} />
+    <slot name="head" />
+  </head>
+  <body data-world={world} class={bodyClass}>
+    <a class="skip-link" href="#main">Skip to content</a>
+    {chrome !== 'none' && <SiteHeader chrome={chrome === 'minimal' ? 'minimal' : 'full'} hideCta={hideHeaderCta} />}
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    {chrome !== 'none' && <SiteFooter chrome={chrome === 'minimal' ? 'minimal' : 'full'} />}
+    {chrome === 'full' && <CartDrawer />}
+    <slot name="end" />
+    <script>
+      import { initAutoTrack } from '@/lib/analytics';
+      initAutoTrack();
+    </script>
+  </body>
+</html>

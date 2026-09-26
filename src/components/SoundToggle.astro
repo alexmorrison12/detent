@@ -1,0 +1,59 @@
+---
+/** Global sound on/off. State lives in src/lib/sound.ts (persisted, default off). */
+---
+
+<button class="sound-toggle" type="button" aria-pressed="false" data-sound-toggle>
+  <span class="visually-hidden">Sound</span>
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor"></path>
+    <path class="wave wave--1" d="M15.2 9.2a4 4 0 0 1 0 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+    <path class="wave wave--2" d="M17.8 6.6a7.6 7.6 0 0 1 0 10.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+    <path class="mute" d="M15.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+  </svg>
+</button>
+
+<script>
+  import { isSoundOn, setSound, onSoundChange } from '@/lib/sound';
+
+  function sync(on: boolean) {
+    document.querySelectorAll<HTMLButtonElement>('[data-sound-toggle]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(on));
+      b.title = on ? 'Sound on' : 'Sound off';
+    });
+  }
+  sync(isSoundOn());
+  onSoundChange(sync);
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as Element).closest('[data-sound-toggle]');
+    if (btn) setSound(!isSoundOn());
+  });
+</script>
+
+<style>
+  .sound-toggle {
+    display: grid;
+    place-items: center;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: 50%;
+    color: var(--ink-muted);
+    transition: color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out);
+  }
+  .sound-toggle:hover {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .sound-toggle[aria-pressed='true'] {
+    color: var(--accent-text);
+  }
+  .wave {
+    opacity: 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .sound-toggle[aria-pressed='true'] .wave {
+    opacity: 1;
+  }
+  .sound-toggle[aria-pressed='true'] .mute {
+    opacity: 0;
+  }
+</style>

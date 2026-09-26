@@ -1,0 +1,431 @@
+@layer reset, tokens, base, layout, components, utilities;
+
+@import './tokens.css';
+
+/* ======================================================================= */
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  * {
+    margin: 0;
+  }
+  html {
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
+    interpolate-size: allow-keywords;
+    hanging-punctuation: first last;
+  }
+  body {
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+  img {
+    height: auto;
+  }
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+  button {
+    cursor: pointer;
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+  ul[role='list'],
+  ol[role='list'] {
+    list-style: none;
+    padding: 0;
+  }
+  dialog {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: none;
+    max-width: none;
+    max-height: none;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* ======================================================================= */
+@layer base {
+  @view-transition {
+    navigation: auto;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    font-size: 100%;
+    scroll-padding-top: calc(var(--header-h) + 1rem);
+    background: var(--bg);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:focus-within {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body,
+  [data-world] {
+    background-color: var(--bg);
+    color: var(--ink);
+  }
+
+  body {
+    font-size: var(--step-0);
+    line-height: var(--leading-body);
+    font-stretch: var(--stretch-body);
+    font-weight: 400;
+    font-kerning: normal;
+    font-optical-sizing: auto;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--ink-strong);
+    font-weight: 720;
+    line-height: var(--leading-snug);
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  dd,
+  figcaption {
+    text-wrap: pretty;
+  }
+
+  a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+    transition: text-decoration-color var(--dur-2) var(--ease-out);
+  }
+  a:hover {
+    text-decoration-color: currentColor;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: var(--r-xs);
+  }
+
+  ::selection {
+    background: var(--tally);
+    color: var(--tally-ink);
+  }
+
+  strong,
+  b {
+    font-weight: 680;
+    color: var(--ink-strong);
+  }
+
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  /* Phase gating: elements with data-phase-only="waitlist reserve" render
+     only when <html data-phase> matches one of the listed phases. */
+  html[data-phase='tease'] [data-phase-only]:not([data-phase-only~='tease']),
+  html[data-phase='waitlist'] [data-phase-only]:not([data-phase-only~='waitlist']),
+  html[data-phase='reserve'] [data-phase-only]:not([data-phase-only~='reserve']),
+  html[data-phase='launch'] [data-phase-only]:not([data-phase-only~='launch']),
+  html[data-phase='live'] [data-phase-only]:not([data-phase-only~='live']) {
+    display: none !important;
+  }
+
+  /* Cross-document view transitions: a quick crossfade, or none if reduced. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--dur-3);
+    animation-timing-function: var(--ease-out);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
+}
+
+/* ======================================================================= */
+@layer layout {
+  .container {
+    width: min(100% - 2 * var(--gutter), var(--container));
+    margin-inline: auto;
+  }
+  .container--narrow {
+    width: min(100% - 2 * var(--gutter), var(--container-narrow));
+    margin-inline: auto;
+  }
+  .section {
+    padding-block: var(--section-y);
+  }
+  .measure {
+    max-width: var(--measure);
+  }
+  .stack > * + * {
+    margin-top: var(--stack-gap, var(--space-s));
+  }
+  .cluster {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cluster-gap, var(--space-s));
+    align-items: center;
+  }
+}
+
+/* ======================================================================= */
+@layer components {
+  /* Display type: expanded Archivo, like an engraved instrument scale. */
+  .display {
+    font-stretch: var(--stretch-display);
+    font-weight: 780;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    text-wrap: balance;
+  }
+  .display--xl {
+    font-size: var(--step-6);
+  }
+  .display--l {
+    font-size: var(--step-5);
+  }
+  .display--m {
+    font-size: var(--step-4);
+  }
+  .display--s {
+    font-size: var(--step-3);
+  }
+
+  .lede {
+    font-size: var(--step-1);
+    line-height: 1.45;
+    color: var(--ink-muted);
+    max-width: 54ch;
+  }
+
+  /* Readouts: numbers, degrees, specs. Mono earns its place on an instrument. */
+  .readout {
+    font-family: var(--font-mono);
+    font-size: var(--step--1);
+    letter-spacing: var(--tracking-mono);
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-weight: 450;
+  }
+
+  /* ---- Buttons ---------------------------------------------------------- */
+  .btn {
+    --btn-bg: transparent;
+    --btn-ink: var(--ink-strong);
+    --btn-line: var(--line-strong);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6em;
+    min-height: 2.9rem;
+    padding: 0.7em 1.35em;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--btn-line);
+    background: var(--btn-bg);
+    color: var(--btn-ink);
+    font-size: var(--step-0);
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.1;
+    letter-spacing: 0.005em;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      color var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out),
+      transform var(--dur-1) var(--ease-out);
+  }
+  .btn:hover {
+    --btn-line: var(--ink);
+  }
+  /* A press you can see: the button seats 1px, like a detent. */
+  .btn:active {
+    transform: translateY(1px) scale(0.99);
+  }
+  .btn--primary {
+    --btn-bg: var(--accent);
+    --btn-ink: var(--accent-ink);
+    --btn-line: var(--accent);
+  }
+  .btn--primary:hover {
+    --btn-bg: color-mix(in oklch, var(--accent) 88%, white);
+    --btn-line: var(--btn-bg);
+  }
+  .btn--solid {
+    --btn-bg: var(--ink-strong);
+    --btn-ink: var(--bg);
+    --btn-line: var(--ink-strong);
+  }
+  .btn--quiet {
+    --btn-line: transparent;
+    padding-inline: 0.6em;
+  }
+  .btn--lg {
+    min-height: 3.5rem;
+    padding: 0.9em 1.7em;
+    font-size: var(--step-1);
+  }
+  .btn--sm {
+    min-height: 2.25rem;
+    padding: 0.45em 1em;
+    font-size: var(--step--1);
+  }
+  .btn[disabled],
+  .btn[aria-disabled='true'] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* Text link with an arrow that nudges on hover. */
+  .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--accent-text);
+  }
+  .link-arrow::after {
+    content: '→';
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+  .link-arrow:hover::after {
+    transform: translateX(3px);
+  }
+
+  /* Form controls */
+  .field {
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .field label {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .input {
+    min-height: 2.9rem;
+    padding: 0.65em 1em;
+    border-radius: var(--r-m);
+    border: 1px solid var(--line-strong);
+    background: var(--bg-raised);
+    color: var(--ink-strong);
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+  .input::placeholder {
+    color: var(--ink-muted);
+  }
+  .input:hover {
+    border-color: var(--ink-muted);
+  }
+  .input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+    border-color: transparent;
+  }
+  .input[aria-invalid='true'] {
+    border-color: var(--tally-hot);
+  }
+
+  /* Honest-demo note that sits under every form. */
+  .concept-note {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+}
+
+/* ======================================================================= */
+@layer utilities {
+  .visually-hidden:not(:focus):not(:active) {
+    clip-path: inset(50%);
+    height: 1px;
+    width: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+  }
+  .skip-link {
+    position: absolute;
+    left: var(--space-s);
+    top: -100px;
+    z-index: var(--z-tooltip);
+    padding: var(--space-2xs) var(--space-s);
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-radius: var(--r-s);
+    font-weight: 650;
+  }
+  .skip-link:focus {
+    top: var(--space-s);
+  }
+  .muted {
+    color: var(--ink-muted);
+  }
+  .accent {
+    color: var(--accent-text);
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .nowrap {
+    white-space: nowrap;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

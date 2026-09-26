@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /detent/render/
+Disallow: /detent/launch-plan/
+
+Sitemap: https://alexmorrison12.github.io/detent/sitemap-index.xml

@@ -1,0 +1,74 @@
+---
+/**
+ * The way pages place a Detent dial. Server-renders a still (so there is an
+ * image before JS, for no-JS, and as the LCP candidate), then upgrades to
+ * the <detent-dial> element. Pages never import three.js directly.
+ */
+import type { FinishId, ProfileId } from '@/data/product';
+import type { CameraPreset } from '@/scripts/dial/types';
+import DialStill from './DialStill.astro';
+
+interface Props {
+  finish?: FinishId;
+  profile?: ProfileId;
+  interactive?: boolean;
+  camera?: CameraPreset;
+  autorotate?: boolean;
+  label?: string;
+  display?: string;
+  quality?: 'auto' | 'low' | 'high';
+  /** Eager-load the still (use for the LCP dial above the fold). */
+  priority?: boolean;
+  id?: string;
+  class?: string;
+}
+const {
+  finish = 'graphite',
+  profile = 'ratchet',
+  interactive = false,
+  camera = 'hero',
+  autorotate = false,
+  label,
+  display,
+  quality = 'auto',
+  priority = false,
+  id,
+  class: className,
+} = Astro.props;
+---
+
+<detent-dial
+  id={id}
+  class:list={['dial-stage', className]}
+  finish={finish}
+  profile={profile}
+  camera={camera}
+  quality={quality}
+  interactive={interactive || undefined}
+  autorotate={autorotate || undefined}
+  label={label}
+  display={display}
+>
+  <div data-dial-fallback class="dial-stage__fallback">
+    <DialStill finish={finish} view={camera === 'top' ? 'top' : 'hero'} priority={priority} />
+  </div>
+</detent-dial>
+
+<script>
+  import '@/scripts/dial/detent-dial';
+</script>
+
+<style>
+  .dial-stage {
+    display: block;
+    position: relative;
+    inline-size: 100%;
+    aspect-ratio: 1;
+  }
+  .dial-stage__fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
+</style>

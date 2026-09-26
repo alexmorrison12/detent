@@ -1,0 +1,13 @@
+{
+  "name": "Detent",
+  "short_name": "Detent",
+  "description": "Software you can feel.",
+  "start_url": "/detent/",
+  "scope": "/detent/",
+  "display": "standalone",
+  "background_color": "#0f0d0e",
+  "theme_color": "#0f0d0e",
+  "icons": [
+    { "src": "/detent/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

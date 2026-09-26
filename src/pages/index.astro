@@ -1,0 +1,17 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import DialStage from '@/components/dial/DialStage.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import { SITE } from '@/config/site';
+---
+
+<BaseLayout>
+  <section class="section container">
+    <h1 class="display display--xl">{SITE.tagline}</h1>
+    <p class="lede">{SITE.description}</p>
+    <div style="max-width: 28rem; margin-block: 2rem">
+      <DialStage interactive finish="graphite" profile="ratchet" priority />
+    </div>
+    <PhaseCTA placement="hero" size="lg" showSecondary />
+  </section>
+</BaseLayout>

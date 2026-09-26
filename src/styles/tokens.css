@@ -1,0 +1,153 @@
+/*
+ * Detent design tokens. OKLCH throughout. Neutrals are tinted toward the
+ * brand hue (355, "tally" red) at very low chroma.
+ * Two worlds: night (graphite, default) and day (white). Any element can
+ * switch world with data-world="night|day"; semantic tokens follow.
+ */
+@layer tokens {
+  :root {
+    /* ---- Palette ------------------------------------------------------ */
+    --graphite-950: oklch(0.135 0.006 355);
+    --graphite-900: oklch(0.172 0.007 355);
+    --graphite-850: oklch(0.205 0.008 355);
+    --graphite-800: oklch(0.245 0.008 355);
+    --graphite-700: oklch(0.32 0.008 355);
+    --graphite-600: oklch(0.42 0.008 355);
+    --graphite-500: oklch(0.52 0.007 355);
+    --alu-400: oklch(0.68 0.005 355);
+    --alu-300: oklch(0.78 0.004 355);
+    --alu-200: oklch(0.87 0.003 355);
+    --alu-100: oklch(0.935 0.002 355);
+    --alu-50: oklch(0.972 0.001 355);
+    --white: oklch(1 0 0);
+
+    /* Tally: the on-air light. Seed oklch(0.636 0.218 355.3). */
+    --tally: oklch(0.636 0.218 355.3); /* fills, indicator lines, rings */
+    --tally-hot: oklch(0.71 0.19 355); /* text/icons on night (>= 7:1 on graphite-950) */
+    --tally-deep: oklch(0.52 0.2 355); /* text/icons on day (>= 5:1 on white) */
+    --tally-ink: var(--graphite-950); /* text ON a tally fill (white fails 4.5:1) */
+
+    /* Feel colors: one per haptic profile, used for that profile's world only. */
+    --feel-ratchet: var(--tally);
+    --feel-fluid: oklch(0.82 0.11 210);
+    --feel-spring: oklch(0.86 0.17 128);
+    --feel-clock: oklch(0.82 0.15 70);
+    --feel-wall: oklch(0.72 0.15 290);
+    --feel-magnet: oklch(0.72 0.17 38);
+
+    /* ---- Type --------------------------------------------------------- */
+    --font-sans: 'Archivo Variable', 'Archivo', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Martian Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+    /* Archivo width axis (62–125%). Display is expanded, like an engraved scale. */
+    --stretch-display: 125%;
+    --stretch-ui: 108%;
+    --stretch-body: 100%;
+    --stretch-condensed: 72%;
+
+    /* Fluid modular scale: ~1.2 at 360px, ~1.333 at 1440px. Hero max 6rem. */
+    --step--2: clamp(0.72rem, 0.7rem + 0.1vw, 0.78rem);
+    --step--1: clamp(0.84rem, 0.82rem + 0.12vw, 0.9rem);
+    --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+    --step-1: clamp(1.2rem, 1.1rem + 0.45vw, 1.5rem);
+    --step-2: clamp(1.44rem, 1.26rem + 0.9vw, 2rem);
+    --step-3: clamp(1.73rem, 1.4rem + 1.6vw, 2.67rem);
+    --step-4: clamp(2.07rem, 1.5rem + 2.8vw, 3.55rem);
+    --step-5: clamp(2.49rem, 1.6rem + 4.4vw, 4.74rem);
+    --step-6: clamp(2.8rem, 1.6rem + 6vw, 6rem);
+
+    --leading-tight: 0.98;
+    --leading-snug: 1.2;
+    --leading-body: 1.6;
+    --tracking-display: -0.02em;
+    --tracking-mono: 0.02em;
+
+    /* ---- Space & layout ----------------------------------------------- */
+    --space-3xs: 0.25rem;
+    --space-2xs: 0.5rem;
+    --space-xs: 0.75rem;
+    --space-s: 1rem;
+    --space-m: 1.5rem;
+    --space-l: 2rem;
+    --space-xl: 3rem;
+    --space-2xl: 4.5rem;
+    --space-3xl: 6.5rem;
+    --section-y: clamp(4.5rem, 3rem + 7vw, 10rem);
+    --gutter: clamp(1rem, 0.5rem + 2.5vw, 3rem);
+    --container: 88rem;
+    --container-narrow: 60rem;
+    --measure: 66ch;
+    --header-h: 4rem;
+
+    /* ---- Shape -------------------------------------------------------- */
+    /* Machined edges: small radii, true circles, pill buttons. Cards max 14px. */
+    --r-xs: 2px;
+    --r-s: 6px;
+    --r-m: 10px;
+    --r-l: 14px;
+    --r-pill: 999px;
+
+    /* ---- Depth (one shadow OR one border per element, never both) ----- */
+    --shadow-1: 0 1px 2px oklch(0 0 0 / 0.35);
+    --shadow-2: 0 4px 8px -2px oklch(0 0 0 / 0.4);
+
+    /* ---- Motion -------------------------------------------------------- */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* expo-ish out */
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --dur-1: 120ms;
+    --dur-2: 220ms;
+    --dur-3: 420ms;
+    --dur-4: 800ms;
+
+    /* ---- Layers (semantic z-index scale) -------------------------------- */
+    --z-raised: 10;
+    --z-sticky: 100;
+    --z-header: 200;
+    --z-backdrop: 300;
+    --z-drawer: 310;
+    --z-modal: 400;
+    --z-toast: 500;
+    --z-tooltip: 600;
+  }
+
+  /* ---- Worlds ---------------------------------------------------------- */
+  :root,
+  [data-world='night'] {
+    color-scheme: dark;
+    --bg: var(--graphite-950);
+    --bg-raised: var(--graphite-900);
+    --surface: var(--graphite-850);
+    --surface-2: var(--graphite-800);
+    --ink: var(--alu-100);
+    --ink-strong: var(--white);
+    --ink-muted: oklch(0.76 0.006 355); /* >= 4.5:1 on graphite-850 */
+    --ink-faint: oklch(0.62 0.006 355); /* large or decorative text only */
+    --line: oklch(1 0 0 / 0.1);
+    --line-strong: oklch(1 0 0 / 0.24);
+    --accent: var(--tally);
+    --accent-text: var(--tally-hot);
+    --accent-ink: var(--tally-ink);
+    --focus: var(--tally-hot);
+    --leading-body: 1.65; /* light-on-dark needs a little more air */
+  }
+
+  [data-world='day'] {
+    color-scheme: light;
+    --bg: var(--white);
+    --bg-raised: var(--alu-50);
+    --surface: var(--alu-100);
+    --surface-2: var(--alu-200);
+    --ink: var(--graphite-900);
+    --ink-strong: var(--graphite-950);
+    --ink-muted: oklch(0.45 0.008 355);
+    --ink-faint: oklch(0.58 0.006 355);
+    --line: oklch(0 0 0 / 0.1);
+    --line-strong: oklch(0 0 0 / 0.22);
+    --accent: var(--tally);
+    --accent-text: var(--tally-deep);
+    --accent-ink: var(--tally-ink);
+    --focus: var(--tally-deep);
+    --leading-body: 1.6;
+  }
+}

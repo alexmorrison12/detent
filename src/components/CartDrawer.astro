@@ -1,0 +1,98 @@
+---
+/**
+ * Cart drawer shell. Opened by any [data-cart-open] button; closed by
+ * [data-cart-close], Esc, or a backdrop click. The shop feature owns the
+ * contents (src/components/shop/*) and may replace this file's internals,
+ * but must keep: id="cart-drawer", [data-cart-open]/[data-cart-close].
+ */
+---
+
+<dialog id="cart-drawer" class="cart-drawer" aria-labelledby="cart-title" data-world="day">
+  <div class="cart-drawer__panel">
+    <div class="cart-drawer__head">
+      <h2 id="cart-title">Your cart</h2>
+      <button class="cart-drawer__close" type="button" data-cart-close aria-label="Close cart">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="cart-drawer__body" data-cart-body>
+      <p class="muted">Your cart is empty.</p>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  const drawer = document.getElementById('cart-drawer') as HTMLDialogElement | null;
+  document.addEventListener('click', (e) => {
+    const t = e.target as Element;
+    if (t.closest('[data-cart-open]')) drawer?.showModal();
+    else if (t.closest('[data-cart-close]')) drawer?.close();
+    else if (t === drawer) drawer?.close(); // backdrop click
+  });
+</script>
+
+<style>
+  .cart-drawer {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(100vw, 28rem);
+    height: 100dvh;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    z-index: var(--z-drawer);
+    translate: 100% 0;
+    transition:
+      translate var(--dur-3) var(--ease-out),
+      overlay var(--dur-3) allow-discrete,
+      display var(--dur-3) allow-discrete;
+  }
+  .cart-drawer[open] {
+    translate: 0 0;
+  }
+  @starting-style {
+    .cart-drawer[open] {
+      translate: 100% 0;
+    }
+  }
+  .cart-drawer::backdrop {
+    background: oklch(0.1 0.005 355 / 0.55);
+  }
+  .cart-drawer__panel {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+  }
+  .cart-drawer__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-m);
+    border-bottom: 1px solid var(--line);
+  }
+  .cart-drawer__head h2 {
+    font-size: var(--step-1);
+  }
+  .cart-drawer__close {
+    display: grid;
+    place-items: center;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-radius: 50%;
+  }
+  .cart-drawer__close:hover {
+    background: var(--surface);
+  }
+  .cart-drawer__body {
+    padding: var(--space-m);
+    overflow-y: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cart-drawer,
+    .cart-drawer[open] {
+      translate: 0 0;
+    }
+  }
+</style>

@@ -1,0 +1,89 @@
+---
+/**
+ * The primary call to action. Renders one variant per launch phase; CSS shows
+ * only the variant matching <html data-phase>. Use this for every "buy /
+ * reserve / join" button so the whole site moves through the launch together.
+ */
+import { PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+import { url } from '@/lib/url';
+
+interface Props {
+  /** Analytics placement id, e.g. "hero", "header", "pricing". */
+  placement: string;
+  size?: 'sm' | 'md' | 'lg';
+  showNote?: boolean;
+  showSecondary?: boolean;
+  /** Restrict to some phases (default: all). */
+  phases?: Phase[];
+  align?: 'start' | 'center';
+  class?: string;
+}
+const {
+  placement,
+  size = 'md',
+  showNote = true,
+  showSecondary = false,
+  phases = [...PHASE_ORDER],
+  align = 'start',
+  class: className,
+} = Astro.props;
+const sizeClass = size === 'md' ? '' : `btn--${size}`;
+---
+
+<div class:list={['phase-cta', `phase-cta--${align}`, className]}>
+  {
+    phases.map((p) => {
+      const c = PHASES[p];
+      return (
+        <div class="phase-cta__group" data-phase-only={p}>
+          <div class="phase-cta__buttons">
+            <a
+              class:list={['btn', 'btn--primary', sizeClass]}
+              href={url(c.primary.href)}
+              data-track="cta_click"
+              data-track-placement={placement}
+              data-track-cta={`${p}:primary`}
+            >
+              {c.primary.label}
+            </a>
+            {showSecondary && c.secondary.label && (
+              <a
+                class:list={['btn', sizeClass]}
+                href={url(c.secondary.href)}
+                data-track="cta_click"
+                data-track-placement={placement}
+                data-track-cta={`${p}:secondary`}
+              >
+                {c.secondary.label}
+              </a>
+            )}
+          </div>
+          {showNote && c.primary.note && <p class="phase-cta__note">{c.primary.note}</p>}
+        </div>
+      );
+    })
+  }
+</div>
+
+<style>
+  .phase-cta__group {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .phase-cta--center .phase-cta__group {
+    justify-items: center;
+    text-align: center;
+  }
+  .phase-cta__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+  .phase-cta--center .phase-cta__buttons {
+    justify-content: center;
+  }
+  .phase-cta__note {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+</style>
