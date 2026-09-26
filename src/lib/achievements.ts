@@ -77,7 +77,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     id: 'profile-author',
     name: 'Profile author',
     found: 'You wrote a feel of your own.',
-    hint: 'The feel library takes requests. Make one.',
+    hint: 'The feel library has a builder. Save a feel of your own.',
   },
   {
     id: 'night-owl',
