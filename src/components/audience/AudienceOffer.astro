@@ -3,11 +3,17 @@
  * The offer, in the day world: both editions with real prices (launch price
  * only in the phases that have one), the risk reversal, and the phase CTA.
  * Every number comes from src/data/product.ts or src/config/launch.ts.
+ *
+ * Each edition shows its finishes as the object itself: a lineup of product
+ * stills, captioned with the finish name, drawn at one scale across both
+ * editions (they are the same size on a desk). Paid-social visitors land here
+ * having only seen the knob from above in the demo.
  */
 import { EDITIONS, FINISHES, PAYMENT, formatUsd, type AudienceId } from '@/data/product';
 import { LAUNCH } from '@/config/launch';
 import { SITE } from '@/config/site';
 import PhaseCTA from '@/components/PhaseCTA.astro';
+import DialStill from '@/components/dial/DialStill.astro';
 
 interface Props {
   id: AudienceId;
@@ -21,6 +27,8 @@ const [one, founders] = EDITIONS as [(typeof EDITIONS)[number], (typeof EDITIONS
 const finishesOf = (ids: string[]) => FINISHES.filter((f) => ids.includes(f.id));
 const hasLaunchPrice = one.launchPriceUsd < one.priceUsd;
 const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0');
+/** Rendered still width (matches .ed__still below), for the srcset choice. */
+const stillSizes = '(min-width: 52rem) 14rem, 7rem';
 ---
 
 <section class="offer section" data-world="day" aria-labelledby="offer-title">
@@ -54,7 +62,7 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
         <ul class="ed__finishes" role="list" aria-label="Finishes">
           {finishesOf(one.finishes).map((f) => (
             <li>
-              <span class="ed__swatch" style={`background:${f.body}`} aria-hidden="true" />
+              <DialStill class="ed__still" finish={f.id} view="hero" alt="" sizes={stillSizes} />
               {f.name}
             </li>
           ))}
@@ -79,7 +87,7 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
         <ul class="ed__finishes" role="list" aria-label="Finish">
           {finishesOf(founders.finishes).map((f) => (
             <li>
-              <span class="ed__swatch" style={`background:${f.body}`} aria-hidden="true" />
+              <DialStill class="ed__still" finish={f.id} view="hero" alt="" sizes={stillSizes} />
               {f.name}, numbered
             </li>
           ))}
@@ -133,6 +141,10 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
   }
 
   .offer__sheet {
+    /* Detent One's cell width, for sizing its lineup of three stills. */
+    --one: 100cqi;
+    --ed-pad: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+    container-type: inline-size;
     display: grid;
     border: 1px solid var(--line-strong);
     border-radius: var(--r-l);
@@ -140,6 +152,7 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
   }
   @media (min-width: 52rem) {
     .offer__sheet {
+      --one: 100cqi * 1.25 / 2.25;
       grid-template-columns: 1.25fr 1fr;
     }
     .ed--founders {
@@ -150,7 +163,7 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
     display: grid;
     align-content: start;
     gap: var(--space-s);
-    padding: clamp(1.25rem, 0.8rem + 2vw, 2.5rem);
+    padding: var(--ed-pad);
   }
   .ed--founders {
     background: var(--bg-raised);
@@ -211,23 +224,35 @@ const serialTo = String(founders.limited ?? LAUNCH.foundersRun).padStart(4, '0')
     color: var(--ink);
     max-inline-size: 42ch;
   }
+  /* The finishes as objects, on top of each edition (the heading stays first
+     in the reading order). One still size for both editions: same object. */
   .ed__finishes {
+    /* Three stills, each tucked 10% under its neighbour, span 2.8 stills. */
+    --still: min(clamp(6.5rem, 1rem + 13vw, 14rem), (var(--one) - 2 * var(--ed-pad)) / 2.8);
+    order: -1;
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2xs) var(--space-m);
+    align-items: end;
+    /* The renders keep ~18% clear air above the knob; take most of it back. */
+    margin-block: calc(var(--still) * -0.12) var(--space-2xs);
     font-size: var(--step--1);
     color: var(--ink-muted);
   }
   .ed__finishes li {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
+    display: grid;
+    justify-items: center;
+    flex: 0 1 var(--still);
+    min-inline-size: 0;
+    text-align: center;
   }
-  .ed__swatch {
-    inline-size: 1.1rem;
-    block-size: 1.1rem;
-    border-radius: 50%;
-    box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.18);
+  /* Neighbours tuck in a little, like dials lined up on a bench. */
+  .ed__finishes li + li {
+    margin-inline-start: calc(var(--still) * -0.1);
+  }
+  .ed__finishes :global(.ed__still) {
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 1;
+    margin-block-end: -0.35rem;
   }
   .ed__fine {
     font-size: var(--step--1);
