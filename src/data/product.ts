@@ -417,6 +417,13 @@ export const TESTER_NOTES: TesterNote[] = [
   { quote: 'The weight is the first thing you notice. The second is that you keep touching it when you are thinking.', name: 'Jonah Achterberg', role: 'Industrial designer', profile: 'fluid' },
 ];
 
+/** Convenience lookups. Declared before FAQS, whose answers quote them. */
+export const byFinish = (id: FinishId) => FINISHES.find((f) => f.id === id)!;
+export const byProfile = (id: ProfileId) => PROFILES.find((p) => p.id === id)!;
+export const byEdition = (id: EditionId) => EDITIONS.find((e) => e.id === id)!;
+export const formatUsd = (n: number) =>
+  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: n % 1 ? 2 : 0 });
+
 /* -------------------------------------------------------------------------- */
 /* FAQ                                                                        */
 /* -------------------------------------------------------------------------- */
@@ -427,11 +434,24 @@ export interface Faq {
   topic: 'Buying' | 'Shipping' | 'Product' | 'Software' | 'Launch';
 }
 
+/*
+ * Answers show in every phase on /support/, /l/launch/ and llms.txt, so each
+ * one holds in all of them. The live store opens when the launch price ends
+ * (docs/LAUNCH_PLAN.md), and pay over time arrives with it: "December 4".
+ */
+const faqOne = byEdition('one');
+const faqFounders = byEdition('founders');
+const storeLiveDay = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
+  timeZone: 'America/Los_Angeles',
+  month: 'long',
+  day: 'numeric',
+});
+
 export const FAQS: Faq[] = [
   {
     topic: 'Launch',
     q: `How does the $${LAUNCH.depositUsd} reservation work?`,
-    a: `You pay a $${LAUNCH.depositUsd} deposit ($${LAUNCH.foundersDepositUsd} for the Founders Edition) to hold your place and lock the launch price. When your batch is ready we email a ship date and a link to pay the rest; the deposit comes off the price. Cancel any time before it ships for a full refund, one click, no questions.`,
+    a: `A ${formatUsd(LAUNCH.depositUsd)} deposit holds your place and locks the ${formatUsd(faqOne.launchPriceUsd)} launch price on ${faqOne.name}. The ${faqFounders.name} is always ${formatUsd(faqFounders.priceUsd)}; its ${formatUsd(LAUNCH.foundersDepositUsd)} deposit holds one numbered serial. When your batch is ready we email a ship date and a link to pay the rest; the deposit comes off the price. Cancel any time before it ships for a full refund, one click, no questions.`,
   },
   { topic: 'Launch', q: 'When does it ship?', a: `Batch 1 ships in ${LAUNCH.firstShipBatch} and Batch 2 in ${LAUNCH.secondShipBatch}. Reservations are filled in order, and your confirmation email shows your batch.` },
   { topic: 'Launch', q: 'What makes the Founders Edition different?', a: 'Tally red anodize, a serial number from 0001 to 2000 engraved on the base, a machined walnut plinth, the Founders feel pack and early firmware for life. When the 2,000 are gone, Tally is gone.' },
@@ -441,14 +461,11 @@ export const FAQS: Faq[] = [
   { topic: 'Software', q: 'Do I need an account?', a: 'No. Detent Studio runs locally, profiles live on the device, and nothing is sent anywhere unless you opt in to crash reports.' },
   { topic: 'Software', q: 'What if my app is not supported?', a: `Every app gets the system set out of the box: ${SYSTEM_SET}. Beyond that, the open SDK lets anyone publish a profile, and most community profiles take an evening to write.` },
   { topic: 'Buying', q: 'What if I do not love it?', a: 'Use it for 60 days. If it has not earned its spot on your desk, send it back with the prepaid label for a full refund.' },
-  { topic: 'Buying', q: 'Can I pay over time?', a: 'Yes. At checkout you can split the price into four interest-free payments.' },
+  {
+    topic: 'Buying',
+    q: 'Can I pay over time?',
+    a: `Yes, from ${storeLiveDay}, when the store goes live. Checkout splits the price into ${PAYMENT.installments} interest-free payments: ${formatUsd(faqOne.priceUsd / PAYMENT.installments)} each for ${faqOne.name} at ${formatUsd(faqOne.priceUsd)}. It is not offered on deposits or on launch-week orders.`,
+  },
   { topic: 'Shipping', q: 'Where do you ship?', a: 'The US, Canada, the UK, the EU, Australia, New Zealand, Japan and South Korea at launch, with duties included in the price you see.' },
   { topic: 'Shipping', q: 'Is shipping free?', a: 'Yes, everywhere we ship, with tracking and insurance.' },
 ];
-
-/** Convenience lookups. */
-export const byFinish = (id: FinishId) => FINISHES.find((f) => f.id === id)!;
-export const byProfile = (id: ProfileId) => PROFILES.find((p) => p.id === id)!;
-export const byEdition = (id: EditionId) => EDITIONS.find((e) => e.id === id)!;
-export const formatUsd = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: n % 1 ? 2 : 0 });
