@@ -14,6 +14,7 @@ import { PAYMENT } from '@/data/product';
 import { SHIP_REGIONS, shipParts } from '@/data/shop';
 import { byShips } from '@/data/shop-content';
 import { url } from '@/lib/url';
+import '@/components/shop/line-thumb.css';
 
 const us = SHIP_REGIONS[0]!;
 /** An order placed now ships in this phase's batch (PHASES[phase].ships). */
@@ -339,8 +340,13 @@ const shipsReadout = byShips((s) => {
               <li>Refundable until your batch ships</li>
               <li>Credited in full to your order</li>
             </ul>
+            <p class="co__launch-note" data-co-launch-note hidden></p>
+            <!-- Label and total are each unbreakable: on a narrow phone the
+                 total drops under the label instead of the label splitting. -->
             <button type="submit" class="co__wallet co__wallet--lg" data-co-submit>
-              <span data-co-submit-label>Complete demo order</span>
+              <span class="co__submit-label" data-co-submit-label>
+                Place demo order
+              </span>
               <span class="readout co__submit-total" data-co-submit-total></span>
             </button>
           </div>
@@ -526,21 +532,14 @@ const shipsReadout = byShips((s) => {
     padding-block: var(--space-xs);
     border-block-end: 1px solid var(--line);
   }
+  /* The cart drawer's thumbnails (line-thumb.css), on the page ground so
+     they stand off the raised summary. */
+  .co__lines {
+    --thumb-size: 3rem;
+    --thumb-bg: var(--bg);
+  }
   .co__lines :global(.col__thumb) {
     position: relative;
-    display: grid;
-    place-items: center;
-    inline-size: 3rem;
-    aspect-ratio: 1;
-    border-radius: var(--r-m);
-    background: var(--bg);
-  }
-  .co__lines :global(.col__chip) {
-    inline-size: 70%;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: var(--chip, var(--surface-2));
-    box-shadow: 0 0 0 1px var(--line);
   }
   .co__lines :global(.col__qty) {
     position: absolute;
@@ -567,7 +566,15 @@ const shipsReadout = byShips((s) => {
     overflow-wrap: anywhere;
   }
   .co__lines :global(.col__price) {
+    display: grid;
+    justify-items: end;
     color: var(--ink-strong);
+    white-space: nowrap;
+  }
+  /* Launch pricing: the regular price, struck, over what is paid. */
+  .co__lines :global(.col__was) {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
   }
   .co__totals {
     display: grid;
@@ -696,12 +703,34 @@ const shipsReadout = byShips((s) => {
     background: var(--graphite-600);
   }
   .co__wallet--lg {
+    flex-wrap: wrap;
+    column-gap: 0.6em;
+    row-gap: 0;
     min-block-size: 3.6rem;
     font-size: var(--step-1);
+  }
+  .co__submit-label,
+  .co__submit-total {
+    white-space: nowrap;
   }
   .co__submit-total {
     font-size: var(--step-0);
     opacity: 0.8;
+  }
+  /* Phones: the last tap of the purchase stays one line wherever it fits. */
+  @media (max-width: 30rem) {
+    .co__wallet--lg {
+      padding-inline: 1em;
+      font-size: var(--step-0);
+    }
+    .co__submit-total {
+      font-size: var(--step--1);
+    }
+  }
+  .co__launch-note {
+    font-size: var(--step--1);
+    font-weight: 600;
+    color: var(--ink-strong);
   }
   .co__hint,
   .co__field-hint {

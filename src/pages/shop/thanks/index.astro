@@ -14,7 +14,8 @@ import DialStage from '@/components/dial/DialStage.astro';
 import PhaseText from '@/components/shop/PhaseText.astro';
 import { ogPath } from '@/config/og';
 import { BUILD_PHASE, LAUNCH, PHASES } from '@/config/launch';
-import { PAYMENT, byEdition, formatUsd } from '@/data/product';
+import { SITE } from '@/config/site';
+import { EDITIONS, PAYMENT, byEdition, formatUsd } from '@/data/product';
 import { REFERRAL, shipParts, shipsOnKnob } from '@/data/shop';
 import { byShips, shipsWith, type PhaseText as Variants } from '@/data/shop-content';
 import { url } from '@/lib/url';
@@ -47,6 +48,24 @@ interface Step {
 const fill: Record<string, { attr: string; value: string }> = {
   '{deposit}': { attr: 'data-ty-deposit', value: deposit },
   '{balance}': { attr: 'data-ty-balance', value: balance },
+};
+/*
+ * What a reservation holds besides a place in line. Only an edition with a
+ * launch price locks one; Founders Edition has one price, so its deposit
+ * holds a numbered unit instead. The head script picks the variant from the
+ * stored order (html[data-ty-price]) before first paint. Each variant ends
+ * its sentence, so the markup's whitespace around the two spans only ever
+ * falls between words, never before the period.
+ */
+const foundersRun = LAUNCH.foundersRun.toLocaleString('en-US');
+const hold: Record<'launch' | 'regular', string> = {
+  launch: 'and locks the launch price.',
+  regular: `and one of the ${foundersRun} numbered ${byEdition('founders').name} units.`,
+};
+const launchPriced = EDITIONS.filter((e) => e.launchPriceUsd < e.priceUsd).map((e) => e.id);
+const titles = {
+  order: `Order confirmed · ${SITE.name}`,
+  reservation: `Reservation confirmed · ${SITE.name}`,
 };
 const orderSteps: Step[] = [
   {
@@ -86,7 +105,7 @@ const reservationSteps: Step[] = [
   {
     when: 'Today',
     title: 'Place held',
-    text: 'Your deposit holds a place in line and locks the launch price. It is fully refundable until your batch ships. Nothing was charged in this demo.',
+    text: 'Your deposit holds a place in line {hold} It is fully refundable until your batch ships. Nothing was charged in this demo.',
   },
   {
     // Same promise as /l/reserve/, the FAQ and the launch plan: the balance
@@ -115,7 +134,7 @@ const reservationSteps: Step[] = [
 ---
 
 <BaseLayout
-  title="Order confirmed"
+  title="Your order"
   description="Your Detent demo order: what happens next, your batch date, the studio trial and warranty. A concept demo; nothing was charged."
   ogImage={ogPath('shop')}
   world="day"
@@ -123,15 +142,28 @@ const reservationSteps: Step[] = [
   hideHeaderCta
   noindex
 >
-  <!-- Before first paint: which confirmation is this? (order | reservation | empty) -->
-  <script is:inline slot="head">
+  <!-- Before first paint: which confirmation is this? (order | reservation |
+       empty), whether a reservation locked a launch price, and the title a
+       screen reader announces first. -->
+  <script is:inline slot="head" define:vars={{ launchPriced, titles }}>
     (function () {
       var state = 'empty';
+      var price = 'launch';
       try {
         var o = JSON.parse(sessionStorage.getItem('detent:shop:last-order') || 'null');
-        if (o && o.id) state = o.kind === 'reservation' ? 'reservation' : 'order';
+        if (o && o.id) {
+          state = o.kind === 'reservation' ? 'reservation' : 'order';
+          price = (o.lines || []).some(function (l) {
+            return l.kind === 'reservation' && launchPriced.indexOf(l.edition) > -1;
+          })
+            ? 'launch'
+            : 'regular';
+        }
       } catch (e) {}
-      document.documentElement.dataset.ty = state;
+      var root = document.documentElement;
+      root.dataset.ty = state;
+      root.dataset.tyPrice = price;
+      if (titles[state]) document.title = titles[state];
     })();
   </script>
   <div class="ty container">
@@ -153,8 +185,12 @@ const reservationSteps: Step[] = [
             now and your desk.
           </span>
           <span data-ty-show="reservation">
-            Your place in {reserved.batch || 'line'} is held, and the launch price with it. The
-            deposit comes off the price when your batch is ready.
+            Your place in {reserved.batch || 'line'} is held,
+            <span data-ty-price-only="launch">and the launch price with it.</span>
+            <span data-ty-price-only="regular">
+              and so is one of the {foundersRun} numbered units.
+            </span>
+            The deposit comes off the price when your batch is ready.
           </span>
           <span data-ty-show="empty">
             Orders you place in the demo checkout show up here, in this browser. Build one first.
@@ -204,15 +240,18 @@ const reservationSteps: Step[] = [
                     {typeof s.title === 'string' ? s.title : <PhaseText variants={s.title} />}
                   </p>
                   <p class="timeline__text">
-                    {s.text
-                      .split(/(\{deposit\}|\{balance\})/)
-                      .map((part) =>
-                        fill[part] ? (
-                          <span {...{ [fill[part]!.attr]: '' }}>{fill[part]!.value}</span>
-                        ) : (
-                          part
-                        ),
-                      )}
+                    {s.text.split(/(\{deposit\}|\{balance\}|\{hold\})/).map((part) =>
+                      part === '{hold}' ? (
+                        <>
+                          <span data-ty-price-only="launch">{hold.launch}</span>
+                          <span data-ty-price-only="regular">{hold.regular}</span>
+                        </>
+                      ) : fill[part] ? (
+                        <span {...{ [fill[part]!.attr]: '' }}>{fill[part]!.value}</span>
+                      ) : (
+                        part
+                      ),
+                    )}
                     {s.transit && <span data-ty-transit />}
                     {s.feel && <span data-ty-feel />}
                   </p>
@@ -333,6 +372,11 @@ const reservationSteps: Step[] = [
   :global(html[data-ty='order']) [data-ty-show]:not([data-ty-show~='order']),
   :global(html[data-ty='reservation']) [data-ty-show]:not([data-ty-show~='reservation']),
   :global(html[data-ty='empty']) [data-ty-show]:not([data-ty-show~='empty']) {
+    display: none;
+  }
+  /* A reservation of Founders only locks no launch price (see the head script). */
+  :global(html[data-ty-price='regular']) [data-ty-price-only='launch'],
+  :global(html:not([data-ty-price='regular'])) [data-ty-price-only='regular'] {
     display: none;
   }
   .ty__id {

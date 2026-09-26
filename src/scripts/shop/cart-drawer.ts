@@ -17,8 +17,8 @@ import {
   type CartState,
 } from '@/lib/cart';
 import { track } from '@/lib/analytics';
-import { currentPhase, syncCartLines } from './build';
-import { esc } from './render';
+import { currentPhase, launchNote, regularUnitPrice, syncCartLines } from './build';
+import { esc, lineThumbHtml } from './render';
 
 // The cart can outlive the phase it was filled in: re-price it for this one.
 const synced = syncCartLines(getCart().lines, currentPhase());
@@ -59,13 +59,14 @@ function init(drawer: HTMLDialogElement) {
     return parts.map(esc).join(' · ');
   }
 
-  function thumb(l: CartLine): string {
-    const key = l.kind === 'accessory' ? `acc:${l.accessoryId}` : `finish:${l.finish}`;
-    const tpl = drawer.querySelector<HTMLTemplateElement>(`template[data-thumb="${key}"]`);
-    const html = tpl?.innerHTML.trim() ?? '<span class="cart-thumb"></span>';
-    return l.kind === 'reservation'
-      ? html.replace('cart-thumb ', 'cart-thumb cart-thumb--reservation ')
-      : html;
+  /** What the line costs, with the regular price struck while launch pricing is on. */
+  function price(l: CartLine): string {
+    const regular = regularUnitPrice(l);
+    const was =
+      regular === null
+        ? ''
+        : `<s class="line__was"><span class="visually-hidden">Regular price </span>${formatUsd(regular * l.qty)}</s>`;
+    return `${was}<span>${formatUsd(l.unitPriceUsd * l.qty)}</span>`;
   }
 
   function render(state: CartState) {
@@ -88,7 +89,7 @@ function init(drawer: HTMLDialogElement) {
           l.kind === 'reservation' ? l.name.replace(/^Reservation: /, 'Reservation · ') : l.name,
         );
         return `<li class="line" data-line-id="${esc(l.id)}">
-          ${thumb(l)}
+          ${lineThumbHtml(l)}
           <div class="line__body">
             <p class="line__name">${name}</p>
             ${meta(l) ? `<p class="line__meta">${meta(l)}</p>` : ''}
@@ -105,7 +106,7 @@ function init(drawer: HTMLDialogElement) {
               <button type="button" class="line__remove" data-ctl="remove">Remove<span class="visually-hidden"> ${label}</span></button>
             </div>
           </div>
-          <p class="line__price readout">${formatUsd(l.unitPriceUsd * l.qty)}</p>
+          <p class="line__price readout">${price(l)}</p>
         </li>`;
       })
       .join('');
@@ -113,15 +114,19 @@ function init(drawer: HTMLDialogElement) {
     const subtotal = cartSubtotal(state);
     $('[data-cart-subtotal]').textContent = formatUsd(subtotal);
     const reservationsOnly = state.lines.every((l) => l.kind === 'reservation');
+    // A cart of deposits ships nothing yet (checkout shows no shipping either).
+    $<HTMLElement>('[data-cart-ship]').hidden = reservationsOnly;
     // Risk reversal sits right above the buttons, on every screen size.
     $('[data-cart-assure]').textContent = reservationsOnly
       ? 'Refundable until your batch ships, and credited to your order.'
       : `${PAYMENT.trialDays}-day studio trial, free returns. ${PAYMENT.warrantyYears}-year warranty.`;
-    // Pay over time: live store only, never on a deposit (see the launch plan).
-    $('[data-cart-installments]').textContent =
-      !reservationsOnly && currentPhase() === 'live'
+    // Beside the buttons: the launch-price deadline while it applies; pay over
+    // time in the live store only, never on a deposit (see the launch plan).
+    $('[data-cart-note]').textContent =
+      launchNote(state.lines) ||
+      (!reservationsOnly && currentPhase() === 'live'
         ? `${PAYMENT.installmentLabel(subtotal)} at checkout.`
-        : '';
+        : '');
 
     if (focusLine && focusCtl) {
       const el = list.querySelector<HTMLElement>(

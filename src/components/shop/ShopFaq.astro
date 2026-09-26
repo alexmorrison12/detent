@@ -1,12 +1,16 @@
 ---
-/** Buying, shipping and reservation questions, from FAQS. */
-import { FAQS } from '@/data/product';
+/**
+ * Buying, shipping and reservation questions, from FAQS. Answers that only
+ * hold in some phases are phase-gated (SHOP_FAQS), and the question open by
+ * default is the first one the build phase shows.
+ */
+import { BUILD_PHASE } from '@/config/launch';
+import { SHOP_FAQS } from '@/data/shop-content';
 import { url } from '@/lib/url';
 import { SITE } from '@/config/site';
 
-const items = FAQS.filter(
-  (f) => f.topic === 'Launch' || f.topic === 'Buying' || f.topic === 'Shipping',
-);
+const items = SHOP_FAQS;
+const openIndex = items.findIndex((f) => !f.phases || f.phases.split(' ').includes(BUILD_PHASE));
 ---
 
 <section class="section faq" aria-labelledby="faq-title">
@@ -22,7 +26,7 @@ const items = FAQS.filter(
     </header>
     <div class="faq__list">
       {items.map((f, i) => (
-        <details name="shop-faq" open={i === 0}>
+        <details name="shop-faq" open={i === openIndex} data-phase-only={f.phases}>
           <summary>{f.q}</summary>
           <p>{f.a}</p>
         </details>
@@ -56,11 +60,12 @@ const items = FAQS.filter(
   .faq__head a {
     color: var(--accent-text);
   }
+  /* The top rule sits on the list, since the first question may be phase-gated away. */
+  .faq__list {
+    border-block-start: 1px solid var(--line);
+  }
   details {
     border-block-end: 1px solid var(--line);
-  }
-  details:first-child {
-    border-block-start: 1px solid var(--line);
   }
   summary {
     display: flex;

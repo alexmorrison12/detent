@@ -9,7 +9,7 @@
  * deposit"); the docked bar only hides some words visually to fit a phone.
  */
 import { PHASES, LAUNCH } from '@/config/launch';
-import { PAYMENT, formatUsd } from '@/data/product';
+import { formatUsd } from '@/data/product';
 import { url } from '@/lib/url';
 
 interface Props {
@@ -79,8 +79,7 @@ const { tease, waitlist } = PHASES;
     </button>
     {showNote && (
       <p class="build-action__note">
-        Fully refundable until your batch ships, and credited to your order. Accessories are added
-        when you complete it.
+        Refundable until your batch ships. Accessories are added with the balance.
       </p>
     )}
   </div>
@@ -94,12 +93,8 @@ const { tease, waitlist } = PHASES;
     >
       <span class="ba__label">Add to cart</span>
     </button>
-    {showNote && (
-      <p class="build-action__note">
-        Free shipping, a {PAYMENT.trialDays}-day studio trial and a {PAYMENT.warrantyYears}-year
-        warranty.
-      </p>
-    )}
+    <!-- No note: shipping, trial and warranty are listed right under the
+         panel's action (PricePanel). -->
   </div>
 </div>
 

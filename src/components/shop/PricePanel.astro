@@ -7,10 +7,10 @@
  */
 import { BUILD_PHASE, LAUNCH } from '@/config/launch';
 import { PAYMENT, byEdition, formatUsd } from '@/data/product';
-import { REFERRAL } from '@/data/shop';
+import { REFERRAL, launchPriceEndsLabel } from '@/data/shop';
 import { byShips } from '@/data/shop-content';
 import { url } from '@/lib/url';
-import { DEFAULT_BUILD, buildTitle, quote, type Build } from '@/scripts/shop/build';
+import { DEFAULT_BUILD, buildTitle, hasLaunchPrice, quote, type Build } from '@/scripts/shop/build';
 import { quoteLinesHtml } from '@/scripts/shop/render';
 import BuildAction from './BuildAction.astro';
 import PhaseText from './PhaseText.astro';
@@ -20,20 +20,14 @@ interface Props {
 }
 const { build = DEFAULT_BUILD } = Astro.props;
 const q = quote(build, BUILD_PHASE);
-const launchEnds = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
-  weekday: 'long',
-  month: 'long',
-  day: 'numeric',
-  timeZone: 'UTC',
-});
-/** The real end of launch pricing (72 hours, not a week): "December 4". */
-const launchEndsShort = new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
-  month: 'long',
-  day: 'numeric',
-  timeZone: 'UTC',
-});
+/** The real end of launch pricing (72 hours, not a week). */
+const launchEnds = launchPriceEndsLabel();
+const launchEndsShort = launchPriceEndsLabel('short');
 const one = byEdition('one');
 const founders = byEdition('founders');
+/** Which price note shows (the configurator keeps it in step with the build). */
+const launchPriced = hasLaunchPrice(build.edition);
+const foundersRun = LAUNCH.foundersRun.toLocaleString('en-US');
 ---
 
 <aside class="panel" id="build-summary" aria-labelledby="build-summary-title" data-panel>
@@ -41,9 +35,39 @@ const founders = byEdition('founders');
     <h2 id="build-summary-title" class="panel__title">
       Your build
     </h2>
+    <!-- The build lives in the URL, so its link is the save button: kept
+         beside the build's name, where it reads as "this one". -->
+    <div class="panel__share">
+      <button type="button" class="panel__share-btn" data-copy-build hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path
+            d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          ></path>
+        </svg>
+        Copy link<span class="visually-hidden"> to this build</span>
+      </button>
+      <button type="button" class="panel__share-btn" data-share-build hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path
+            d="M12 15V4m0 0L8 8m4-4 4 4M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></path>
+        </svg>
+        Share<span class="visually-hidden"> this build</span>
+      </button>
+    </div>
     <p class="panel__name" data-build-title>
       {buildTitle(build)}
     </p>
+    <p class="panel__share-status" role="status" data-share-status></p>
   </header>
 
   <ul role="list" class="panel__lines qlines" data-build-lines set:html={quoteLinesHtml(q.lines)} />
@@ -65,11 +89,22 @@ const founders = byEdition('founders');
       Every reservation locks the {formatUsd(one.launchPriceUsd)} launch price. {founders.name} is
       always {formatUsd(founders.priceUsd)}.
     </p>
-    <p data-phase-only="reserve">
-      Launch price, locked by your deposit. {formatUsd(one.priceUsd)} after {launchEndsShort}.
+    <!-- Reserve and launch: the note follows the build (configurator.ts). An
+         edition with a launch price says what it locks and when it ends; one
+         without (Founders) never claims a launch price. -->
+    <p data-phase-only="reserve" data-price-note="launch" hidden={!launchPriced}>
+      Launch price, locked by your deposit. Orders after {launchEndsShort} pay
+      {formatUsd(one.priceUsd)}.
     </p>
-    <p data-phase-only="launch">
+    <p data-phase-only="reserve" data-price-note="regular" hidden={launchPriced}>
+      {founders.name} is always {formatUsd(founders.priceUsd)}. Your deposit holds one of the
+      {foundersRun} numbered units.
+    </p>
+    <p data-phase-only="launch" data-price-note="launch" hidden={!launchPriced}>
       Launch price until {launchEnds}. {formatUsd(one.priceUsd)} after that.
+    </p>
+    <p data-phase-only="launch" data-price-note="regular" hidden={launchPriced}>
+      {founders.name} is always {formatUsd(founders.priceUsd)}, launch week included.
     </p>
     <!-- Pay over time: the live store only, never beside a deposit (launch plan). -->
     <p class="panel__installments" data-phase-only="live" data-build-installments>
@@ -102,64 +137,30 @@ const founders = byEdition('founders');
   </p>
 
   <BuildAction placement="panel" />
-  <p class="concept-note panel__concept">Concept demo: nothing is charged and nothing is sent.</p>
+  <p class="concept-note panel__concept">Concept demo: nothing is charged or sent.</p>
 
-  <dl class="panel__facts">
-    <div>
-      <dt>Ships</dt>
-      <dd>
-        <PhaseText variants={byShips()} />
-      </dd>
-    </div>
-    <div>
-      <dt>Shipping</dt>
-      <dd>Free, tracked and insured</dd>
-    </div>
-    <div>
-      <dt>Trial</dt>
-      <dd>{PAYMENT.trialDays} days, free returns</dd>
-    </div>
-    <div>
-      <dt>Warranty</dt>
-      <dd>{PAYMENT.warrantyYears} years, parts and labor</dd>
-    </div>
-  </dl>
-
-  <div class="panel__share">
-    <button type="button" class="panel__share-btn" data-copy-build hidden>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path
-          d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-        ></path>
-      </svg>
-      Copy link to this build
-    </button>
-    <button type="button" class="panel__share-btn" data-share-build hidden>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path
-          d="M12 15V4m0 0L8 8m4-4 4 4M6 12v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.7"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        ></path>
-      </svg>
-      Share
-    </button>
-    <p class="panel__share-status" role="status" data-share-status></p>
-  </div>
+  <!-- The risk reversals as one compact list under the action, with the same
+       checks the cart and checkout use. Ordered so the short ones pair up on
+       a line in the sticky panel. -->
+  <ul role="list" class="panel__facts">
+    <li>
+      <span>
+        Ships with <PhaseText variants={byShips()} />
+      </span>
+    </li>
+    <li>Free tracked shipping</li>
+    <li>{PAYMENT.warrantyYears}-year warranty</li>
+    <li>{PAYMENT.trialDays}-day trial, free returns</li>
+  </ul>
 </aside>
 
 <style>
   .panel {
+    /* The sticky panel tightens this to fit a laptop screen (ShopConfigurator). */
+    --panel-gap: var(--space-m);
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-m);
+    gap: var(--panel-gap);
     padding: var(--space-m);
     border: 1px solid var(--line-strong);
     border-radius: var(--r-l);
@@ -167,12 +168,18 @@ const founders = byEdition('founders');
   }
   .panel__head {
     display: grid;
-    gap: 0.15rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.15rem var(--space-s);
   }
   .panel__title {
     font-size: var(--step--1);
     font-weight: 600;
     color: var(--ink-muted);
+  }
+  .panel__name,
+  .panel__share-status {
+    grid-column: 1 / -1;
   }
   .panel__name {
     font-size: var(--step-1);
@@ -182,8 +189,41 @@ const founders = byEdition('founders');
     line-height: 1.2;
   }
 
+  /* Link actions share the title's line. Their 44px targets reach into the
+     panel padding and the name's line instead of pushing both apart. */
+  .panel__share {
+    display: flex;
+    gap: var(--space-s);
+    margin-block: -0.7rem;
+  }
+  .panel__share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    min-block-size: 2.75rem;
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--accent-text);
+  }
+  @media (hover: hover) {
+    .panel__share-btn:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+  }
+  .panel__share-status {
+    margin-block-start: var(--space-3xs);
+    font-size: var(--step--1);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .panel__share-status:empty {
+    display: none;
+  }
+
   .panel__lines {
-    padding-block: var(--space-s);
+    padding-block: var(--space-xs);
     border-block: 1px solid var(--line);
   }
 
@@ -204,6 +244,7 @@ const founders = byEdition('founders');
     gap: 0.6em;
     font-size: var(--step-3);
     font-weight: 500;
+    line-height: 1.1;
     letter-spacing: -0.02em;
     color: var(--ink-strong);
     font-variant-numeric: tabular-nums;
@@ -216,7 +257,8 @@ const founders = byEdition('founders');
   .panel__notes {
     display: grid;
     gap: 0.3rem;
-    margin-block-start: calc(-1 * var(--space-xs));
+    /* Reads as the total's footnote, whatever the panel gap. */
+    margin-block-start: calc(var(--space-3xs) - var(--panel-gap));
     font-size: var(--step--1);
     color: var(--ink-muted);
   }
@@ -233,20 +275,19 @@ const founders = byEdition('founders');
     font-weight: 600;
   }
   .panel__concept {
-    margin-block-start: calc(-1 * var(--space-2xs));
+    margin-block-start: calc(var(--space-2xs) - var(--panel-gap));
     text-wrap: pretty;
   }
 
   .panel__due {
     display: grid;
-    gap: 0.4rem;
-    padding: var(--space-s);
+    gap: 0.3rem;
+    padding: var(--space-xs) var(--space-s);
     border-radius: var(--r-m);
     background: var(--bg-raised);
     font-size: var(--step--1);
   }
-  .panel__due div,
-  .panel__facts div {
+  .panel__due div {
     display: flex;
     justify-content: space-between;
     gap: var(--space-s);
@@ -262,48 +303,27 @@ const founders = byEdition('founders');
   }
 
   .panel__facts {
-    display: grid;
-    gap: 0.35rem;
-    font-size: var(--step--1);
-  }
-  .panel__facts dt {
-    color: var(--ink-muted);
-  }
-  .panel__facts dd {
-    color: var(--ink);
-    text-align: end;
-  }
-
-  .panel__share {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2xs) var(--space-s);
-    padding-block-start: var(--space-s);
+    gap: 0.3rem 1.1em;
+    padding-block-start: var(--space-xs);
     border-block-start: 1px solid var(--line);
-  }
-  .panel__share-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45em;
-    min-block-size: 2.75rem;
-    font-size: var(--step--1);
-    font-weight: 620;
-    font-stretch: var(--stretch-ui);
-    color: var(--accent-text);
-  }
-  @media (hover: hover) {
-    .panel__share-btn:hover {
-      text-decoration: underline;
-      text-underline-offset: 0.2em;
-    }
-  }
-  .panel__share-status {
-    flex-basis: 100%;
     font-size: var(--step--1);
     color: var(--ink);
   }
-  .panel__share-status:empty {
-    display: none;
+  .panel__facts li {
+    display: flex;
+    gap: 0.45em;
+    align-items: baseline;
+  }
+  .panel__facts li::before {
+    content: '';
+    flex: none;
+    inline-size: 0.75em;
+    block-size: 0.4em;
+    border-inline-start: 2px solid var(--accent-text);
+    border-block-end: 2px solid var(--accent-text);
+    rotate: -45deg;
+    translate: 0 -0.2em;
   }
 </style>

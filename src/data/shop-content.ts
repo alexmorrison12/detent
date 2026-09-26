@@ -1,11 +1,11 @@
 /**
- * Server-only shop content: the edition comparison and the abridged bill of
- * materials behind "why it costs what it costs". Every number is read from
- * @/data/product or @/config/launch.
+ * Server-only shop content: the edition comparison, the shop FAQ and the
+ * abridged bill of materials behind "why it costs what it costs". Every
+ * number is read from @/data/product or @/config/launch.
  */
-import { ACCESSORIES, SPECS, PAYMENT, formatUsd, byEdition } from './product';
+import { ACCESSORIES, FAQS, SPECS, PAYMENT, formatUsd, byEdition, type Faq } from './product';
 import { LAUNCH, PHASES, PHASE_ORDER } from '@/config/launch';
-import { ENGRAVING, shipParts } from './shop';
+import { ENGRAVING, launchPriceEndsLabel, shipParts } from './shop';
 
 /* -------------------------------------------------------------------------- */
 /* Phase-gated copy                                                           */
@@ -57,12 +57,29 @@ export interface CompareRow {
   founders: string | PhaseText[];
   /** True when both editions are identical on this row (rendered quieter). */
   same?: boolean;
+  /** data-phase-only list, when the row only holds in some phases. */
+  phases?: string;
 }
+
+const launchEnds = launchPriceEndsLabel('short');
+const installment = (price: number) =>
+  `${PAYMENT.installments} interest-free payments of ${formatUsd(price / PAYMENT.installments)}`;
 
 export const COMPARE: CompareRow[] = [
   {
+    // The launch price is a promise until it ends, then it is gone from the table.
     label: 'Price',
-    one: `${formatUsd(one.priceUsd)}, or ${formatUsd(one.launchPriceUsd)} at launch`,
+    one: [
+      {
+        phases: 'tease waitlist reserve',
+        text: `${formatUsd(one.priceUsd)}, or ${formatUsd(one.launchPriceUsd)} at launch`,
+      },
+      {
+        phases: 'launch',
+        text: `${formatUsd(one.launchPriceUsd)} until ${launchEnds}, then ${formatUsd(one.priceUsd)}`,
+      },
+      { phases: 'live', text: formatUsd(one.priceUsd) },
+    ],
     founders: formatUsd(founders.priceUsd),
   },
   { label: 'Finish', one: 'Raw, Graphite or Glacier', founders: 'Tally red. Only on this edition' },
@@ -86,9 +103,18 @@ export const COMPARE: CompareRow[] = [
   },
   { label: 'Firmware', one: 'Stable channel', founders: 'Early channel, for life' },
   {
+    // Reservations close when orders open.
     label: 'Reservation deposit',
     one: `${formatUsd(LAUNCH.depositUsd)}, refundable`,
     founders: `${formatUsd(LAUNCH.foundersDepositUsd)}, refundable`,
+    phases: 'tease waitlist reserve',
+  },
+  {
+    // Pay over time is the live store's, never beside a deposit (launch plan).
+    label: 'Pay over time',
+    one: installment(one.priceUsd),
+    founders: installment(founders.priceUsd),
+    phases: 'live',
   },
   {
     label: 'Engraving',
@@ -104,6 +130,39 @@ export const COMPARE: CompareRow[] = [
   },
   { label: 'Ships', one: byShips(), founders: byShips(), same: true },
 ];
+
+/* -------------------------------------------------------------------------- */
+/* Shop FAQ                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export interface ShopFaq {
+  q: string;
+  a: string;
+  /** data-phase-only list, when the answer only holds in some phases. */
+  phases?: string;
+}
+
+/** Find a question in FAQS (throws at build time if it is reworded away). */
+function faq(pattern: RegExp): Faq {
+  const f = FAQS.find((x) => pattern.test(x.q));
+  if (!f) throw new Error(`shop-content: no FAQ matches ${pattern}`);
+  return f;
+}
+
+/**
+ * Answers that are only true in some phases. The deposit exists until
+ * orders open; pay over time is the live store's (checkout offers it only
+ * then, never beside a deposit).
+ */
+const FAQ_PHASES = new Map<Faq, string>([
+  [faq(/reservation work/i), 'tease waitlist reserve'],
+  [faq(/pay over time/i), 'live'],
+]);
+
+/** Buying, shipping and launch questions for /shop/, each gated to where it holds. */
+export const SHOP_FAQS: ShopFaq[] = FAQS.filter(
+  (f) => f.topic === 'Launch' || f.topic === 'Buying' || f.topic === 'Shipping',
+).map((f) => ({ q: f.q, a: f.a, phases: FAQ_PHASES.get(f) }));
 
 /* -------------------------------------------------------------------------- */
 /* Why it costs what it costs: an abridged bill of materials                  */

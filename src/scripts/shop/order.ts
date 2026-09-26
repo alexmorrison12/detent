@@ -24,8 +24,6 @@ export interface DemoOrder {
   gift: boolean;
   method: 'express' | 'form';
   firstFeel?: ProfileId;
-  /** Query string of the first build in the order, for "share your build". */
-  build?: string;
   /** This buyer's concept referral code (see REFERRAL in @/data/shop). */
   referral: string;
   /** The friend's code this buyer arrived with, if any. */
@@ -72,7 +70,6 @@ export function createOrder(
     gift: opts.gift,
     method: opts.method,
     firstFeel: first?.feel,
-    build: first?.build,
     referral: randomCode(8),
     referredBy: opts.referredBy,
     createdAt: Date.now(),

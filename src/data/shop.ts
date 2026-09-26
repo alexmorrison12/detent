@@ -4,6 +4,7 @@
  * bundles stay small; server-only shop copy lives in ./shop-content.ts.
  * Product facts (prices, specs, finishes) live in @/data/product.
  */
+import { LAUNCH } from '@/config/launch';
 import type { FinishId } from './product';
 
 /* -------------------------------------------------------------------------- */
@@ -161,6 +162,20 @@ export function shipParts(ships: string): { batch: string; date: string } {
 export function shipsOnKnob(ships: string): string {
   const { batch, date } = shipParts(ships);
   return (batch || date).toUpperCase().slice(0, 10);
+}
+
+/**
+ * The last day of launch pricing (LAUNCH.launchPriceEnds; 72 hours, not a
+ * week): "Friday, December 4", or "December 4" when short. Always a date,
+ * never a countdown: the build is static for all three days.
+ */
+export function launchPriceEndsLabel(style: 'long' | 'short' = 'long'): string {
+  return new Date(LAUNCH.launchPriceEnds).toLocaleDateString('en-US', {
+    ...(style === 'long' ? { weekday: 'long' as const } : {}),
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
 }
 
 /* -------------------------------------------------------------------------- */

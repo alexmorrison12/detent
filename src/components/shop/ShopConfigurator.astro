@@ -14,7 +14,7 @@ import SummaryBar from './SummaryBar.astro';
 
 <section id="configure" class="configure" aria-labelledby="configure-title">
   <div class="container configure__grid">
-    <header class="configure__head" data-configure-head>
+    <header class="configure__head">
       <h1 id="configure-title" class="display configure__title" data-knob-type>
         <span>Build</span>
         <span>yours.</span>
@@ -24,7 +24,7 @@ import SummaryBar from './SummaryBar.astro';
         address, so the link is the save button.
       </p>
     </header>
-    <div class="configure__stage" data-configure-stage>
+    <div class="configure__stage">
       <ConfigStage />
     </div>
     <div class="configure__options">
@@ -133,7 +133,7 @@ import SummaryBar from './SummaryBar.astro';
        scrolls inside itself so its last line is always reachable, and its
        lower edge fades while there is more below. */
     .configure__panel > :global(.panel) {
-      gap: var(--space-s);
+      --panel-gap: var(--space-xs);
       max-block-size: calc(100svh - var(--header-h) - 2 * var(--space-m));
       overflow-y: auto;
       scrollbar-width: thin;

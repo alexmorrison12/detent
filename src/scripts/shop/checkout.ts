@@ -23,9 +23,20 @@ import {
 import { track } from '@/lib/analytics';
 import { IS_DEMO, captureRef, isValidEmail, reserve } from '@/lib/waitlist';
 import { url } from '@/lib/url';
-import { cartLinesFor, currentPhase, hasBuildParams, parseBuild, syncCartLines } from './build';
+import {
+  cartLinesFor,
+  currentPhase,
+  hasBuildParams,
+  launchNote,
+  parseBuild,
+  regularUnitPrice,
+  syncCartLines,
+} from './build';
 import { createOrder, saveOrder } from './order';
-import { esc } from './render';
+import { esc, lineThumbHtml } from './render';
+
+/** What the demo wallet "supplies" for an express reservation (RFC 2606 domain). */
+const DEMO_WALLET_EMAIL = 'wallet@example.invalid';
 
 const form = document.querySelector<HTMLFormElement>('[data-checkout]');
 if (form) init(form);
@@ -72,7 +83,11 @@ function init(form: HTMLFormElement) {
     $('[data-co-lines]').innerHTML = state.lines
       .map((l) => {
         const f = finishOf(l.finish);
-        const chip = l.kind === 'accessory' ? '' : ` style="--chip:${f?.body ?? ''}"`;
+        const regular = regularUnitPrice(l);
+        const was =
+          regular === null
+            ? ''
+            : `<s class="col__was"><span class="visually-hidden">Regular price </span>${formatUsd(regular * l.qty)}</s>`;
         const meta = [
           l.kind === 'reservation' ? 'Refundable deposit' : '',
           l.kind === 'device' && f ? f.name : '',
@@ -83,9 +98,9 @@ function init(form: HTMLFormElement) {
           .map(esc)
           .join(' · ');
         return `<li class="col">
-          <span class="col__thumb"><span class="col__chip"${chip}></span>${l.qty > 1 ? `<span class="col__qty readout">${l.qty}</span>` : ''}</span>
+          <span class="col__thumb">${lineThumbHtml(l)}${l.qty > 1 ? `<span class="col__qty readout">${l.qty}</span>` : ''}</span>
           <span><span class="col__name">${esc(l.name.replace(/^Reservation: /, 'Reservation · '))}${l.qty > 1 ? `<span class="visually-hidden">, quantity ${l.qty}</span>` : ''}</span>${meta ? `<br><span class="col__meta">${meta}</span>` : ''}</span>
-          <span class="col__price readout">${formatUsd(l.unitPriceUsd * l.qty)}</span>
+          <span class="col__price readout">${was}<span>${formatUsd(l.unitPriceUsd * l.qty)}</span></span>
         </li>`;
       })
       .join('');
@@ -98,10 +113,15 @@ function init(form: HTMLFormElement) {
       !reservationsOnly && currentPhase() === 'live'
         ? `${PAYMENT.installmentLabel(subtotal)}.`
         : '';
+    // Launch week: the dated deadline and the saving, right by the button
+    // (the summary is folded on phones).
+    const deadline = $<HTMLElement>('[data-co-launch-note]');
+    deadline.textContent = launchNote(state.lines);
+    deadline.hidden = !deadline.textContent;
     $('[data-co-submit-total]').textContent = formatUsd(subtotal);
     $('[data-co-submit-label]').textContent = reservationsOnly
-      ? 'Complete demo reservation'
-      : 'Complete demo order';
+      ? 'Place demo reservation'
+      : 'Place demo order';
   }
   renderSummary(getCart());
   onCartChange(renderSummary);
@@ -245,18 +265,21 @@ function init(form: HTMLFormElement) {
     if (!cart.lines.length) return;
     button.setAttribute('aria-busy', 'true');
     button.disabled = true;
-    // One reservation system: record it where /l/reserve/ looks, so that page
-    // shows it as held (same id) instead of offering a second one. Demo only:
-    // a live endpoint must never receive a reservation from a demo checkout.
-    // Express has no email in the demo (the wallet would supply it).
+    // One reservation system, whichever button paid: record it where
+    // /l/reserve/, the header and the shop look, so they show it as held
+    // (same id) instead of offering a second one. Demo only: a live endpoint
+    // must never receive a reservation from a demo checkout. The demo wallet
+    // has no email to hand over, so express uses the one typed, if any, or a
+    // placeholder on a reserved domain; it never leaves this browser.
     const held = cart.lines.find((l) => l.kind === 'reservation');
     let reservationId: string | undefined;
-    if (held?.edition && held.finish && method === 'form' && IS_DEMO) {
+    if (held?.edition && held.finish && IS_DEMO) {
+      const typed = field('email').value.trim();
       const r = await reserve({
-        email: field('email').value,
+        email: method === 'form' || isValidEmail(typed) ? typed : DEMO_WALLET_EMAIL,
         edition: held.edition,
         finish: held.finish,
-        source: 'shop-checkout',
+        source: method === 'express' ? 'shop-express' : 'shop-checkout',
       });
       if (r.ok) reservationId = r.data.id;
     }
