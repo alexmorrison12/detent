@@ -53,8 +53,21 @@ for (const width of widths) {
   }
   await page.waitForTimeout(wait);
   const out = `${outPrefix}-${width}.png`;
-  await page.screenshot({ path: out, fullPage: flag('full') });
-  console.log(`saved ${out}${errors.length ? `\n  console errors:\n   - ${errors.join('\n   - ')}` : ''}`);
+  const saved = [];
+  const total = flag('full') ? await page.evaluate(() => document.documentElement.scrollHeight) : 0;
+  if (flag('full') && total > 7800) {
+    // SwiftShader can't allocate textures taller than 8192px: capture tiles instead.
+    const tile = 4000;
+    for (let y = 0, i = 1; y < total; y += tile, i++) {
+      const path = `${outPrefix}-${width}-part${i}.png`;
+      await page.screenshot({ path, fullPage: true, clip: { x: 0, y, width, height: Math.min(tile, total - y) } });
+      saved.push(path);
+    }
+  } else {
+    await page.screenshot({ path: out, fullPage: flag('full') });
+    saved.push(out);
+  }
+  console.log(`saved ${saved.join(', ')}${errors.length ? `\n  console errors:\n   - ${errors.join('\n   - ')}` : ''}`);
   await ctx.close();
 }
 await browser.close();
