@@ -2,7 +2,9 @@
 /**
  * A Detent One sitting on a degree scale, for reading where a feel does
  * things: stops, snaps, the deep click at noon. The pointer follows the knob
- * (driven by <daily-detent>). Labels stay upright; 0° is noon.
+ * (driven by <daily-detent>). Labels stay upright; 0° is noon. The −/+
+ * steppers in the lower corners turn it one step of the hidden feel at a time
+ * (the same step as an arrow key), for anyone who can't drag (WCAG 2.5.7).
  */
 import DialStage from '@/components/dial/DialStage.astro';
 
@@ -65,6 +67,7 @@ const labels = Array.from({ length: 12 }, (_, i) => {
     <DialStage
       id={id}
       interactive
+      steppers
       camera="top"
       finish="graphite"
       profile="ratchet"
@@ -128,5 +131,18 @@ const labels = Array.from({ length: 12 }, (_, i) => {
   .pt__knob :global(detent-dial:focus-visible) {
     outline: 2px solid var(--focus);
     outline-offset: 6px;
+  }
+  /* Steppers in the scale's empty lower corners. The knob box is 70% of the
+     protractor, centred: its edges are 15/70 of the knob box beyond each side. */
+  .pt__knob :global(.dial-stage__steppers) {
+    position: absolute;
+    inset-inline: calc(-15 / 70 * 100%);
+    inset-block-end: calc(-15 / 70 * 100%);
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .pt__knob :global(.dial-step) {
+    pointer-events: auto;
+    background: var(--bg);
   }
 </style>

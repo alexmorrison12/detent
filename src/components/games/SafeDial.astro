@@ -3,7 +3,9 @@
  * The safe: a Detent One set into an engraved 0–99 bezel. The bezel turns
  * with the knob (driven by <safe-game>); the index wedge at noon is fixed.
  * Numbers increase counterclockwise around the face, so a right (clockwise)
- * turn brings higher numbers to the index. Drag the bezel or the knob.
+ * turn brings higher numbers to the index. Drag the bezel or the knob, or tap
+ * the −/+ steppers in the door's lower corners (one number each, WCAG 2.5.7):
+ * − is a left turn, + a right turn.
  */
 import DialStage from '@/components/dial/DialStage.astro';
 
@@ -114,6 +116,7 @@ const [lx, ly] = pt(-52);
     <DialStage
       id={id}
       interactive
+      steppers
       camera="top"
       finish="graphite"
       profile="ratchet"
@@ -253,6 +256,20 @@ const [lx, ly] = pt(-52);
   .safe__knob :global(detent-dial:focus-visible) {
     outline: 2px solid var(--focus);
     outline-offset: 6px;
+  }
+  /* The steppers sit in the door's lower corners, outside the round door, so
+     they never cover a number. The knob box is 62% of the safe, centred, so
+     the safe's edges are 19/62 of the knob box beyond each of its edges. */
+  .safe__knob :global(.dial-stage__steppers) {
+    position: absolute;
+    inset-inline: calc(-19 / 62 * 100%);
+    inset-block-end: calc(-19 / 62 * 100%);
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .safe__knob :global(.dial-step) {
+    pointer-events: auto;
+    background: var(--bg);
   }
 
   @media (prefers-reduced-motion: reduce) {

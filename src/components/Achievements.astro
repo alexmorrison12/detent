@@ -3,7 +3,13 @@
  * Site-wide achievements: a quiet toast on each find, a small halo dock that
  * appears after the first one, and the Studio log (a popover) listing what's
  * found and hints for what isn't. Logic lives in @/lib/achievements.
- * Nothing renders visibly until something is found; nothing blocks content.
+ *
+ * Nothing renders until something is found, and nothing covers a call to
+ * action: the toast drops in under the sticky header (or moves to the bottom
+ * edge when a button sits there), and the dock steps aside while a button
+ * scrolls under it. All of it lives in one labelled landmark, which stays
+ * hidden until there is something in it; the live region sits outside it so
+ * the very first find is still announced.
  */
 import { ACHIEVEMENTS } from '@/lib/achievements';
 
@@ -12,9 +18,9 @@ const total = ACHIEVEMENTS.length;
 const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }));
 ---
 
-<div class="ach" data-achievements>
-  <p class="visually-hidden" role="status" aria-live="polite" data-ach-announce></p>
+<p class="visually-hidden" role="status" aria-live="polite" data-ach-announce></p>
 
+<aside class="ach" aria-label="Studio log" data-achievements hidden>
   <button
     class="ach-dock"
     type="button"
@@ -117,7 +123,7 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
         class="ach-reward__face"
         viewBox="-110 -110 220 220"
         role="img"
-        aria-label="The Founders display face: a black round screen with a tally hairline at noon, seven lit ticks and the date of your last find."
+        aria-label="The Studio display face: a black round screen with a tally hairline at noon, seven lit ticks and the date of your last find."
       >
         <circle r="108" class="face__bezel"></circle>
         <circle r="100" class="face__glass"></circle>
@@ -139,11 +145,11 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
           0926
         </text>
         <text class="face__word" y="40" text-anchor="middle">
-          FOUNDERS
+          STUDIO
         </text>
       </svg>
       <div>
-        <h3 id="ach-reward-title">The Founders display face</h3>
+        <h3 id="ach-reward-title">The Studio display face</h3>
         <p>
           All seven, found. This is the face your knob would wear: a tally hairline at noon, one lit
           tick per find, and the day you finished.
@@ -161,7 +167,7 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
       </button>
     </div>
   </div>
-</div>
+</aside>
 
 <script>
   import {
@@ -181,13 +187,30 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   const log = document.getElementById('studio-log') as HTMLElement | null;
   const toast = root?.querySelector<HTMLElement>('[data-ach-toast]');
   const dock = root?.querySelector<HTMLButtonElement>('[data-ach-dock]');
-  const announce = root?.querySelector<HTMLElement>('[data-ach-announce]');
+  const announce = document.querySelector<HTMLElement>('[data-ach-announce]');
+  const header = document.querySelector<HTMLElement>('.site-header');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const dateFmt = new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+  const queue: AchievementEventDetail[] = [];
+  let showing = false;
+  let timer = 0;
+
+  const logOpen = () => {
+    try {
+      return !!log && 'showPopover' in log && log.matches(':popover-open');
+    } catch {
+      return false;
+    }
+  };
+
+  /** The landmark shows only while it holds something: a find, a toast or the open log. */
+  function reveal() {
+    if (root) root.hidden = !(foundCount() > 0 || showing || logOpen());
+  }
 
   function paint() {
     if (!root) return;
@@ -227,24 +250,107 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
         face.textContent = `${String(d.getMonth() + 1).padStart(2, '0')}·${String(d.getDate()).padStart(2, '0')}`;
       }
     }
+    reveal();
+    clearDock();
   }
 
-  /* ---- Toasts: one at a time, ~6 s each, paused while hovered/focused ---- */
-  const queue: AchievementEventDetail[] = [];
-  let showing = false;
-  let timer = 0;
+  /* ---- Keep clear of calls to action ------------------------------------- */
+  // Buttons, and the bars docked to the bottom edge while they show.
+  const CTA = '.btn, [data-sticky-cta][data-visible], [data-summary-bar][data-visible]';
+  const onScreen = (el: Element) =>
+    typeof el.checkVisibility === 'function'
+      ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+      : true;
 
+  /** Area (px²) of calls to action under a rect, counting a little breathing room. */
+  function covered(r: DOMRect, pad: number): number {
+    let area = 0;
+    document.querySelectorAll(CTA).forEach((el) => {
+      if (root?.contains(el)) return;
+      const c = el.getBoundingClientRect();
+      const w = Math.min(r.right + pad, c.right) - Math.max(r.left - pad, c.left);
+      const h = Math.min(r.bottom + pad, c.bottom) - Math.max(r.top - pad, c.top);
+      if (w > 0 && h > 0 && onScreen(el)) area += w * h;
+    });
+    return area;
+  }
+
+  /**
+   * The toast drops in just under the sticky header (its height changes as
+   * the announcement bar scrolls away). If a button is there, it takes the
+   * bottom edge instead, whichever of the two covers less.
+   */
+  function placeToast() {
+    if (!toast || toast.hidden) return;
+    const edge = Math.max(0, header?.getBoundingClientRect().bottom ?? 0);
+    toast.style.setProperty('--ach-header', `${Math.round(edge)}px`);
+    const here = toast.dataset.slot === 'bottom' ? 'bottom' : 'top';
+    const a = covered(toast.getBoundingClientRect(), 12);
+    if (!a) return;
+    toast.dataset.slot = here === 'top' ? 'bottom' : 'top';
+    if (covered(toast.getBoundingClientRect(), 12) >= a) toast.dataset.slot = here;
+  }
+
+  /**
+   * The dock steps aside (fades out) while anything you can press scrolls
+   * under it: a hit test at the centre and twelve points round the rim of the
+   * knob, so it costs the same on a page with five links or five hundred.
+   */
+  const PRESSABLE =
+    'a[href], button, input, select, textarea, summary, label, [tabindex="0"], [data-sticky-cta][data-visible], [data-summary-bar][data-visible]';
+  const SAMPLES: [number, number][] = [[0, 0]];
+  for (let i = 0; i < 12; i++) SAMPLES.push([Math.cos(i * 0.5236), Math.sin(i * 0.5236)]);
+  function clearDock() {
+    if (!dock || dock.hidden || !dock.checkVisibility?.()) return;
+    const r = dock.getBoundingClientRect();
+    const k = r.width / 2 - 1;
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const under = SAMPLES.some(([dx, dy]) =>
+      document
+        .elementsFromPoint(cx + dx * k, cy + dy * k)
+        .some((el) => !root?.contains(el) && el.matches(PRESSABLE)),
+    );
+    dock.toggleAttribute('data-covering', under);
+  }
+
+  // Every frame while scrolling, and once more after it stops: bars docked to
+  // the bottom edge show and hide a beat later, and the dock moves with them.
+  let frame = 0;
+  let settle = 0;
+  const check = () => {
+    placeToast();
+    clearDock();
+  };
+  const keepClear = () => {
+    clearTimeout(settle);
+    settle = window.setTimeout(check, 200);
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      check();
+    });
+  };
+  window.addEventListener('scroll', keepClear, { passive: true });
+  window.addEventListener('resize', keepClear, { passive: true });
+  // The dock slides up over a bar docked to the bottom edge: check where it landed.
+  dock?.addEventListener('transitionend', (e) => {
+    if (e.propertyName === 'inset-block-end' || e.propertyName === 'bottom') clearDock();
+  });
+
+  /* ---- Toasts: one at a time, ~6 s each, paused while hovered/focused ---- */
   function next() {
     if (!toast || showing) return;
     const item = queue.shift();
     if (!item) return;
     showing = true;
+    reveal();
     const name = toast.querySelector('[data-ach-toast-name]');
     const line = toast.querySelector('[data-ach-toast-line]');
     if (name) name.textContent = item.achievement.name;
     if (line) {
       line.textContent = item.complete
-        ? `${item.achievement.found} That's all seven. The Founders display face is in your log.`
+        ? `${item.achievement.found} That's all seven. The Studio display face is in your log.`
         : item.achievement.found;
     }
     toast.querySelectorAll<SVGLineElement>('[data-ach-tick]').forEach((t) => {
@@ -253,8 +359,10 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     if (announce)
       announce.textContent = `Found: ${item.achievement.name}. ${item.found} of ${item.total}.`;
     if (dock) dock.dataset.hidden = 'true';
+    toast.dataset.slot = 'top';
     toast.hidden = false;
     toast.dataset.state = 'in';
+    placeToast();
     arm(matchMedia('(max-width: 40rem)').matches ? 4500 : 6500);
   }
 
@@ -271,6 +379,8 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
       toast.hidden = true;
       showing = false;
       if (dock) delete dock.dataset.hidden;
+      reveal();
+      clearDock();
       window.setTimeout(next, 400);
     };
     if (reduced.matches) window.setTimeout(done, 200);
@@ -295,18 +405,23 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   });
 
   /* ---- Studio log -------------------------------------------------------- */
+  const openLog = () => {
+    if (!log || !('showPopover' in log) || logOpen()) return;
+    // The landmark may still be hidden (nothing found yet): show it first.
+    if (root) root.hidden = false;
+    log.showPopover();
+  };
   document.addEventListener('click', (e) => {
     const opener = (e.target as Element | null)?.closest('[data-studio-log-open]');
     if (opener && log && 'showPopover' in log) {
       e.preventDefault();
-      log.showPopover();
+      openLog();
     }
   });
   log?.addEventListener('toggle', (e) => {
-    if ((e as ToggleEvent).newState === 'open') {
-      paint();
+    paint();
+    if ((e as ToggleEvent).newState === 'open')
       log.querySelector<HTMLElement>('#studio-log-title')?.focus({ preventScroll: true });
-    }
   });
 
   const reset = root?.querySelector<HTMLButtonElement>('[data-ach-reset]');
@@ -329,13 +444,7 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
 
   paint();
   const openFromHash = () => {
-    if (
-      location.hash === '#studio-log' &&
-      log &&
-      'showPopover' in log &&
-      !log.matches(':popover-open')
-    )
-      log.showPopover();
+    if (location.hash === '#studio-log') openLog();
   };
   openFromHash();
   window.addEventListener('hashchange', openFromHash);
@@ -355,23 +464,29 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     background: var(--graphite-900);
     color: var(--alu-100);
     box-shadow: var(--shadow-2);
+    opacity: 0.82;
     transition:
       opacity var(--dur-2) var(--ease-out),
       transform var(--dur-1) var(--ease-out),
       inset-block-end var(--dur-3) var(--ease-out);
   }
-  .ach-dock:not(:hover, :focus-visible) {
-    opacity: 0.82;
+  .ach-dock:focus-visible {
+    opacity: 1;
   }
-  .ach-dock[data-hidden] {
-    opacity: 0;
-    pointer-events: none;
-  }
-  .ach-dock:hover {
-    transform: rotate(-12deg);
+  @media (hover: hover) {
+    .ach-dock:hover {
+      opacity: 1;
+      transform: rotate(-12deg);
+    }
   }
   .ach-dock:active {
     transform: translateY(1px);
+  }
+  /* A toast is up, or a button has scrolled under the dock: step aside
+     (unless the keyboard is on it). */
+  .ach-dock:is([data-hidden], [data-covering]):not(:focus-visible) {
+    opacity: 0;
+    pointer-events: none;
   }
   .ach-dock__knob {
     fill: var(--graphite-700);
@@ -387,10 +502,14 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   }
 
   /* ---- Toast ---------------------------------------------------------------- */
+  /* Top right, just under the sticky header (--ach-header is its measured
+     bottom edge), where calls to action rarely sit; the header's own CTA stays
+     uncovered. If a button is there anyway, the script moves it to the bottom
+     edge (data-slot="bottom"), above any bar docked there. */
   .ach-toast {
     position: fixed;
-    inset-inline-start: max(var(--space-s), env(safe-area-inset-left));
-    inset-block-end: max(var(--space-s), env(safe-area-inset-bottom), var(--ach-lift) + var(--space-xs));
+    inset-block-start: calc(var(--ach-header, var(--header-h)) + var(--space-s));
+    inset-inline-end: max(var(--space-s), env(safe-area-inset-right));
     z-index: var(--z-toast);
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -408,13 +527,24 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
       opacity var(--dur-3) var(--ease-out),
       translate var(--dur-3) var(--ease-out);
   }
+  .ach-toast[data-slot='bottom'] {
+    inset-block: auto
+      max(var(--space-s), env(safe-area-inset-bottom), var(--ach-lift) + var(--space-xs));
+  }
+  /* It drops in from the edge it sits on. */
   .ach-toast[data-state='out'] {
     opacity: 0;
+    translate: 0 -0.5rem;
+  }
+  .ach-toast[data-slot='bottom'][data-state='out'] {
     translate: 0 0.5rem;
   }
   @starting-style {
     .ach-toast[data-state='in'] {
       opacity: 0;
+      translate: 0 -0.75rem;
+    }
+    .ach-toast[data-slot='bottom'][data-state='in'] {
       translate: 0 0.75rem;
     }
   }
@@ -471,9 +601,11 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     border-radius: 50%;
     color: oklch(0.8 0.006 355);
   }
-  .ach-toast__close:hover {
-    color: var(--white);
-    background: oklch(1 0 0 / 0.08);
+  @media (hover: hover) {
+    .ach-toast__close:hover {
+      color: var(--white);
+      background: oklch(1 0 0 / 0.08);
+    }
   }
 
   /* ---- Studio log ------------------------------------------------------------ */
@@ -544,9 +676,11 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     border-radius: 50%;
     color: var(--ink-muted);
   }
-  .ach-log__close:hover {
-    color: var(--ink-strong);
-    background: var(--surface);
+  @media (hover: hover) {
+    .ach-log__close:hover {
+      color: var(--ink-strong);
+      background: var(--surface);
+    }
   }
   .ach-log__list {
     display: grid;
@@ -674,8 +808,10 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     text-decoration: underline;
     text-underline-offset: 0.25em;
   }
-  .ach-log__reset:hover {
-    color: var(--ink-strong);
+  @media (hover: hover) {
+    .ach-log__reset:hover {
+      color: var(--ink-strong);
+    }
   }
 
   /* A fixed bottom bar owns the bottom edge while it shows (the shop summary
@@ -703,31 +839,29 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   }
 
   /* Small screens: no resting dock (it would sit on content); toasts become a
-     compact banner at the top, clear of game controls and thumb reach. */
+     compact full-width banner under the header (never over its CTA or Menu),
+     clear of game controls and thumb reach. */
   @media (max-width: 40rem) {
     .ach-dock {
       display: none;
     }
     .ach-toast {
-      inset-block: max(var(--space-2xs), env(safe-area-inset-top)) auto;
-      inset-inline: var(--space-2xs);
+      inset-block-start: calc(var(--ach-header, var(--header-h)) + var(--space-2xs));
+      inset-inline: max(var(--space-2xs), env(safe-area-inset-left))
+        max(var(--space-2xs), env(safe-area-inset-right));
       inline-size: auto;
       align-items: center;
+    }
+    .ach-toast[data-slot='bottom'] {
+      inset-block: auto
+        max(var(--space-2xs), env(safe-area-inset-bottom), var(--ach-lift) + var(--space-2xs));
     }
     .ach-toast__line {
       display: none;
     }
     .ach-toast__log {
       margin-block-start: 0;
-      min-block-size: 2.25rem;
-    }
-    .ach-toast[data-state='out'] {
-      translate: 0 -0.5rem;
-    }
-    @starting-style {
-      .ach-toast[data-state='in'] {
-        translate: 0 -0.75rem;
-      }
+      min-block-size: 2.75rem;
     }
   }
 
@@ -745,12 +879,14 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
   @media (prefers-reduced-motion: reduce) {
     .ach-toast,
     .ach-toast[data-state='out'],
+    .ach-toast[data-slot='bottom'][data-state='out'],
     .ach-log,
     .ach-log:popover-open {
       translate: none;
     }
     @starting-style {
       .ach-toast[data-state='in'],
+      .ach-toast[data-slot='bottom'][data-state='in'],
       .ach-log:popover-open {
         translate: none;
       }
@@ -761,6 +897,8 @@ const ticks = ACHIEVEMENTS.map((a, i) => ({ id: a.id, rot: (360 / total) * i }))
     .ach-dock {
       transition: opacity var(--dur-2) var(--ease-out);
     }
+  }
+  @media (prefers-reduced-motion: reduce) and (hover: hover) {
     .ach-dock:hover {
       transform: none;
     }
