@@ -150,6 +150,10 @@ export const COMPATIBILITY: { feature: string; cells: { s: Support; note?: strin
 /* What it can't do (yet). Honest limits, each with a status.                 */
 /* -------------------------------------------------------------------------- */
 
+/** "about 40 hours", from the Battery row. */
+const batteryLife = specValue('Connectivity & power', 'Battery').match(/about \d+ hours/)?.[0];
+if (!batteryLife) throw new Error('engineering: no "about N hours" in the Battery spec row');
+
 export interface Limit {
   title: string;
   body: string;
@@ -173,7 +177,7 @@ export const LIMITS: Limit[] = [
   },
   {
     title: 'Give full torque on battery.',
-    body: 'Wireless, peak torque is capped at 24 mN·m so a charge lasts about 40 hours. Plug in and you get the full 32.',
+    body: `Wireless, peak torque is capped at ${specNumber('Haptics', 'Torque on battery')} mN·m so a charge lasts ${batteryLife}. Plug in and you get the full ${specNumber('Haptics', 'Peak torque')}.`,
     status: 'By design',
     planned: false,
   },
