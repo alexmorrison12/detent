@@ -1,0 +1,146 @@
+---
+/**
+ * A slim bar that sticks under the site header for the rest of the plan:
+ * five phase links (plain ?phase= URLs without JS), the lit one is the
+ * phase the site and this page are tuned to.
+ */
+import { PHASES, PHASE_ORDER } from '@/config/launch';
+import { fmtDot } from '@/data/launch-plan';
+---
+
+<nav class="tuner" aria-label="Tune the plan to a phase">
+  <div class="container tuner__inner">
+    <p class="tuner__label" aria-hidden="true">
+      Tuned to
+    </p>
+    <ol class="tuner__list" role="list">
+      {PHASE_ORDER.map((id) => (
+        <li data-plan-phase={id}>
+          <a href={`?phase=${id}`} data-phase-link={id} data-no-prerender>
+            <span class="tuner__lamp" aria-hidden="true" />
+            <span class="tuner__name">{PHASES[id].name}</span>
+            {PHASES[id].name.includes(' ') && (
+              <span class="tuner__short" aria-hidden="true">
+                {PHASES[id].name.split(' ')[0]}
+              </span>
+            )}
+            <span class="tuner__date readout">{fmtDot(PHASES[id].starts)}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </div>
+</nav>
+
+<script>
+  import { initPhaseLinks } from './preview';
+  initPhaseLinks();
+</script>
+
+<style>
+  .tuner {
+    position: sticky;
+    inset-block-start: var(--header-h);
+    z-index: var(--z-sticky);
+    background: var(--bg);
+    border-block: 1px solid var(--line);
+  }
+  .tuner__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-m);
+    min-block-size: 3rem;
+  }
+  .tuner__label {
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .tuner__list {
+    display: flex;
+    gap: 0.15rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tuner__list a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-block-size: 2.5rem;
+    padding-inline: 0.8em;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    transition:
+      color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .tuner__list a:hover {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .tuner__list a[aria-current='true'] {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .tuner__lamp {
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: 50%;
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 100%), var(--line-strong));
+    box-shadow: 0 0 calc(var(--air, 0) * 8px) calc(var(--air, 0) * 1px) var(--tally);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
+  }
+  .tuner__short {
+    display: none;
+  }
+  .tuner__date {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+
+  @media (max-width: 48rem) {
+    .tuner__label,
+    .tuner__date {
+      display: none;
+    }
+    .tuner__short {
+      display: inline;
+    }
+    .tuner__short + .tuner__date,
+    li:has(.tuner__short) .tuner__name {
+      position: absolute;
+      clip-path: inset(50%);
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .tuner__inner {
+      width: 100%;
+      padding-inline: 0.5rem;
+    }
+    .tuner__list {
+      inline-size: 100%;
+      justify-content: space-between;
+    }
+    .tuner__list a {
+      padding-inline: 0.55em;
+      gap: 0.35em;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tuner__list a,
+    .tuner__lamp {
+      transition: none;
+    }
+  }
+</style>

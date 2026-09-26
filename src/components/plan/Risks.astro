@@ -1,0 +1,136 @@
+---
+/** Risks, each with the signal that trips it, the first move, and an owner. */
+import { RISKS } from '@/data/launch-plan';
+---
+
+<section class="risks" id="risks" aria-labelledby="risks-title">
+  <div class="container">
+    <header class="risks__head">
+      <h2 id="risks-title" class="display display--m">
+        What breaks, and what we do first.
+      </h2>
+      <p class="risks__lede">
+        Every risk has a tripwire we can see coming and a first move agreed in advance, so nobody
+        improvises on a bad day.
+      </p>
+    </header>
+
+    <div class="risks__cols" aria-hidden="true">
+      <span>Risk</span>
+      <span>Tripwire</span>
+      <span>First move</span>
+      <span>Owner</span>
+    </div>
+    <ul class="risks__list" role="list">
+      {RISKS.map((r) => (
+        <li class="risk">
+          <h3 class="risk__name">{r.risk}</h3>
+          <dl class="risk__dl">
+            <div class="risk__signal">
+              <dt>Tripwire</dt>
+              <dd>{r.signal}</dd>
+            </div>
+            <div class="risk__response">
+              <dt>First move</dt>
+              <dd>{r.response}</dd>
+            </div>
+            <div class="risk__owner">
+              <dt>Owner</dt>
+              <dd>{r.owner}</dd>
+            </div>
+          </dl>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>
+
+<style>
+  .risks {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    border-block-start: 1px solid var(--line);
+  }
+  .risks__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-s) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-xl);
+  }
+  .risks__lede {
+    color: var(--ink-muted);
+    max-width: 46ch;
+  }
+  .risks__cols,
+  .risk {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 3fr) minmax(0, 5fr) minmax(0, 1.3fr);
+    gap: var(--space-s) var(--space-l);
+  }
+  .risks__cols {
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink-muted);
+    padding-block-end: var(--space-2xs);
+    border-block-end: 1px solid var(--line-strong);
+  }
+  .risk {
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+  }
+  .risk__name {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.35;
+  }
+  .risk__dl {
+    display: contents;
+  }
+  .risk__dl dt {
+    position: absolute;
+    clip-path: inset(50%);
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .risk__dl dd {
+    font-size: var(--step--1);
+  }
+  .risk__signal dd {
+    color: var(--ink-strong);
+  }
+  .risk__response dd {
+    color: var(--ink);
+  }
+  .risk__owner dd {
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+
+  @media (max-width: 56rem) {
+    .risks__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .risks__cols {
+      display: none;
+    }
+    .risk {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .risk__dl {
+      display: grid;
+      gap: var(--space-s);
+    }
+    .risk__dl dt {
+      position: static;
+      clip-path: none;
+      inline-size: auto;
+      block-size: auto;
+      font-size: var(--step--2);
+      font-weight: 620;
+      color: var(--ink-muted);
+    }
+  }
+</style>

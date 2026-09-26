@@ -1,0 +1,300 @@
+---
+/**
+ * Four prices and a deposit on one dollar scale, each with the job it does.
+ * An engraved ruler: $10 ticks, $100 labels. Labels alternate above and below
+ * so close prices ($20/$50, $299/$349) never collide at phone width.
+ */
+import { PRICE_POINTS, PRICE_RULES, fmtPct } from '@/data/launch-plan';
+import { byEdition } from '@/data/product';
+
+const MAX = 500;
+const ticks = Array.from({ length: MAX / 10 + 1 }, (_, i) => i * 10);
+const x = (usd: number) => `${((usd / MAX) * 100).toFixed(3)}%`;
+const anchor = (usd: number) => (usd / MAX < 0.12 ? 'start' : usd / MAX > 0.86 ? 'end' : 'center');
+const one = byEdition('one');
+---
+
+<section class="price" id="price" aria-labelledby="price-title">
+  <div class="container">
+    <header class="price__head">
+      <h2 id="price-title" class="display display--m">
+        Five prices. Each has one job.
+      </h2>
+      <p class="price__lede">
+        Two real editions, one dated launch price, and a deposit small enough to say yes to. The
+        launch price is {fmtPct((one.priceUsd - one.launchPriceUsd) / one.priceUsd)} off list, and
+        it is the only price cut in year one.
+      </p>
+    </header>
+
+    <div class="ruler" aria-hidden="true">
+      <div class="ruler__lane ruler__lane--above">
+        {PRICE_POINTS.filter((p) => p.lane === 'above').map((p) => (
+          <span class="mark" data-anchor={anchor(p.usd)} style={`--x:${x(p.usd)}`}>
+            <span class="mark__usd">${p.usd}</span>
+            <span class="mark__name">{p.name}</span>
+          </span>
+        ))}
+      </div>
+      <div class="ruler__scale">
+        {ticks.map((t) => (
+          <span
+            class:list={[
+              'ruler__tick',
+              { 'ruler__tick--50': t % 50 === 0, 'ruler__tick--100': t % 100 === 0 },
+            ]}
+            style={`--x:${x(t)}`}
+          />
+        ))}
+        {PRICE_POINTS.map((p) => (
+          <span class="ruler__pin" data-lane={p.lane} style={`--x:${x(p.usd)}`} />
+        ))}
+      </div>
+      <div class="ruler__labels">
+        {ticks
+          .filter((t) => t % 100 === 0)
+          .map((t) => (
+            <span
+              data-edge={t === 0 ? 'start' : t === MAX ? 'end' : undefined}
+              style={`--x:${x(t)}`}
+            >
+              ${t}
+            </span>
+          ))}
+      </div>
+      <div class="ruler__lane ruler__lane--below">
+        {PRICE_POINTS.filter((p) => p.lane === 'below').map((p) => (
+          <span class="mark" data-anchor={anchor(p.usd)} style={`--x:${x(p.usd)}`}>
+            <span class="mark__usd">${p.usd}</span>
+            <span class="mark__name">{p.name}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+
+    <dl class="jobs">
+      {PRICE_POINTS.map((p) => (
+        <div class="job">
+          <dt>
+            <span class="job__usd">${p.usd}</span>
+            <span class="job__name">{p.name}</span>
+          </dt>
+          <dd>
+            <strong class="job__job">{p.job}.</strong> {p.why}
+          </dd>
+        </div>
+      ))}
+    </dl>
+
+    <div class="rules">
+      <h3 class="rules__title">What we don’t do with price</h3>
+      <ul class="rules__list" role="list">
+        {PRICE_RULES.map((r) => (
+          <li>{r}</li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .price {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    border-block-start: 1px solid var(--line);
+  }
+  .price__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-s) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-2xl);
+  }
+  .price__lede {
+    color: var(--ink-muted);
+    max-width: 46ch;
+  }
+
+  /* ---- Ruler ----------------------------------------------------------- */
+  .ruler {
+    display: grid;
+    gap: 0;
+    margin-inline: 0.5rem;
+  }
+  .ruler__lane {
+    position: relative;
+    block-size: 4.2rem;
+  }
+  .ruler__scale {
+    position: relative;
+    block-size: 1.6rem;
+    border-block-end: 2px solid var(--ink-strong);
+  }
+  .ruler__tick {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-start: var(--x);
+    inline-size: 1px;
+    block-size: 0.45rem;
+    background: var(--ink-muted);
+  }
+  .ruler__tick--50 {
+    block-size: 0.8rem;
+  }
+  .ruler__tick--100 {
+    block-size: 1.2rem;
+    inline-size: 2px;
+    background: var(--ink-strong);
+  }
+  .ruler__pin {
+    position: absolute;
+    inset-inline-start: var(--x);
+    inline-size: 2px;
+    translate: -1px 0;
+    background: var(--accent);
+  }
+  .ruler__pin[data-lane='above'] {
+    inset-block: -1rem 0;
+  }
+  .ruler__pin[data-lane='below'] {
+    inset-block: 0 -3.4rem;
+  }
+  .ruler__labels {
+    position: relative;
+    block-size: 1.6rem;
+  }
+  .ruler__labels span {
+    position: absolute;
+    inset-inline-start: var(--x);
+    inset-block-start: 0.3rem;
+    translate: -50% 0;
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .ruler__labels span[data-edge='start'] {
+    translate: 0 0;
+  }
+  .ruler__labels span[data-edge='end'] {
+    translate: -100% 0;
+  }
+  .mark {
+    position: absolute;
+    inset-inline-start: var(--x);
+    display: grid;
+    translate: -50% 0;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .ruler__lane--above .mark {
+    inset-block-end: 1.1rem;
+  }
+  .ruler__lane--below .mark {
+    inset-block-start: 1.9rem;
+  }
+  .mark[data-anchor='start'] {
+    translate: -0.35rem 0;
+    text-align: start;
+  }
+  .mark[data-anchor='end'] {
+    translate: calc(-100% + 0.35rem) 0;
+    text-align: end;
+  }
+  .mark__usd {
+    font-size: var(--step-2);
+    font-weight: 780;
+    font-stretch: var(--stretch-ui);
+    line-height: 1;
+    color: var(--ink-strong);
+  }
+  .mark__name {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+
+  /* ---- Jobs ------------------------------------------------------------ */
+  .jobs {
+    margin-block-start: var(--space-2xl);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .job {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+    gap: var(--space-s) var(--space-l);
+    padding-block: var(--space-m);
+    border-block-end: 1px solid var(--line);
+  }
+  .job dt {
+    display: grid;
+    align-content: start;
+  }
+  .job__usd {
+    font-size: var(--step-3);
+    font-weight: 780;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: 1;
+    color: var(--ink-strong);
+  }
+  .job__name {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    margin-block-start: 0.35rem;
+  }
+  .job dd {
+    color: var(--ink);
+    max-width: 68ch;
+    align-self: center;
+  }
+  .job__job {
+    color: var(--ink-strong);
+  }
+
+  .rules {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+    gap: var(--space-s) var(--space-l);
+    margin-block-start: var(--space-xl);
+  }
+  .rules__title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+  }
+  .rules__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--space-s) var(--space-l);
+  }
+  .rules__list li {
+    font-size: var(--step--1);
+    color: var(--ink);
+    padding-block-start: var(--space-s);
+    border-block-start: 2px solid var(--ink-strong);
+  }
+
+  @media (max-width: 48rem) {
+    .price__head,
+    .job,
+    .rules {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .mark__usd {
+      font-size: var(--step-1);
+    }
+    .mark__name {
+      display: none;
+    }
+    .ruler__labels span[data-edge='start'] {
+      display: none;
+    }
+    .ruler__lane {
+      block-size: 3.4rem;
+    }
+    .ruler__pin[data-lane='below'] {
+      inset-block: 0 -2.9rem;
+    }
+    .ruler__lane--below .mark {
+      inset-block-start: 1.5rem;
+    }
+  }
+</style>

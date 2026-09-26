@@ -1,0 +1,180 @@
+---
+/** Positioning, the sentence we refuse, the ICP and the order we go after audiences in. */
+import { AUDIENCES } from '@/data/product';
+import { POSITIONING } from '@/data/launch-plan';
+import { url } from '@/lib/url';
+
+const order = POSITIONING.order.map((id, i) => ({
+  audience: AUDIENCES.find((a) => a.id === id)!,
+  why: POSITIONING.orderWhy[i],
+}));
+---
+
+<section class="pos" id="position" aria-labelledby="pos-title">
+  <div class="container pos__grid">
+    <h2 id="pos-title" class="display display--m pos__title">
+      Who it’s for, in one sentence.
+    </h2>
+
+    <figure class="pos__say">
+      <blockquote>
+        <p>{POSITIONING.statement}</p>
+      </blockquote>
+      <figcaption>The sentence we sell with.</figcaption>
+    </figure>
+
+    <figure class="pos__refuse">
+      <blockquote>
+        <p>
+          <s>{POSITIONING.refuse}</s>
+        </p>
+      </blockquote>
+      <figcaption>The sentence every competitor could write. We don’t.</figcaption>
+    </figure>
+
+    <dl class="pos__icp">
+      <div>
+        <dt>The buyer</dt>
+        <dd>{POSITIONING.icp}</dd>
+      </div>
+      <div>
+        <dt>Not the buyer</dt>
+        <dd>{POSITIONING.notFor}</dd>
+      </div>
+    </dl>
+
+    <div class="pos__order">
+      <h3 class="pos__order-title">The order we go after them in</h3>
+      <ol class="pos__list" role="list">
+        {order.map((o, i) => (
+          <li>
+            <span class="pos__n readout" aria-hidden="true">
+              {i + 1}
+            </span>
+            <span class="pos__who">
+              <a href={url(`/for/${o.audience.id}/`)}>{o.audience.label}</a>
+              <span class="pos__headline">“{o.audience.headline}”</span>
+            </span>
+            <span class="pos__why">{o.why}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pos {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+  }
+  .pos__grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--space-xl) var(--space-l);
+  }
+  .pos__title {
+    grid-column: 1 / span 7;
+  }
+  .pos__say {
+    grid-column: 1 / span 8;
+    display: grid;
+    gap: var(--space-s);
+  }
+  .pos__say p {
+    font-size: var(--step-2);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--ink-strong);
+    text-wrap: pretty;
+  }
+  .pos__refuse {
+    grid-column: 9 / -1;
+    align-self: end;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .pos__refuse p {
+    font-size: var(--step-1);
+    color: var(--ink-muted);
+    line-height: 1.35;
+  }
+  .pos__refuse s {
+    text-decoration-color: var(--tally);
+    text-decoration-thickness: 2px;
+  }
+  .pos figcaption {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+
+  .pos__icp {
+    grid-column: 1 / span 5;
+    display: grid;
+    gap: var(--space-m);
+    align-content: start;
+  }
+  .pos__icp dt {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    margin-block-end: 0.25rem;
+  }
+  .pos__icp dd {
+    color: var(--ink);
+    max-width: 52ch;
+  }
+
+  .pos__order {
+    grid-column: 7 / -1;
+  }
+  .pos__order-title {
+    font-size: var(--step-0);
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    margin-block-end: var(--space-s);
+  }
+  .pos__list li {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0.2rem var(--space-s);
+    padding-block: var(--space-s);
+    border-block-start: 1px solid var(--line);
+  }
+  .pos__n {
+    grid-row: span 2;
+    font-size: var(--step-1);
+    color: var(--accent-text);
+    line-height: 1.2;
+  }
+  .pos__who {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.75rem;
+    align-items: baseline;
+  }
+  .pos__who a {
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+  }
+  .pos__headline {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+  }
+  .pos__why {
+    font-size: var(--step--1);
+    color: var(--ink);
+  }
+
+  @media (max-width: 56rem) {
+    .pos__title,
+    .pos__say,
+    .pos__refuse,
+    .pos__icp,
+    .pos__order {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

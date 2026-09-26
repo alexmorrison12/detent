@@ -1,0 +1,218 @@
+---
+/** Week-by-week content calendar. Rows light up for the phase being previewed. */
+import { PHASES } from '@/config/launch';
+import { WEEKS, addDays, fmtShort, numberWord, PAID_TOTAL_USD } from '@/data/launch-plan';
+import { formatUsd } from '@/data/product';
+
+const rows = WEEKS.map((w) => ({
+  ...w,
+  label: `${fmtShort(w.start)} – ${fmtShort(addDays(w.start, 6))}`,
+  phaseName: w.phase === 'prep' ? 'Prep' : PHASES[w.phase].name,
+}));
+---
+
+<section class="cal" id="calendar" aria-labelledby="cal-title">
+  <div class="container">
+    <header class="cal__head">
+      <h2 id="cal-title" class="display display--m">
+        {numberWord(WEEKS.length)} weeks, week by week.
+      </h2>
+      <p class="cal__lede">
+        Monday to Sunday. Paid spend is {formatUsd(PAID_TOTAL_USD)} in total and stops the week
+        after launch; everything after that is the operations plan.
+      </p>
+    </header>
+
+    <div class="cal__wrap" data-tunable>
+      <table class="cal__table" role="table">
+        <caption class="visually-hidden">Content calendar by week</caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col" role="columnheader">
+              Week
+            </th>
+            <th scope="col" role="columnheader">
+              Site and email
+            </th>
+            <th scope="col" role="columnheader">
+              Community
+            </th>
+            <th scope="col" role="columnheader">
+              Creators and press
+            </th>
+            <th scope="col" role="columnheader">
+              Paid
+            </th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {rows.map((w) => (
+            <tr role="row" data-plan-phase={w.phase === 'prep' ? undefined : w.phase} data-tune-row>
+              <th scope="row" role="rowheader">
+                <span class="cal__week">{w.label}</span>
+                <span class="cal__phase">
+                  <span class="cal__lamp" aria-hidden="true" />
+                  {w.phaseName}
+                </span>
+              </th>
+              <td role="cell" data-label="Site and email">
+                {w.site}
+              </td>
+              <td role="cell" data-label="Community">
+                {w.community}
+              </td>
+              <td role="cell" data-label="Creators and press">
+                {w.creators}
+              </td>
+              <td role="cell" data-label="Paid" class="cal__paid">
+                <strong class="cal__usd">{w.paidUsd ? formatUsd(w.paidUsd) : '$0'}</strong>
+                <span>{w.paid}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button
+        class="btn btn--sm cal__toggle"
+        type="button"
+        data-tune-toggle
+        aria-expanded="false"
+        hidden
+      >
+        Show all {WEEKS.length} weeks
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { initTunables } from './preview';
+  initTunables();
+</script>
+
+<style>
+  .cal {
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    background: var(--bg-raised);
+  }
+  .cal__head {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-s) clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+    margin-block-end: var(--space-xl);
+  }
+  .cal__lede {
+    color: var(--ink-muted);
+    max-width: 46ch;
+  }
+  .cal__toggle {
+    margin-block-start: var(--space-m);
+  }
+  .cal__table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+    line-height: 1.5;
+  }
+  .cal__table th,
+  .cal__table td {
+    text-align: start;
+    vertical-align: top;
+    padding: 0.9rem 1.1rem 0.9rem 0;
+    border-block-end: 1px solid var(--line);
+  }
+  .cal__table thead th {
+    font-weight: 620;
+    color: var(--ink-muted);
+    border-block-end: 1px solid var(--line-strong);
+    padding-block-start: 0;
+  }
+  .cal__table tbody th {
+    inline-size: 11rem;
+  }
+  .cal__table td {
+    inline-size: 20%;
+  }
+  .cal__table tbody tr {
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 6%), transparent);
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .cal__week {
+    display: block;
+    font-weight: 700;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    white-space: nowrap;
+  }
+  .cal__phase {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45em;
+    font-weight: 500;
+    color: var(--ink-muted);
+  }
+  .cal__lamp {
+    inline-size: 0.45rem;
+    block-size: 0.45rem;
+    border-radius: 50%;
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 100%), var(--line-strong));
+    transition: background-color var(--dur-2) var(--ease-out);
+  }
+  .cal__paid span {
+    display: block;
+    color: var(--ink-muted);
+  }
+  .cal__usd {
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 64rem) {
+    .cal__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .cal__table thead {
+      display: none;
+    }
+    .cal__table,
+    .cal__table tbody,
+    .cal__table tr {
+      display: grid;
+    }
+    .cal__table tr {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-s) var(--space-l);
+      padding: var(--space-m) var(--space-s);
+      border-block-end: 1px solid var(--line);
+    }
+    .cal__table th,
+    .cal__table td {
+      display: grid;
+      gap: 0.2rem;
+      inline-size: auto;
+      padding: 0;
+      border: 0;
+    }
+    .cal__table tbody th {
+      grid-column: 1 / -1;
+      inline-size: auto;
+    }
+    .cal__table td::before {
+      content: attr(data-label);
+      font-weight: 620;
+      font-size: var(--step--2);
+      color: var(--ink-muted);
+    }
+  }
+  @media (max-width: 36rem) {
+    .cal__table tr {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cal__table tbody tr,
+    .cal__lamp {
+      transition: none;
+    }
+  }
+</style>

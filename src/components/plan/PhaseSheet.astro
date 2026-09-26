@@ -1,0 +1,399 @@
+---
+/**
+ * One phase of the launch: objective, offer, landing page, CTA, channels,
+ * KPIs with alarms, exit condition, and the two preview links. Lights up
+ * (tally lamp + "previewing") when the site is previewing this phase.
+ */
+import { PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+import {
+  MOMENTS,
+  PHASE_PLANS,
+  fmtDay,
+  fmtDot,
+  fmtPacific,
+  fmtUtc,
+  phaseDays,
+  phaseEnds,
+} from '@/data/launch-plan';
+import { url } from '@/lib/url';
+
+interface Props {
+  id: Phase;
+}
+const { id } = Astro.props;
+const cfg = PHASES[id];
+const plan = PHASE_PLANS[id];
+const i = PHASE_ORDER.indexOf(id);
+const end = phaseEnds(id);
+const days = phaseDays(id);
+const moments = MOMENTS.filter((m) => m.date >= cfg.starts && (!end || m.date <= end));
+const headingId = `phase-${id}-title`;
+---
+
+<article
+  class="sheet"
+  id={`phase-${id}`}
+  data-plan-phase={id}
+  data-plan-panel
+  aria-labelledby={headingId}
+>
+  <header class="sheet__side">
+    <div class="sheet__seq">
+      <ol class="sheet__steps" role="list" aria-hidden="true">
+        {PHASE_ORDER.map((_, j) => (
+          <li data-state={j < i ? 'done' : j === i ? 'now' : 'next'} />
+        ))}
+      </ol>
+      <p class="sheet__index readout">
+        Phase {i + 1} of {PHASE_ORDER.length}
+      </p>
+    </div>
+    <h3 id={headingId} class="sheet__name">
+      {cfg.name}
+    </h3>
+    <p class="sheet__when">
+      <time datetime={cfg.starts}>{fmtDay(cfg.starts)}</time>
+      {end ? (
+        <>
+          {' '}
+          → <time datetime={end}>{fmtDay(end)}</time>
+        </>
+      ) : (
+        ' onward'
+      )}
+    </p>
+    <p class="sheet__meta readout">
+      {days ? `${days} ${days === 1 ? 'day' : 'days'} · ` : ''}flips {fmtPacific(plan.flipAt)} (
+      {fmtUtc(plan.flipAt)})
+    </p>
+    <p class="sheet__air" aria-hidden="true">
+      <span class="sheet__lamp"></span>
+      Previewing now
+    </p>
+  </header>
+
+  <div class="sheet__body">
+    <p class="sheet__objective">{plan.objective}</p>
+
+    <dl class="sheet__facts">
+      <div>
+        <dt>Landing page</dt>
+        <dd>
+          <a class="sheet__route" href={`${url(cfg.landing)}?phase=${id}`} data-no-prerender>
+            {cfg.landing}
+          </a>
+        </dd>
+      </div>
+      <div>
+        <dt>Primary action</dt>
+        <dd>
+          <span class="sheet__cta">{cfg.primary.label}</span>
+          <span class="sheet__note">{cfg.primary.note}</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Offer</dt>
+        <dd>{plan.offer}</dd>
+      </div>
+      <div>
+        <dt>Who we talk to</dt>
+        <dd>{plan.audience}</dd>
+      </div>
+      <div>
+        <dt>Channels</dt>
+        <dd>
+          <ul class="sheet__list" role="list">
+            {plan.channels.map((c) => (
+              <li>{c}</li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+      <div>
+        <dt>Announcement bar</dt>
+        <dd class="sheet__banner">{cfg.banner}</dd>
+      </div>
+    </dl>
+
+    <table class="kpis">
+      <caption class="visually-hidden">{cfg.name}targets and alarms</caption>
+      <thead>
+        <tr>
+          <th scope="col">Measure</th>
+          <th scope="col">Target</th>
+          <th scope="col">Alarm</th>
+        </tr>
+      </thead>
+      <tbody>
+        {plan.kpis.map((k) => (
+          <tr>
+            <th scope="row">{k.metric}</th>
+            <td class="kpis__target">{k.target}</td>
+            <td class="kpis__alarm">{k.alarm}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    {moments.length > 0 && (
+      <ol class="sheet__moments" role="list" aria-label={`${cfg.name} dates`}>
+        {moments.map((m) => (
+          <li>
+            <time class="readout" datetime={m.date}>
+              {fmtDot(m.date)}
+              {m.time ? ` ${m.time}` : ''}
+            </time>
+            <span>
+              <strong>{m.label}.</strong> {m.detail}
+            </span>
+          </li>
+        ))}
+      </ol>
+    )}
+
+    <p class="sheet__exit">
+      <strong>Moves on when:</strong> {plan.exit}
+    </p>
+
+    <div class="sheet__actions">
+      <a class="btn btn--sm btn--solid" href={`${url(cfg.landing)}?phase=${id}`} data-no-prerender>
+        Open landing page
+      </a>
+      <a class="btn btn--sm" href={`${url('/')}?phase=${id}`} data-no-prerender>
+        Preview the whole site in this phase
+      </a>
+    </div>
+  </div>
+</article>
+
+<style>
+  .sheet {
+    display: grid;
+    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+    gap: var(--space-l) clamp(2rem, 1rem + 4vw, 6rem);
+    padding-block: var(--space-2xl);
+    border-block-start: 1px solid var(--line-strong);
+  }
+  .sheet__side {
+    position: sticky;
+    inset-block-start: calc(var(--header-h) + var(--space-l));
+    align-self: start;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+  .sheet__seq {
+    display: flex;
+    align-items: center;
+    gap: var(--space-s);
+    margin-block-end: var(--space-2xs);
+  }
+  .sheet__steps {
+    display: flex;
+    gap: 3px;
+  }
+  .sheet__steps li {
+    inline-size: 1.4rem;
+    block-size: 0.35rem;
+    border-radius: var(--r-xs);
+    background: var(--line-strong);
+  }
+  .sheet__steps li[data-state='done'] {
+    background: var(--ink-muted);
+  }
+  .sheet__steps li[data-state='now'] {
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 100%), var(--ink-strong));
+  }
+  .sheet__index {
+    color: var(--ink-muted);
+    font-size: var(--step--2);
+  }
+  .sheet__name {
+    font-size: var(--step-4);
+    font-weight: 790;
+    font-stretch: var(--stretch-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+  .sheet__when {
+    font-weight: 600;
+    font-stretch: var(--stretch-ui);
+    color: var(--ink-strong);
+    margin-block-start: var(--space-2xs);
+  }
+  .sheet__meta {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .sheet__air {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-block-start: var(--space-xs);
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--accent-text);
+    opacity: var(--air, 0);
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+  .sheet__lamp {
+    inline-size: 0.55rem;
+    block-size: 0.55rem;
+    border-radius: 50%;
+    background: var(--tally);
+    box-shadow: 0 0 10px 1px var(--tally);
+  }
+
+  .sheet__body {
+    display: grid;
+    gap: var(--space-l);
+    min-inline-size: 0;
+  }
+  .sheet__objective {
+    font-size: var(--step-2);
+    font-weight: 640;
+    font-stretch: var(--stretch-ui);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--ink-strong);
+    max-width: 34ch;
+    text-wrap: balance;
+  }
+  .sheet__facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-m) var(--space-l);
+  }
+  .sheet__facts > div {
+    display: grid;
+    gap: 0.3rem;
+    align-content: start;
+  }
+  .sheet__facts dt {
+    font-size: var(--step--1);
+    font-weight: 620;
+    color: var(--ink-muted);
+  }
+  .sheet__facts dd {
+    font-size: var(--step--1);
+    line-height: 1.55;
+  }
+  .sheet__route {
+    font-family: var(--font-mono);
+    color: var(--accent-text);
+  }
+  .sheet__cta {
+    display: block;
+    font-weight: 680;
+    color: var(--ink-strong);
+  }
+  .sheet__note {
+    display: block;
+    color: var(--ink-muted);
+  }
+  .sheet__list {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .sheet__list li {
+    padding-inline-start: 1em;
+    text-indent: -1em;
+  }
+  .sheet__list li::before {
+    content: '·';
+    display: inline-block;
+    inline-size: 1em;
+    text-indent: 0;
+    color: var(--ink-faint);
+  }
+  .sheet__banner {
+    padding: 0.5em 0.8em;
+    border-radius: var(--r-s);
+    background: var(--graphite-900);
+    color: var(--alu-200);
+    justify-self: start;
+  }
+
+  .kpis {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: var(--step--1);
+  }
+  .kpis th,
+  .kpis td {
+    text-align: start;
+    padding: 0.6rem 0.75rem 0.6rem 0;
+    border-block-end: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .kpis thead th {
+    font-weight: 620;
+    color: var(--ink-muted);
+    border-block-end-color: var(--line-strong);
+  }
+  .kpis tbody th {
+    font-weight: 560;
+    color: var(--ink);
+  }
+  .kpis__target {
+    font-weight: 700;
+    color: var(--ink-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .kpis__alarm {
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sheet__moments {
+    display: grid;
+    gap: 0.5rem;
+    font-size: var(--step--1);
+  }
+  .sheet__moments li {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--space-s);
+  }
+  .sheet__moments time {
+    color: var(--accent-text);
+    font-size: var(--step--2);
+    padding-block-start: 0.2em;
+  }
+  .sheet__exit {
+    font-size: var(--step--1);
+    color: var(--ink);
+    max-width: 62ch;
+    padding: var(--space-s) var(--space-m);
+    border-radius: var(--r-m);
+    background: var(--bg-raised);
+  }
+  .sheet__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+
+  @media (max-width: 56rem) {
+    .sheet {
+      grid-template-columns: minmax(0, 1fr);
+      padding-block: var(--space-xl);
+    }
+    .sheet__side {
+      position: static;
+    }
+  }
+  @media (max-width: 36rem) {
+    .sheet__facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sheet__moments li {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.1rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet__air {
+      transition: none;
+    }
+  }
+</style>

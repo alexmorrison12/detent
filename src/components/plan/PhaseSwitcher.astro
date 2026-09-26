@@ -1,0 +1,509 @@
+---
+/**
+ * The phase switcher: a five-detent dial that moves the whole site between
+ * launch phases, live, in this tab. Turning it (or tapping a phase name)
+ * sets <html data-phase> and sessionStorage exactly the way ?phase= does, so
+ * every PhaseCTA, the announcement bar and every data-phase-only block follow.
+ *
+ * No JS: the phase names are plain ?phase= links; BaseLayout's inline script
+ * applies them on load.
+ */
+import DialStage from '@/components/dial/DialStage.astro';
+import PhaseCTA from '@/components/PhaseCTA.astro';
+import { BUILD_PHASE, PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+import { PHASE_PLANS, fmtDot, fmtPacific, phaseDays, phaseEnds } from '@/data/launch-plan';
+import { url } from '@/lib/url';
+
+/** Detent geometry: one phase every 60°, hard stops at the first and last. */
+const STEP = 60;
+const MIN = -((PHASE_ORDER.length - 1) * STEP) / 2;
+const angleOf = (i: number) => MIN + i * STEP;
+const buildIndex = PHASE_ORDER.indexOf(BUILD_PHASE);
+/** The knob's round display fits about eight characters: "LAUNCH", not "Launch day". */
+const knobText = (p: Phase) => PHASES[p].name.split(' ')[0]!.toUpperCase();
+const profileJson = JSON.stringify({
+  detents: 360 / STEP,
+  stops: [MIN, -MIN],
+  strength: 1,
+  accents: [angleOf(buildIndex)],
+})
+  .replace(/":/g, '": ')
+  .replace(/,"/g, ', "');
+
+/** Label positions around the bezel, as % of the instrument box. */
+const R = 43.5;
+const stops = PHASE_ORDER.map((id, i) => {
+  const a = (angleOf(i) * Math.PI) / 180;
+  const x = 50 + Math.sin(a) * R;
+  const y = 50 - Math.cos(a) * R;
+  const side = Math.abs(Math.sin(a)) < 0.2 ? 'top' : Math.sin(a) > 0 ? 'right' : 'left';
+  return { id, i, x: x.toFixed(2), y: y.toFixed(2), side, angle: angleOf(i) };
+});
+
+/** Bezel ticks every 5° across the travel, majors on each phase. */
+const minor: number[] = [];
+for (let d = MIN - 10; d <= -MIN + 10; d += 5) if ((d - MIN) % STEP !== 0) minor.push(d);
+---
+
+<section class="switch" data-world="night" id="switch" aria-labelledby="switch-title">
+  <div class="container switch__grid">
+    <header class="switch__head">
+      <h2 id="switch-title" class="display display--m">
+        Turn the launch.
+      </h2>
+      <p class="switch__lede">
+        Five detents and two hard stops. Each click moves every call to action on the site to that
+        phase, this page included. Nothing reloads, and nothing leaves this tab.
+      </p>
+    </header>
+
+    <div class="switch__instrument">
+      <svg class="switch__bezel" viewBox="-160 -160 320 320" aria-hidden="true">
+        {minor.map((d) => (
+          <line x1="0" y1="-116" x2="0" y2="-121" transform={`rotate(${d})`} class="bezel__minor" />
+        ))}
+        {stops.map((s) => (
+          <line
+            x1="0"
+            y1="-113"
+            x2="0"
+            y2="-127"
+            transform={`rotate(${s.angle})`}
+            class="bezel__major"
+            data-plan-phase={s.id}
+          />
+        ))}
+        <g class="bezel__stop">
+          <line x1="0" y1="-110" x2="0" y2="-130" transform={`rotate(${MIN - 12})`}></line>
+          <line x1="0" y1="-110" x2="0" y2="-130" transform={`rotate(${-MIN + 12})`}></line>
+        </g>
+      </svg>
+
+      <div class="switch__dial">
+        <DialStage
+          id="phase-dial"
+          interactive
+          finish="graphite"
+          profile="clock"
+          camera="top"
+          label="Launch phase"
+          display={knobText(BUILD_PHASE)}
+        />
+      </div>
+
+      <ol class="switch__stops" role="list" aria-label="Preview a phase">
+        {stops.map((s) => (
+          <li
+            class="switch__stop"
+            data-side={s.side}
+            style={`--x:${s.x}%;--y:${s.y}%`}
+            data-plan-phase={s.id}
+          >
+            <a
+              href={`?phase=${s.id}`}
+              data-phase-link={s.id}
+              aria-current={s.id === BUILD_PHASE ? 'true' : undefined}
+              data-no-prerender
+            >
+              <span class="switch__lamp" aria-hidden="true" />
+              {PHASES[s.id].name}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <div class="switch__readout" data-switch-readout>
+      <p class="switch__label">Previewing</p>
+      {PHASE_ORDER.map((id, i) => {
+        const end = phaseEnds(id);
+        const days = phaseDays(id);
+        return (
+          <div class="switch__now" data-phase-only={id}>
+            <p class="switch__name">{PHASES[id].name}</p>
+            <p class="switch__dates readout">
+              {fmtDot(PHASES[id].starts)} → {end ? fmtDot(end) : 'open'}
+              {days ? ` · ${days} ${days === 1 ? 'day' : 'days'}` : ''} · flips{' '}
+              {fmtPacific(PHASE_PLANS[id].flipAt)} · phase {i + 1}/{PHASE_ORDER.length}
+            </p>
+            <dl class="switch__facts">
+              <div>
+                <dt>Landing page</dt>
+                <dd>
+                  <a
+                    class="readout"
+                    href={`${url(PHASES[id].landing)}?phase=${id}`}
+                    data-no-prerender
+                  >
+                    {PHASES[id].landing}
+                  </a>
+                </dd>
+              </div>
+              <div>
+                <dt>Announcement bar</dt>
+                <dd>{PHASES[id].banner}</dd>
+              </div>
+            </dl>
+          </div>
+        );
+      })}
+
+      <div class="switch__cta">
+        <p class="switch__cta-label">The button every page shows right now</p>
+        <PhaseCTA placement="launch-plan-switcher" showSecondary />
+      </div>
+
+      <div class="switch__actions">
+        {PHASE_ORDER.map((id) => (
+          <a
+            class="btn btn--sm"
+            data-phase-only={id}
+            href={`${url('/')}?phase=${id}`}
+            data-no-prerender
+          >
+            Walk the site in {PHASES[id].name}
+          </a>
+        ))}
+        <a class="btn btn--sm btn--quiet" href="?phase=reset" data-phase-reset data-no-prerender>
+          Back to the build phase
+        </a>
+      </div>
+
+      <p class="switch__profile">
+        <span>The whole feel profile behind this dial:</span>
+        <code>{profileJson}</code>
+        <span>
+          The deeper click is {PHASES[BUILD_PHASE].name}, the phase this build ships in (
+          <code>PUBLIC_LAUNCH_PHASE</code>).
+        </span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { BUILD_PHASE, PHASES, PHASE_ORDER, type Phase } from '@/config/launch';
+  import { applyPhase, currentPhase, initPhaseLinks } from './preview';
+
+  const STEP = 60;
+  const MIN = -((PHASE_ORDER.length - 1) * STEP) / 2;
+  const dial = document.getElementById('phase-dial') as HTMLElementTagNameMap['detent-dial'] | null;
+  const readout = document.querySelector<HTMLElement>('[data-switch-readout]');
+
+  const angleOf = (p: Phase) => MIN + PHASE_ORDER.indexOf(p) * STEP;
+  const knobText = (p: Phase) => PHASES[p].name.split(' ')[0]!.toUpperCase();
+  const nearest = (deg: number): Phase => {
+    const i = Math.round((deg - MIN) / STEP);
+    return PHASE_ORDER[Math.min(PHASE_ORDER.length - 1, Math.max(0, i))]!;
+  };
+
+  /** The name squeezes between detents and opens back up on the click. */
+  function squeeze(deg: number) {
+    const pos = (deg - MIN) / STEP;
+    readout?.style.setProperty('--squeeze', Math.abs(pos - Math.round(pos)).toFixed(3));
+  }
+
+  initPhaseLinks();
+
+  if (dial) {
+    customElements.whenDefined('detent-dial').then(() => {
+      dial.physics = {
+        detents: 360 / STEP,
+        stops: [MIN, -MIN],
+        strength: 1,
+        damping: 0.2,
+        spring: 0,
+        accents: [angleOf(BUILD_PHASE)],
+      };
+      dial.setAttribute('display', knobText(currentPhase()));
+      dial.setAngle(angleOf(currentPhase()), { instant: true });
+
+      dial.addEventListener('detent:change', (e) => {
+        squeeze(e.detail.angle);
+        applyPhase(nearest(e.detail.angle), 'dial');
+      });
+      // Settle on the detent when the hand lets go (the 3D engine may already have).
+      dial.addEventListener('detent:release', () => {
+        const target = angleOf(currentPhase());
+        if (Math.abs(dial.angle - target) > 0.5) dial.setAngle(target);
+        readout?.style.setProperty('--squeeze', '0');
+      });
+      // A tab, a bezel label or the reset link moved the phase: follow it.
+      window.addEventListener('plan:phase', (e) => {
+        dial.setAttribute('display', knobText(e.detail.phase));
+        if (e.detail.via !== 'dial') dial.setAngle(angleOf(e.detail.phase));
+      });
+      window.addEventListener('pageshow', (e) => {
+        if (!e.persisted) return;
+        dial.setAttribute('display', knobText(currentPhase()));
+        dial.setAngle(angleOf(currentPhase()), { instant: true });
+      });
+    });
+  }
+</script>
+
+<style>
+  .switch {
+    position: relative;
+    padding-block: clamp(3rem, 2rem + 3.5vw, 5.5rem);
+    overflow: clip;
+  }
+  .switch__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-areas:
+      'head head'
+      'dial readout';
+    column-gap: clamp(2rem, 1rem + 4vw, 6rem);
+    row-gap: var(--space-xl);
+    align-items: center;
+  }
+  .switch__head {
+    grid-area: head;
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    column-gap: clamp(2rem, 1rem + 4vw, 6rem);
+    align-items: end;
+  }
+  .switch__lede {
+    color: var(--ink-muted);
+    max-width: 46ch;
+  }
+
+  /* ---- The instrument ------------------------------------------------- */
+  .switch__instrument {
+    grid-area: dial;
+    position: relative;
+    inline-size: min(100%, 34rem);
+    aspect-ratio: 1;
+    justify-self: center;
+  }
+  .switch__bezel {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    overflow: visible;
+  }
+  .bezel__minor {
+    stroke: var(--ink-faint);
+    stroke-width: 1;
+  }
+  .bezel__major {
+    stroke: color-mix(in oklch, var(--tally-hot) calc(var(--air, 0) * 100%), var(--ink-muted));
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    transition: stroke var(--dur-2) var(--ease-out);
+  }
+  .bezel__stop line {
+    stroke: var(--ink-strong);
+    stroke-width: 5;
+    stroke-linecap: square;
+  }
+  .switch__dial {
+    position: absolute;
+    inset: 16%;
+  }
+
+  .switch__stops {
+    position: absolute;
+    inset: 0;
+  }
+  .switch__stop {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    translate: -50% -50%;
+  }
+  .switch__stop[data-side='left'] {
+    translate: -78% -50%;
+  }
+  .switch__stop[data-side='right'] {
+    translate: -22% -50%;
+  }
+  .switch__stop[data-side='top'] {
+    translate: -50% -70%;
+  }
+  .switch__stop a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    min-block-size: 44px;
+    padding-inline: 0.75em;
+    border-radius: var(--r-pill);
+    font-size: var(--step--1);
+    font-weight: 620;
+    font-stretch: var(--stretch-ui);
+    white-space: nowrap;
+    text-decoration: none;
+    color: var(--ink-muted);
+    transition:
+      color var(--dur-2) var(--ease-out),
+      background-color var(--dur-2) var(--ease-out);
+  }
+  .switch__stop a:hover {
+    color: var(--ink-strong);
+    background: var(--surface);
+  }
+  .switch__stop a[aria-current='true'] {
+    color: var(--ink-strong);
+  }
+  .switch__lamp {
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: 50%;
+    background: color-mix(in oklch, var(--tally) calc(var(--air, 0) * 100%), var(--graphite-600));
+    box-shadow: 0 0 calc(var(--air, 0) * 10px) calc(var(--air, 0) * 1px) var(--tally);
+    transition:
+      background-color var(--dur-2) var(--ease-out),
+      box-shadow var(--dur-2) var(--ease-out);
+  }
+
+  /* ---- Readout -------------------------------------------------------- */
+  .switch__readout {
+    grid-area: readout;
+    --squeeze: 0;
+    display: grid;
+    gap: var(--space-m);
+    align-content: center;
+    min-inline-size: 0;
+  }
+  .switch__label {
+    font-size: var(--step--1);
+    color: var(--ink-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+  }
+  .switch__label::before {
+    content: '';
+    inline-size: 0.6rem;
+    block-size: 0.6rem;
+    border-radius: 50%;
+    background: var(--tally);
+    box-shadow: 0 0 12px 1px var(--tally);
+  }
+  .switch__now {
+    display: grid;
+    gap: var(--space-s);
+  }
+  .switch__name {
+    font-size: var(--step-5);
+    font-weight: 790;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-display);
+    color: var(--ink-strong);
+    /* 125% at rest; the name squeezes as the knob leaves a detent. */
+    font-stretch: calc(125% - var(--squeeze) * 110%);
+    transition: font-stretch var(--dur-1) var(--ease-out);
+    white-space: nowrap;
+  }
+  .switch__dates {
+    color: var(--ink-muted);
+  }
+  .switch__facts {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.35rem var(--space-m);
+    font-size: var(--step--1);
+    padding-block: var(--space-s);
+    border-block: 1px solid var(--line);
+  }
+  .switch__facts div {
+    display: contents;
+  }
+  .switch__facts dt {
+    color: var(--ink-muted);
+  }
+  .switch__facts dd {
+    color: var(--ink);
+  }
+  .switch__facts a {
+    color: var(--accent-text);
+  }
+  .switch__cta {
+    display: grid;
+    gap: var(--space-xs);
+  }
+  .switch__cta-label {
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+  }
+  .switch__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+  .switch__profile {
+    display: grid;
+    gap: 0.35rem;
+    font-size: var(--step--2);
+    color: var(--ink-muted);
+    max-inline-size: 60ch;
+  }
+  .switch__profile > code {
+    justify-self: start;
+    max-inline-size: 100%;
+    overflow-wrap: anywhere;
+    padding: 0.45em 0.7em;
+    border-radius: var(--r-s);
+    background: var(--bg-raised);
+    color: var(--ink);
+    font-size: 0.95em;
+  }
+
+  /* ---- Narrow: the phase names become a row under the dial ----------- */
+  @media (max-width: 56rem) {
+    .switch__grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'head' 'dial' 'readout';
+      row-gap: var(--space-l);
+    }
+    .switch__head {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-s);
+    }
+  }
+  @media (max-width: 40rem) {
+    .switch__instrument {
+      aspect-ratio: auto;
+      display: grid;
+      gap: var(--space-s);
+    }
+    .switch__bezel {
+      inset: 0 0 auto;
+      block-size: auto;
+      aspect-ratio: 1;
+    }
+    .switch__dial {
+      position: relative;
+      inset: auto;
+      inline-size: 68%;
+      aspect-ratio: 1;
+      margin: 16% auto 0;
+    }
+    .switch__stops {
+      position: static;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.25rem;
+    }
+    .switch__stop,
+    .switch__stop[data-side] {
+      position: static;
+      translate: none;
+    }
+    .switch__stop a {
+      background: var(--surface);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .switch__name,
+    .bezel__major,
+    .switch__lamp {
+      transition: none;
+    }
+  }
+</style>
