@@ -29,6 +29,8 @@ import { dotDate, longDate, serialRange } from '@/scripts/launch/format';
 const one = EDITIONS.find((e) => e.id === 'one')!;
 const founders = EDITIONS.find((e) => e.id === 'founders')!;
 const deposit = (id: string) => (id === 'founders' ? LAUNCH.foundersDepositUsd : LAUNCH.depositUsd);
+// A launch price is one below the regular price: Detent One has one, Founders doesn't.
+const foundersFlat = founders.launchPriceUsd >= founders.priceUsd;
 const usd = formatUsd;
 const serials = serialRange(LAUNCH.foundersRun);
 // "Four Torx screws. Battery, foot and knob cap sold as parts" -> the parts sentence.
@@ -383,7 +385,10 @@ const stopB = polar(96, 138);
           <h3>Reserve</h3>
           <p>
             Pay {usd(LAUNCH.depositUsd)} ({usd(LAUNCH.foundersDepositUsd)} for Founders). It holds
-            your place in line and locks the {usd(one.launchPriceUsd)} launch price.
+            your place in line and locks the {usd(one.launchPriceUsd)} launch price on {one.name}.{' '}
+            {foundersFlat
+              ? `Founders is always ${usd(founders.priceUsd)}.`
+              : `Founders locks ${usd(founders.launchPriceUsd)}.`}
           </p>
         </li>
         <li class="how__step">
@@ -406,8 +411,8 @@ const stopB = polar(96, 138);
           </span>
           <h3>Complete or cancel</h3>
           <p>
-            Pay the rest, {usd(one.launchPriceUsd - LAUNCH.depositUsd)}, and it ships free. Or
-            cancel for a full refund. One click, no questions, no call.
+            Pay the rest ({usd(one.launchPriceUsd - LAUNCH.depositUsd)} on {one.name}) and it ships
+            free. Or cancel for a full refund. One click, no questions, no call.
           </p>
         </li>
       </ol>
