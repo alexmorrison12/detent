@@ -159,6 +159,9 @@ export function initDirectory(root: HTMLElement): void {
     const r = tester.getBoundingClientRect();
     if (r.bottom < 0 || r.top > innerHeight) {
       tester.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      // Focus follows the scroll: the button just pressed is now off screen,
+      // and the dial it points at is what to use next.
+      dial?.focus({ preventScroll: true });
     }
   });
 
