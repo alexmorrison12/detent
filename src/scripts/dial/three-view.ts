@@ -1119,20 +1119,21 @@ export class ThreeView implements DialView {
     const c = this.project(0, face, 0);
     const e = this.project(right.x * MM.knobR, face + right.y * MM.knobR, right.z * MM.knobR);
     const rpx = Math.max(1, Math.hypot(e.x - c.x, e.y - c.y));
-    if (cam.y < face + 1) return { a: 0, r: Infinity, side: true, rpx };
+    const cx = c.x;
+    if (cam.y < face + 1) return { a: 0, r: Infinity, side: true, rpx, cx };
     // Cast the pointer onto the plane of the top face.
     const dir = this.tmp
       .set((px / this.cssW) * 2 - 1, 1 - (py / this.cssH) * 2, 0.5)
       .unproject(this.camera)
       .sub(cam);
-    if (dir.y > -1e-6) return { a: 0, r: Infinity, side: false, rpx };
+    if (dir.y > -1e-6) return { a: 0, r: Infinity, side: false, rpx, cx };
     const t = (face - cam.y) / dir.y;
     const x = cam.x + dir.x * t;
     const z = cam.z + dir.z * t;
     const r = Math.hypot(x, z) / MM.knobR;
     // In front of the axis (toward the camera) and off the face: the knurled band.
     const front = x * cam.x + z * cam.z > 0;
-    return { a: Math.atan2(x, -z), r, side: r > 1 && front, rpx };
+    return { a: Math.atan2(x, -z), r, side: r > 1 && front, rpx, cx };
   }
 
   outline(): Ellipse | null {

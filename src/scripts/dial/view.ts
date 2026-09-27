@@ -55,6 +55,8 @@ export interface KnobGrip {
   side: boolean;
   /** The knob's projected radius in CSS px: a sideways push of rpx turns it one radian. */
   rpx: number;
+  /** Host px x of the knob's axis (its top face's projected centre): which side a tap is on. */
+  cx: number;
 }
 
 export interface DialView {

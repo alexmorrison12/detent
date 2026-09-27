@@ -787,18 +787,20 @@ export class SvgView implements DialView {
     const dy = (py - (this.h - this.vb.s * k) / 2) / k + this.vb.y;
     const yt = MM.knobTop + this.knobLift();
     const rpx = this.circ(MM.knobR, yt).rx * k;
+    // The axis is the drawing's x = 0 at every height.
+    const cx = (this.w - this.vb.s * k) / 2 - this.vb.x * k;
     // Camera at or below the face (side view): the knob can only be turned by its side.
-    if (this.ty + this.D * this.sinE < yt + 1) return { a: 0, r: Infinity, side: true, rpx };
+    if (this.ty + this.D * this.sinE < yt + 1) return { a: 0, r: Infinity, side: true, rpx, cx };
     // Invert the projection onto the plane of the top face (z toward the viewer).
     const u = (-this.ty * this.cosE - dy) / this.D;
     const up0 = (yt - this.ty) * this.cosE;
     const d0 = this.D - (yt - this.ty) * this.sinE;
     const den = this.sinE - u * this.cosE;
-    if (den < 1e-4) return { a: 0, r: Infinity, side: false, rpx };
+    if (den < 1e-4) return { a: 0, r: Infinity, side: false, rpx, cx };
     const z = (up0 - u * d0) / den;
     const fx = (x * (d0 - z * this.cosE)) / this.D;
     const r = Math.hypot(fx, z) / MM.knobR;
-    return { a: Math.atan2(fx, -z), r, side: r > 1 && z > 0, rpx };
+    return { a: Math.atan2(fx, -z), r, side: r > 1 && z > 0, rpx, cx };
   }
 
   outline(): Ellipse | null {
