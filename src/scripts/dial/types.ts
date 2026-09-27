@@ -5,7 +5,9 @@
  * Attributes (all optional, all reactive):
  *   finish       FinishId            'raw' | 'graphite' | 'glacier' | 'tally'   (default 'graphite')
  *   profile      ProfileId           'ratchet' | 'fluid' | 'spring' | 'clock' | 'wall' | 'magnet' (default 'ratchet')
- *   interactive  boolean attr        user can turn it (drag the knob, wheel when hovered + focused, arrow keys)
+ *   interactive  boolean attr        user can turn it (drag the knob, tap its outer ring, wheel when
+ *                                    hovered + focused, arrow keys) and press it (tap the display,
+ *                                    Enter/Space). See "Pointer" below
  *   camera       CameraPreset        'hero' | 'top' | 'side' | 'front' | 'exploded' | 'config'
  *   autorotate   boolean attr        one gentle idle look-around (≤ 5 s) each time it scrolls into view
  *   label        string              accessible name (default 'Detent dial')
@@ -52,9 +54,27 @@
  *                                    back to svg on WebGL context loss)
  *   detent:tick    { index, angle, profile, velocity, accent, kind }   every detent crossing / snap / stop hit
  *   detent:change  { angle, value, profile, velocity, index }          once per animation frame of movement
- *   detent:press   { level: 1 | 2 | 3 }                                click/tap on the knob face (level by hold time)
+ *   detent:press   { level: 1 | 2 | 3 }                                click/tap on the display glass, or Enter/Space
+ *                                                                      (level by hold time)
  *   detent:grab / detent:release  {}                                   pointer engage / disengage
  *   detent:settle  { angle, value, profile }                           (extension) motion came to rest
+ *
+ * Pointer (interactive dials; built into the engine, so every dial has it and no page opts in):
+ *   drag         turns the knob: a finger on the top circles the axis, one on the knurled
+ *                side pushes it round. Only the knob itself is touch-action:none; the page
+ *                scrolls from everywhere else.
+ *   tap the ring a click or tap that doesn't move, anywhere on the knob outside the display
+ *                glass: one step toward the tapped side, left of the axis counter-clockwise,
+ *                right of it clockwise. The step is an arrow key's (a detent, the next snap
+ *                point, or a detentless profile's key step: 5% of a bounded range, 15° of a
+ *                free spin) and reports like one: detent:change, detent:tick wherever the
+ *                feel has something to click (detent, snap, stop), aria-valuetext at once.
+ *                Taps while the knob is still moving add up. This is the
+ *                single-pointer alternative to dragging (WCAG 2.5.7); DialStage's −/+
+ *                steppers stay the visible, labelled one for pages that show them.
+ *   tap the glass presses (detent:press). So does a tap on the ring straight above or below
+ *                the axis, where it has no clear side.
+ *   Hint copy for touch can say "drag the knob in a circle, or tap either side of it".
  *
  * Units: angles in degrees, clockwise positive seen from above, 0 = the tally
  * line at 12 o'clock. velocity in degrees per second.

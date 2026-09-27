@@ -15,6 +15,9 @@
  *   .dd-ring              keyboard focus ring: an ellipse around the whole product
  *   .dd-hit               the knob's projected circle: the only touch-action:none area
  *
+ * On .dd-hit a drag turns the knob; a tap on its outer ring steps it one detent toward
+ * the tapped side, and a tap on the display glass presses it (see #tapAt).
+ *
  * aria-valuetext/-valuenow/-valuemin/-valuemax/-label: the engine writes them
  * until a page writes one itself; from then on that attribute is the page's.
  * A `valueText` formatter hands aria-valuetext back to the engine.
@@ -29,7 +32,7 @@ import {
 } from '@/data/product';
 import { DialPhysics, fitVelocity, type PhysicsEvent } from './physics';
 import { nearestSnap, readout } from './readout';
-import { PRESETS, easeInOut, explodeRig, lerpRig, type Rig } from './model';
+import { MM, PRESETS, easeInOut, explodeRig, lerpRig, type Rig } from './model';
 import { SvgView } from './svg';
 import { createMotionVoice, playTick, unlockAudio, voiceFor, type MotionVoice } from './audio';
 import { haptic, hapticTap } from './haptics';
@@ -54,6 +57,13 @@ const AUTO_DEGREES = 16;
 const STILL_HOLD_MS = 600;
 /** Within this many knob radii of the axis a face drag has no usable angle. */
 const DEAD_ZONE = 0.22;
+/** The display glass, in knob radii: a tap inside it presses, outside it steps (the ring). */
+const FACE = MM.hubR / MM.knobR;
+/**
+ * Half-width (knob radii) of the strip straight above and below the axis where a ring tap
+ * has no clear side: it presses instead of guessing a direction.
+ */
+const TAP_NEUTRAL = 0.15;
 
 const CSS = `
 :where(detent-dial){display:block;position:relative;touch-action:pan-y;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;outline:none}
@@ -177,6 +187,10 @@ interface PointerState {
   x0: number;
   y0: number;
   moved: boolean;
+  /** If it stays a tap: -1/1 steps the knob that way (outer ring), 0 presses it (display face). */
+  tap: -1 | 0 | 1;
+  /** Where a step under way was heading when the finger caught the knob. */
+  goal: number | null;
   start: number;
   samples: { t: number; a: number }[];
   lastT: number;
@@ -786,6 +800,19 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     return (this.#activeView() ?? this.#svg)?.grip(e.clientX - r.left, e.clientY - r.top) ?? null;
   }
 
+  /**
+   * What a stationary tap here does (WCAG 2.5.7: every drag has a single-pointer way).
+   * On the outer ring, anywhere on the knob outside the display glass, it turns the knob
+   * one step toward the tapped side: left of the axis counter-clockwise, right of it
+   * clockwise. On the glass, or right above or below the axis, it presses.
+   */
+  #tapAt(e: PointerEvent, g: KnobGrip | null): -1 | 0 | 1 {
+    if (!g || !(g.r > FACE)) return 0;
+    const dx = e.clientX - this.getBoundingClientRect().left - g.cx;
+    if (!(Math.abs(dx) >= TAP_NEUTRAL * g.rpx)) return 0;
+    return dx > 0 ? 1 : -1;
+  }
+
   #onDown = (e: PointerEvent) => {
     if (!this.hasAttribute('interactive') || (e.pointerType === 'mouse' && e.button !== 0)) return;
     e.preventDefault();
@@ -801,10 +828,12 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     unlockAudio();
     this.#userDriven = true;
     this.#ariaGoal = null;
+    const goal = this.#phys.goal;
     this.#phys.grab();
     this.#autoT = -1;
     const now = e.timeStamp || performance.now();
     const g = this.#grip(e);
+    const tap = this.#tapAt(e, g);
     // Grabbed below the top face: push the knurl sideways, the way a hand turns a knob
     // by its side. On the face: turn around the axis, like a fingertip on top.
     const mode = g?.side ? 'side' : 'face';
@@ -817,11 +846,14 @@ class DetentDial extends HTMLElement implements DetentDialElement {
       x0: e.clientX,
       y0: e.clientY,
       moved: false,
+      tap,
+      goal,
       start: this.#phys.theta,
       samples: [{ t: now, a: this.#phys.theta }],
       lastT: now,
     };
-    this.#pressTarget = 1;
+    // A finger on the glass seats the knob, ready to press; one on the ring doesn't.
+    this.#pressTarget = tap ? 0 : 1;
     this.toggleAttribute('data-grabbed', true);
     this.#emit('detent:grab', {});
     this.#ensureLive();
@@ -886,14 +918,34 @@ class DetentDial extends HTMLElement implements DetentDialElement {
     this.#phys.release(ptr.moved ? fitVelocity(ptr.samples, now) : 0);
     this.#pressTarget = 0;
     this.removeAttribute('data-grabbed');
-    if (!ptr.moved) {
+    const step = ptr.moved ? 0 : ptr.tap;
+    if (!ptr.moved && !step) {
       const held = now - ptr.t0;
       this.#pressFeedback(held < 350 ? 1 : held < 900 ? 2 : 3);
       if (e.pointerType !== 'mouse') hapticTap('accent');
     }
     this.#emit('detent:release', {});
+    if (step) this.#ringStep(step, ptr.goal, e.pointerType !== 'mouse');
     this.#afterRelease();
   };
+
+  /**
+   * A tap on the outer ring: one step, exactly what an arrow key does (a detent, a snap
+   * point, or a detentless profile's key step), and chained like keys: tapping again
+   * while the knob is still on its way adds a step to where it was heading.
+   */
+  #ringStep(dir: -1 | 1, goal: number | null, touch: boolean) {
+    const ph = this.#phys;
+    // The finger caught the knob mid-step: send it on to where it was going first.
+    if (goal !== null && ph.goal === null) ph.moveTo(goal);
+    if (touch) {
+      // The tick plays now, inside the tap (the only time an iPhone will), so the
+      // step itself stays quiet, as it does for the −/+ steppers.
+      const wall = !!ph.p.stops && ph.atStop === (dir > 0 ? 'max' : 'min');
+      hapticTap(wall ? 'stop' : 'detent');
+    }
+    this.#step(dir, !touch);
+  }
 
   #onCancel = (e: PointerEvent) => {
     const ptr = this.#pointer;
