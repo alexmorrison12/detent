@@ -3,6 +3,8 @@
  * The offer, in the day world: both editions with real prices (launch price
  * only in the phases that have one), the risk reversal, and the phase CTA.
  * Every number comes from src/data/product.ts or src/config/launch.ts.
+ * Pay over time shows in the live store only, as in checkout: never on launch
+ * day or beside a deposit (docs/LAUNCH_PLAN.md).
  *
  * Each edition shows its finishes as the object itself: a lineup of product
  * stills, captioned with the finish name, drawn at one scale across both
@@ -67,11 +69,8 @@ const stillSizes = '(min-width: 52rem) 14rem, 7rem';
             </li>
           ))}
         </ul>
-        <p class="ed__fine" data-phase-only="launch">
-          {PAYMENT.installmentLabel(one.launchPriceUsd)}
-        </p>
         <p class="ed__fine" data-phase-only="live">
-          {PAYMENT.installmentLabel(one.priceUsd)}
+          {PAYMENT.installmentLabel(one.priceUsd)}.
         </p>
       </div>
 
