@@ -1,8 +1,9 @@
 ---
 /**
  * Buying, shipping and reservation questions, from FAQS. Answers that only
- * hold in some phases are phase-gated (SHOP_FAQS), and the question open by
- * default is the first one the build phase shows.
+ * hold in some phases are phase-gated (SHOP_FAQS), and each phase opens the
+ * question its own action raises (SHOP_FAQS[].opens): the build phase in the
+ * HTML, a previewed phase (?phase=) by the script below.
  */
 import { BUILD_PHASE } from '@/config/launch';
 import { SHOP_FAQS } from '@/data/shop-content';
@@ -10,7 +11,7 @@ import { url } from '@/lib/url';
 import { SITE } from '@/config/site';
 
 const items = SHOP_FAQS;
-const openIndex = items.findIndex((f) => !f.phases || f.phases.split(' ').includes(BUILD_PHASE));
+const opensIn = (opens: string | undefined) => !!opens && opens.split(' ').includes(BUILD_PHASE);
 ---
 
 <section class="section faq" aria-labelledby="faq-title">
@@ -25,8 +26,13 @@ const openIndex = items.findIndex((f) => !f.phases || f.phases.split(' ').includ
       </p>
     </header>
     <div class="faq__list">
-      {items.map((f, i) => (
-        <details name="shop-faq" open={i === openIndex} data-phase-only={f.phases}>
+      {items.map((f) => (
+        <details
+          name="shop-faq"
+          open={opensIn(f.opens)}
+          data-phase-only={f.phases}
+          data-opens={f.opens}
+        >
           <summary>{f.q}</summary>
           <p>{f.a}</p>
         </details>
@@ -34,6 +40,15 @@ const openIndex = items.findIndex((f) => !f.phases || f.phases.split(' ').includ
     </div>
   </div>
 </section>
+
+<script>
+  // A previewed phase opens its own question instead of the build phase's
+  // (<details name> closes the other one). A no-op in the build phase.
+  const phase = document.documentElement.dataset.phase ?? '';
+  const list = [...document.querySelectorAll<HTMLDetailsElement>('details[name="shop-faq"]')];
+  const lead = list.find((d) => d.dataset.opens?.split(' ').includes(phase));
+  if (lead) lead.open = true;
+</script>
 
 <style>
   .faq {
