@@ -45,10 +45,12 @@ const stillSizes =
       <g set:html={ringScaleMarkup()} />
       <g data-ring-feel set:html={ringFeelMarkup(initial.physics)} />
     </svg>
-    <svg class="stage__active" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-active>
-      <path d={`M0 ${-RING.accentOuter - 2}V${-RING.detentInner + 3}`}></path>
-    </svg>
-    <svg class="stage__needle" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-needle set:html={needleMarkup()} />
+    <div class="stage__rotors">
+      <svg class="stage__active" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-active>
+        <path d={`M0 ${-RING.accentOuter - 2}V${-RING.detentInner + 3}`}></path>
+      </svg>
+      <svg class="stage__needle" viewBox="-200 -200 400 400" aria-hidden="true" data-ring-needle set:html={needleMarkup()} />
+    </div>
     <div class="stage__dialbox">
       <DialStage
         id="feel-dial"
@@ -178,6 +180,16 @@ const stillSizes =
   }
   .stage__ring :global(.fm-snap) {
     fill: var(--feel);
+  }
+  /* The needle and the lit detent turn as whole frame-sized squares; a rotated
+     square's corners reach 1.41x the frame at 45° and would widen the page on a
+     phone. This box doesn't turn and clips them to the frame. What they draw
+     stays inside r = 190 of 200, so the clip never cuts anything visible. */
+  .stage__rotors {
+    position: absolute;
+    inset: 0;
+    overflow: clip;
+    pointer-events: none;
   }
   /* The needle rotates on its own layer so the engraved ring never repaints mid-turn. */
   .stage__needle {
